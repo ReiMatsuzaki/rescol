@@ -209,8 +209,8 @@ bp::tuple ERI_mat(const np::ndarray& vals, const np::ndarray& xs,
 	    Non0QuadIndex(a, c, k, nq, &i0, &i1);
 	    Non0QuadIndex(b, d, k, nq, &j0, &j1);
 	    data[idx] = ERI_ele(d_vals, nb, nq, 
-				a, b, c, d, 
 				i0, i1, j0, j1,
+				a, b, c, d, 
 				d_ws, sg_ij);
 	    col[idx] = a*nb+b;
 	    row[idx] = c*nb+d;
@@ -220,7 +220,7 @@ bp::tuple ERI_mat(const np::ndarray& vals, const np::ndarray& xs,
       }
     }
   }
-  delete[] sg_ij;
+  std::cout << "c++, data[0]:" << data[0] << std::endl;
   np::ndarray np_data = np::from_data(data,
 			  np::dtype::get_builtin<double>(),
 			  bp::make_tuple(num_ele),

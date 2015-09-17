@@ -101,7 +101,7 @@ class TestBSpline(unittest.TestCase):
         self.assertTrue(abs(eps) < 10.0**(-10))
 
     def test_eri(self):
-        bspline_set = BSplineSet(5, lin_knots(0.0, 10.0, 14))
+        bspline_set = BSplineSet(5, lin_knots(0.0, 10.0, 24))
         t0 = time.clock()
         eri0 = bspline_set.eri_mat(2)
         t1 = time.clock()
@@ -111,19 +111,23 @@ class TestBSpline(unittest.TestCase):
         t4 = time.clock()
         bs_vals = np.hstack([u.val for u in bspline_set.basis])
         (data, row, col) = eri_mat(bs_vals, bspline_set.xs,
-                                   bspline_set.ws, 2, 3)
+                                   bspline_set.ws, 2, bspline_set.order)
+        num_non0 = len(eri1.nonzero()[0])
+        self.assertAlmostEqual(eri0[0, 0], data[0])
         eri3 = scipy.sparse.csr_matrix((data, (row, col)),
                                        shape=eri1.shape)
         t5 = time.clock()
 
+        self.assertEqual(len(eri3.nonzero()[0]), len(eri1.nonzero()[0]))
         eps = max(flatten((eri0.toarray() - eri1).tolist()))
         self.assertTrue(abs(eps) < 10.0**(-10))
         eps = max(flatten((eri2.toarray() - eri1).tolist()))
         self.assertTrue(abs(eps) < 10.0**(-10))
         eps = max(flatten((eri3 - eri1).toarray().tolist()))
+        print eps
         self.assertTrue(abs(eps) < 10.0**(-10))
         print "test_eri: full c++, c++, py, py(sliced)"
-        print (t5-t4, t4-t3, t3-t2, t1-t0)
+        print (t5-t4, t4-t3, t3-t1, t1-t0)
 
     def test_hydrogen_atom(self):
         basis_set = BSplineSet(9, lin_knots(0.0, 100.0, 101))
@@ -131,7 +135,7 @@ class TestBSpline(unittest.TestCase):
         v_mat = basis_set.v_mat(lambda r: -1.0/r)
         s_mat = basis_set.s_mat()
         h_mat = -0.5*d2_mat + v_mat
-        (eigs, vecs) = la.eigs(h_mat, 6, s_mat, sigma=-0.5)
+        (eigs, vecs) = la.eigsh(h_mat, 6, s_mat, sigma=-0.5)
         for (e, n) in zip(eigs, range(1, 6)):
             self.assertAlmostEqual(e, -0.5/(n*n))
 
