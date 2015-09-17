@@ -2,7 +2,7 @@ import numpy as np
 from numpy.polynomial.legendre import leggauss
 from scipy.sparse import csr_matrix
 from bspline_bind import calc_bspline_xs, calc_deriv_bspline_xs
-from bspline_bind import eri, ra_inv, dot_abwAcdw
+from bspline_bind import eri, ra_inv, dot_abwAcdw, eri_mat
 from utils import *
 
 
@@ -312,6 +312,14 @@ class BSplineSet:
                             for x in self.xs]
                            for y in self.xs])
         return self.two_v_mat_old(eri_ij)
+
+    def eri_mat_cpp(self, L):
+        n = len(self.basis)
+        bs_vals = np.hstack([u.val for u in self.basis])
+        (data, row, col) = eri_mat(bs_vals, self.xs,
+                                   self.ws, L, self.order)
+        return csr_matrix((data, (row, col)),
+                          shape=(n*n, n*n))
 
     def eri_mat_dense(self, L):
 

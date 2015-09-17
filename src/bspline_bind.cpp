@@ -169,6 +169,23 @@ bp::tuple Non0QuadIndexPy(int a, int c, int k, int nq) {
   return bp::make_tuple(i0, i1);
 }
 
+void CalcERI_L(double* xs, int num, int L, double** eri_L) {
+  *eri_L = new double[num*num];
+  for(int i = 0; i < num; i++)
+    for(int j = 0; j < num; j++) {
+      double s, g;
+      if (i<j) {
+	s = xs[i]; g = xs[j];
+      } else {
+	s = xs[j]; g = xs[i];
+      }
+      double sg = s/g;
+      (*eri_L)[j+num*i] = 1.0/g;
+      for(int ll = 0; ll < L; ll++)
+	(*eri_L)[j+num*i] *= sg;
+    }
+}
+
 bp::tuple ERI_mat(const np::ndarray& vals, const np::ndarray& xs, 
 		  const np::ndarray& ws, int L, int k) {
 		  
@@ -177,50 +194,42 @@ bp::tuple ERI_mat(const np::ndarray& vals, const np::ndarray& xs,
   double* d_ws = reinterpret_cast<double*>(ws.get_data());
   int nq = xs.shape(0);
   int nb = vals.shape(0)/nq;
-  double* sg_ij = new double[nq*nq];
-  for(int i = 0; i < nq; i++)
-    for(int j = 0; j < nq; j++) {
-      double s, g;
-      if (i<j) {
-	s = d_xs[i]; g = d_xs[j];
-      } else {
-	s = d_xs[j]; g = d_xs[i];
-      }
-      double sg = s/g;
-      sg_ij[j+nq*i] = 1.0/g;
-      for(int ll = 0; ll < L; ll++)
-	sg_ij[j+nq*i] *= sg;
-    }
+  double* sg_ij;
+  CalcERI_L(d_xs, nq, L, &sg_ij);
 
   int num_ele = (nb-k)*(2*k-1)+k*k;
   num_ele = num_ele * num_ele;
+
   double* data = new double[num_ele];
   int* row = new int[num_ele];
   int* col = new int[num_ele];
   int idx(0);
   for(int a = 0; a < nb; a++) {
+    int c0 = a-k+1;   c0 = c0<0? 0 : c0;
+    int c1 = a+k;     c1 = c1>nb? nb : c1;
     for(int b= 0; b < nb; b++) {
-      for(int c = 0; c < nb; c++) {
-	for(int d = 0; d < nb; d++) {
-	  if(std::abs(a-c) < k && std::abs(b-d) < k) {	    
-	    if(idx >= num_ele) 
-	      throw std::runtime_error("Exceed index in ERI_mat");
-	    int i0, i1, j0, j1;
-	    Non0QuadIndex(a, c, k, nq, &i0, &i1);
-	    Non0QuadIndex(b, d, k, nq, &j0, &j1);
-	    data[idx] = ERI_ele(d_vals, nb, nq, 
-				i0, i1, j0, j1,
-				a, b, c, d, 
-				d_ws, sg_ij);
-	    col[idx] = a*nb+b;
-	    row[idx] = c*nb+d;
-	    idx++;
-	  }
+      int d0 = b-k+1; d0 = d0<0? 0:d0;
+      int d1 = b+k;   d1 = d1>nb? nb:d1;
+      for(int c = c0; c < c1; c++) {
+	int i0, i1; Non0QuadIndex(a, c, k, nq, &i0, &i1);
+	for(int d = d0; d < d1; d++) {
+	  int j0, j1; Non0QuadIndex(b, d, k, nq, &j0, &j1);
+
+	  double res(0.0);
+	  for(int i = i0; i < i1; i++)
+	    for(int j = j0; j < j1; j++) {
+	      res += d_ws[i]*d_ws[j]*sg_ij[i*nq+j]*
+		d_vals[a*nq+i]*d_vals[c*nq+i]*
+		d_vals[b*nq+j]*d_vals[d*nq+j];
+	    }
+	  data[idx] = res;
+	  col[idx] = a*nb+b;
+	  row[idx] = c*nb+d;
+	  idx++;
 	}
       }
     }
   }
-  std::cout << "c++, data[0]:" << data[0] << std::endl;
   np::ndarray np_data = np::from_data(data,
 			  np::dtype::get_builtin<double>(),
 			  bp::make_tuple(num_ele),

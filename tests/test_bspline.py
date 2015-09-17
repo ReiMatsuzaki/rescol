@@ -101,33 +101,32 @@ class TestBSpline(unittest.TestCase):
         self.assertTrue(abs(eps) < 10.0**(-10))
 
     def test_eri(self):
-        bspline_set = BSplineSet(5, lin_knots(0.0, 10.0, 24))
-        t0 = time.clock()
-        eri0 = bspline_set.eri_mat(2)
-        t1 = time.clock()
-        eri1 = bspline_set.eri_mat_old(2)
-        t3 = time.clock()
-        eri2 = bspline_set.eri_mat2(2)
-        t4 = time.clock()
-        bs_vals = np.hstack([u.val for u in bspline_set.basis])
-        (data, row, col) = eri_mat(bs_vals, bspline_set.xs,
-                                   bspline_set.ws, 2, bspline_set.order)
-        num_non0 = len(eri1.nonzero()[0])
-        self.assertAlmostEqual(eri0[0, 0], data[0])
-        eri3 = scipy.sparse.csr_matrix((data, (row, col)),
-                                       shape=eri1.shape)
-        t5 = time.clock()
+        compare_flag = True
 
-        self.assertEqual(len(eri3.nonzero()[0]), len(eri1.nonzero()[0]))
-        eps = max(flatten((eri0.toarray() - eri1).tolist()))
-        self.assertTrue(abs(eps) < 10.0**(-10))
-        eps = max(flatten((eri2.toarray() - eri1).tolist()))
-        self.assertTrue(abs(eps) < 10.0**(-10))
-        eps = max(flatten((eri3 - eri1).toarray().tolist()))
-        print eps
-        self.assertTrue(abs(eps) < 10.0**(-10))
-        print "test_eri: full c++, c++, py, py(sliced)"
-        print (t5-t4, t4-t3, t3-t1, t1-t0)
+        bspline_set = BSplineSet(5, lin_knots(0.0, 10.0, 20))
+        L = 2
+        t0 = time.clock()
+        eri_cpp = bspline_set.eri_mat_cpp(L)
+        t_cpp = time.clock()-t0
+
+        if compare_flag:
+            t0 = time.clock()
+            eri_slice = bspline_set.eri_mat(2)
+            t_slice = time.clock()-t0
+
+            t0 = time.clock()
+            eri_py = bspline_set.eri_mat_old(2)
+            t_py = time.clock()-t0
+
+            self.assertEqual(len(eri_py.nonzero()[0]),
+                             len(eri_cpp.nonzero()[0]))
+            eps = np.max(np.abs((eri_cpp - eri_py).toarray()))
+            self.assertTrue(abs(eps) < 10.0**(-10))
+
+            print "test_eri: c++, py, slice"
+            print (t_cpp, t_py, t_slice)
+        else:
+            print t_cpp
 
     def test_hydrogen_atom(self):
         basis_set = BSplineSet(9, lin_knots(0.0, 100.0, 101))
