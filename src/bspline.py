@@ -2,6 +2,8 @@ import numpy as np
 from numpy.polynomial.legendre import leggauss
 from scipy.sparse import csr_matrix
 from bspline_bind import calc_bspline_xs, calc_deriv_bspline_xs
+from bspline_bind import eri, ra_inv, dot_abwAcdw
+from utils import *
 
 
 def make_knots(*args):
@@ -118,6 +120,13 @@ def num_bspline(order, knots):
     """
     return len(knots)-1+(order-1)
 
+
+def eri(x, y, L):
+    s = min(x, y)
+    g = max(x, y)
+    return (s**L)/(g**(L+1))
+
+
 class BSpline:
     """ B-Spline basis function
     index: Int    index of this B-Spline function
@@ -125,8 +134,9 @@ class BSpline:
     val: [Double] list of function value with weight factor
     deriv: [Double] list of derivative of function value with weight factor
     """
-    def __init__(self, index, val, deriv):
+    def __init__(self, index, non0_q, val, deriv):
         self.index = index
+        self.non0_q = non0_q
         self.val = val
         self.deriv = deriv
 
@@ -151,18 +161,41 @@ class BSplineSet:
         ts = make_ts(self.knots)
 
         def one_basis(i):
+            non0 = non0_q_list(order, self.knots, i)
             val = calc_bspline_xs(order, ts, i, xs)
             deriv = calc_deriv_bspline_xs(order, ts, i, xs)
-            return BSpline(i, val, deriv)
+            return BSpline(i, non0, val, deriv)
 
         self.xs = xs
         self.ws = ws
         self.ts = ts
-        self.basis = [one_basis(i) for i 
+        self.basis = [one_basis(i) for i
                       in range(1, num_bspline(self.order, self.knots)-1)]
 
     def calc_csr_matrix(self, mat_ele):
-        """Gives CSR matrix using B-Spline function
+        """ TO BE REMOVED"""
+        return self.calc_csr_matrix_old(mat_ele)
+
+    def calc_mat(self, ab_to_ys):
+
+        def ele(a, b):
+            (i0, i1) = self.non0_index(a, b)
+            ys_list = ab_to_ys(a, b)
+            return np.dot(self.ws[i0:i1],
+                          reduce(lambda t, u: t*u,
+                                 [ys[i0:i1] for ys in ys_list]))
+
+        (row, col, data) = np.array(
+            [[i, j, ele(a, b)]
+             for (a, i) in with_index(self.basis)
+             for (b, j) in with_index(self.basis)
+             if has_non0(self.order, a.index, b.index)]).T
+        n = len(self.basis)
+        return csr_matrix((data, (row, col)), shape=(n, n))
+
+    def calc_csr_matrix_old(self, mat_ele):
+        """TOO BE REMOVED
+        Gives CSR matrix using B-Spline function
         Parameters
         ----------
         mat_ele : (BSpline,BSpline) -> [Double]
@@ -173,18 +206,26 @@ class BSplineSet:
         """
         n = len(self.basis)
         (row, col, data) = np.array(
-            [[i, j, np.sum(self.ws*mat_ele(a, b))]
+            [[i, j, np.dot(self.ws, mat_ele(a, b))]
              for (a, i) in zip(self.basis, range(n))
              for (b, j) in zip(self.basis, range(n))
              if has_non0(self.order, a.index, b.index)]).T
         return csr_matrix((data, (row, col)), shape=(n, n))
+
+    def non0_index(self, a, b):
+        """give matrix element between BSpline a and b """
+        non0_q = [aq and bq for (aq, bq) in zip(a.non0_q, b.non0_q)]
+        non0_is = [i for (q, i) in with_index(non0_q) if q]
+        i0 = non0_is[0]*self.order
+        i1 = (non0_is[-1]+1)*self.order
+        return (i0, i1)
 
     def d2_mat_dense(self):
         return np.array([[-np.sum(self.ws*a.deriv*b.deriv)
                           for a in self.basis] for b in self.basis])
 
     def d2_mat(self):
-        return self.calc_csr_matrix(lambda a, b: -a.deriv*b.deriv)
+        return -self.calc_mat(lambda a, b: [a.deriv, b.deriv])
 
     def d2_mat_old(self):
         n = len(self.basis)
@@ -195,15 +236,96 @@ class BSplineSet:
              if has_non0(self.order, a.index, b.index)]).T
         return csr_matrix((data, (row, col)), shape=(n, n))
 
+    def s_mat_old(self):
+        return self.calc_csr_matrix_old(lambda a, b: a.val*b.val)
+
     def s_mat(self):
-        return self.calc_csr_matrix(lambda a, b: a.val*b.val)
+        return self.calc_mat(lambda a, b: [a.val, b.val])
 
     def v_mat(self, v_x):
-        if type(v_x) == np.ndarray:
-            v = v_x
-        else:
-            v = np.array([v_x(x) for x in self.xs])
-        return self.calc_csr_matrix(lambda a, b: a.val*v*b.val)
+        v = v_x if type(v_x) == np.ndarray \
+            else np.array([v_x(x) for x in self.xs])
+        return self.calc_mat(lambda a, b: [a.val, v, b.val])
+
+    def two_v_mat(self, v):
+
+        def one_ele(a, b, c, d):
+            (i0, i1) = self.non0_index(a, c)
+            (j0, j1) = self.non0_index(b, d)
+            return np.dot(self.ws[i0:i1]*a.val[i0:i1]*c.val[i0:i1],
+                          np.dot(v[i0:i1, j0:j1],
+                                 self.ws[j0:j1]*b.val[j0:j1]*d.val[j0:j1]))
+
+        usus = [(a, b) for a in self.basis for b in self.basis]
+        [row, col, data] = np.array(
+            [[I, J, one_ele(a, b, c, d)]
+             for ((a, b), I) in with_index(usus)
+             for ((c, d), J) in with_index(usus)
+             if has_non0(self.order, a.index, c.index) and
+             has_non0(self.order, b.index, d.index)]).T
+        return csr_matrix((data, (row, col)), shape=(len(usus), len(usus)))
+
+    def two_v_mat_old(self, v):
+
+        def one_ele(a, b, c, d):
+            return np.dot(self.ws*a.val*c.val,
+                          np.dot(v, self.ws*b.val*d.val))
+
+        usus = [(a, b) for a in self.basis for b in self.basis]
+        [row, col, data] = np.array(
+            [[I, J, one_ele(a, b, c, d)]
+             for ((a, b), I) in with_index(usus)
+             for ((c, d), J) in with_index(usus)
+             if has_non0(self.order, a.index, c.index) and
+             has_non0(self.order, b.index, d.index)]).T
+        return csr_matrix((data, (row, col)), shape=(len(usus), len(usus)))
+
+    def eri_mat2(self, L):
+        eri_ij = np.array([eri(x, y, L)
+                           for x in self.xs
+                           for y in self.xs])
+
+        def one_ele(a, b, c, d):
+            (i0, i1) = self.non0_index(a, c)
+            (j0, j1) = self.non0_index(b, d)
+            return dot_abwAcdw(a.val, b.val, c.val, d.val, self.ws, eri_ij,
+                               i0, i1, j0, j1)
+
+        usus = [(a, b) for a in self.basis for b in self.basis]
+        [row, col, data] = np.array(
+            [[I, J, one_ele(a, b, c, d)]
+             for ((a, b), I) in with_index(usus)
+             for ((c, d), J) in with_index(usus)
+             if has_non0(self.order, a.index, c.index) and
+             has_non0(self.order, b.index, d.index)]).T
+        return csr_matrix((data, (row, col)), shape=(len(usus), len(usus)))
+
+    def eri_mat(self, L):
+
+        eri_ij = np.array([[eri(x, y, L)
+                            for x in self.xs]
+                           for y in self.xs])
+        return self.two_v_mat(eri_ij)
+
+    def eri_mat_old(self, L):
+        eri_ij = np.array([[eri(x, y, L)
+                            for x in self.xs]
+                           for y in self.xs])
+        return self.two_v_mat_old(eri_ij)
+
+    def eri_mat_dense(self, L):
+
+        eri_ij = np.array([[eri(x, y, L)
+                            for x in self.xs]
+                           for y in self.xs])
+
+        def one_ele(a, b, c, d):
+            vi = self.ws*a.val*c.val
+            vj = self.ws*b.val*d.val
+            return np.dot(vi, np.dot(eri_ij, vj))
+        usus = [(a, b) for a in self.basis for b in self.basis]
+        return [[one_ele(a, b, c, d) for (a, b) in usus]
+                for (c, d) in usus]
 
     def m_vec(self, m_x):
         m = np.array([m_x(x) for x in self.xs])
@@ -211,7 +333,7 @@ class BSplineSet:
 
     def psi(self, cs, xs):
         ys_list = np.array([c*calc_bspline_xs(self.order, self.ts, u.index, xs)
-                   for (c, u) in zip(cs, self.basis)])
+                            for (c, u) in zip(cs, self.basis)])
         return np.sum(ys_list, axis=0)
 
     def basis_psi(self, xs):

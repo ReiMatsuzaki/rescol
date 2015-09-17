@@ -15,6 +15,9 @@
  */
 double CalcBSpline(int order, double* ts, int i, double x);
 double CalcDerivBSpline(int order, double* ts, int i, double x);
-
+double ERI_ele(double* vs, int num_basis, int num_quad, 
+	       int i0, int i1, int j0, int j1,
+	       int a, int b, int c, int d, 
+	       double* ws, double* rij);
 
 #endif

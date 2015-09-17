@@ -1,7 +1,8 @@
-import sys
-import os
 import unittest
+import time
 import scipy.sparse.linalg as la
+import scipy.sparse
+from bspline_bind import *
 from bspline import *
 
 
@@ -91,6 +92,38 @@ class TestBSpline(unittest.TestCase):
         knots = make_knots((0.0, 3), 1.0, 2.0, 3.0, 4.0, (5.0, 3))
         bspline_set = BSplineSet(3, knots)
         self.assertEqual(5, len(bspline_set.basis))
+
+    def test_smat(self):
+        bspline_set = BSplineSet(3, lin_knots(0.0, 10.0, 11))
+        smat0 = bspline_set.s_mat_old()
+        smat1 = bspline_set.s_mat()
+        eps = max(flatten((smat0 - smat1).toarray().tolist()))
+        self.assertTrue(abs(eps) < 10.0**(-10))
+
+    def test_eri(self):
+        bspline_set = BSplineSet(5, lin_knots(0.0, 10.0, 14))
+        t0 = time.clock()
+        eri0 = bspline_set.eri_mat(2)
+        t1 = time.clock()
+        eri1 = bspline_set.eri_mat_old(2)
+        t3 = time.clock()
+        eri2 = bspline_set.eri_mat2(2)
+        t4 = time.clock()
+        bs_vals = np.hstack([u.val for u in bspline_set.basis])
+        (data, row, col) = eri_mat(bs_vals, bspline_set.xs,
+                                   bspline_set.ws, 2, 3)
+        eri3 = scipy.sparse.csr_matrix((data, (row, col)),
+                                       shape=eri1.shape)
+        t5 = time.clock()
+
+        eps = max(flatten((eri0.toarray() - eri1).tolist()))
+        self.assertTrue(abs(eps) < 10.0**(-10))
+        eps = max(flatten((eri2.toarray() - eri1).tolist()))
+        self.assertTrue(abs(eps) < 10.0**(-10))
+        eps = max(flatten((eri3 - eri1).toarray().tolist()))
+        self.assertTrue(abs(eps) < 10.0**(-10))
+        print "test_eri: full c++, c++, py, py(sliced)"
+        print (t5-t4, t4-t3, t3-t2, t1-t0)
 
     def test_hydrogen_atom(self):
         basis_set = BSplineSet(9, lin_knots(0.0, 100.0, 101))

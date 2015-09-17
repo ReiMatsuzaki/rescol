@@ -73,6 +73,20 @@ double CalcDerivBSpline(int order, double* ts, int i, double x) {
   }
 }
 
+double ERI_ele(double* vs, int num_basis, int num_quad,
+	       int i0, int i1, int j0, int j1,
+	       int a, int b, int c, int d,
+	       double* ws, double* rij) {
 
+  double res(0.0);
+  for(int i = i0; i < i1; i++)
+    for(int j = j0; j < j1; j++) {
+      res += ws[i]*ws[j]*rij[i*num_quad+j]*
+	vs[a*num_quad+i]*vs[c*num_quad+i]*
+	vs[b*num_quad+j]*vs[d*num_quad+j];
+    }
+  return res;
+}
+	       
 
 
