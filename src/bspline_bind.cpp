@@ -188,6 +188,287 @@ void CalcERI_L(double* xs, int num, int L, double** eri_L) {
 
 bp::tuple ERI_mat(const np::ndarray& vals, const np::ndarray& xs, 
 		  const np::ndarray& ws, int L, int k) {
+  std::cout << "Four Symmery" << std::endl;
+  double* d_vals = reinterpret_cast<double*>(vals.get_data());
+  double* d_xs = reinterpret_cast<double*>(xs.get_data());
+  double* d_ws = reinterpret_cast<double*>(ws.get_data());
+  int nq = xs.shape(0);
+  int nb = vals.shape(0)/nq;
+  double* sg_ij;
+  CalcERI_L(d_xs, nq, L, &sg_ij);
+
+  int num_ele = (nb-k)*(2*k-1)+k*k;
+  num_ele = num_ele * num_ele;
+
+  double* data = new double[num_ele];
+  int* row = new int[num_ele];
+  int* col = new int[num_ele];
+  for (int i = 0; i < num_ele; i++) {
+    row[i] = -1; col[i] = -1; 
+  }
+  double* wvv = new double[nb*nb*nq];
+  int* i0s = new int[nb*nb];
+  int* i1s = new int[nb*nb];
+  for(int a = 0; a < nb; a++) {
+    int c0 = a-k+1;   c0 = c0<0? 0 : c0;
+    int c1 = a+k;     c1 = c1>nb? nb : c1;
+    for(int c = c0; c < c1; c++) {
+      int i0, i1; Non0QuadIndex(a, c, k, nq, &i0, &i1);
+      i0s[a*nb+c] = i0; i1s[a*nb+c] = i1;
+      for(int i = i0; i < i1; i++)
+	wvv[a*nb*nq+c*nq+i] = d_ws[i]*d_vals[a*nq+i]*d_vals[c*nq+i];
+    }
+  }
+
+  int idx(0);
+  for(int a = 0; a < nb; a++) {
+    int c0 = a-k+1;   c0 = c0<0? 0 : c0;
+    int c1 = a+k;     c1 = c1>nb? nb : c1;
+    for(int c = c0; c < c1; c++) {
+      for(int b= 0; b < nb; b++) {
+	int d0 = b-k+1; d0 = d0<0? 0:d0;
+	int d1 = b+k;   d1 = d1>nb? nb:d1;
+	for(int d = d0; d < d1; d++) {
+
+	  if(a >= c && b >= d) {
+	    double res(0.0);
+	    for(int i = i0s[a*nb+c]; i < i1s[a*nb+c]; i++) {
+	      double aci = wvv[a*nb*nq+c*nq+i];
+	      for(int j = i0s[b*nb+d]; j < i1s[b*nb+d]; j++) 
+		res +=  aci * sg_ij[i*nq+j] * wvv[b*nb*nq+d*nq+j];
+	    }
+	    
+	    if(a > c && b > d) {
+	      data[idx] = res; col[idx] = a*nb+b; row[idx] = c*nb+d; idx++;
+	      data[idx] = res; col[idx] = a*nb+d; row[idx] = c*nb+b; idx++;	  
+	      data[idx] = res; col[idx] = c*nb+b; row[idx] = a*nb+d; idx++;
+	      data[idx] = res; col[idx] = c*nb+d; row[idx] = a*nb+b; idx++;
+
+	    } else if(a > c && b == d) {
+	      data[idx] = res; col[idx] = a*nb+b; row[idx] = c*nb+d; idx++;
+	      data[idx] = res; col[idx] = c*nb+b; row[idx] = a*nb+d; idx++;
+
+	    } else if (a == c && b > d) {
+	      data[idx] = res; col[idx] = a*nb+b; row[idx] = c*nb+d; idx++;
+	      data[idx] = res; col[idx] = a*nb+d; row[idx] = c*nb+b; idx++;
+
+	    } else if (a == c && b == d ) {
+	      data[idx] = res; col[idx] = a*nb+b; row[idx] = c*nb+d; idx++;
+	    }
+	  }
+	}
+      }
+    }
+  }
+  if(idx != num_ele) {
+    std::cout << "idx does not match num_ele" << std::endl;
+    std::cout << "idx: " << idx << std::endl;
+    std::cout << "num_ele: " << num_ele << std::endl;
+    throw std::runtime_error("idx does not match num_ele");
+  }
+  delete[] wvv; delete[] i0s;delete[] i1s;
+  np::ndarray np_data = np::from_data(data,
+			  np::dtype::get_builtin<double>(),
+			  bp::make_tuple(num_ele),
+			  bp::make_tuple(sizeof(double)),
+			  bp::object());
+  np::ndarray np_row = np::from_data(row,
+			 np::dtype::get_builtin<int>(),
+			 bp::make_tuple(num_ele),
+			 bp::make_tuple(sizeof(int)),
+			 bp::object());
+  np::ndarray np_col = np::from_data(col,
+			 np::dtype::get_builtin<int>(),
+			 bp::make_tuple(num_ele),
+			 bp::make_tuple(sizeof(int)),
+			 bp::object());
+  return bp::make_tuple(np_data, np_row, np_col);
+}
+
+bp::tuple ERI_mat8sym(const np::ndarray& vals, const np::ndarray& xs, 
+		  const np::ndarray& ws, int L, int k) {
+  std::cout << "Eight Symmery" << std::endl;
+  double* d_vals = reinterpret_cast<double*>(vals.get_data());
+  double* d_xs = reinterpret_cast<double*>(xs.get_data());
+  double* d_ws = reinterpret_cast<double*>(ws.get_data());
+  int nq = xs.shape(0);
+  int nb = vals.shape(0)/nq;
+  double* sg_ij;
+  CalcERI_L(d_xs, nq, L, &sg_ij);
+
+  int num_ele = (nb-k)*(2*k-1)+k*k;
+  num_ele = num_ele * num_ele;
+
+  double* data = new double[num_ele];
+  int* row = new int[num_ele];
+  int* col = new int[num_ele];
+  for (int i = 0; i < num_ele; i++) {
+    row[i] = -1; col[i] = -1; 
+  }
+  double* wvv = new double[nb*nb*nq];
+  int* i0s = new int[nb*nb];
+  int* i1s = new int[nb*nb];
+  for(int a = 0; a < nb; a++) {
+    int c0 = a-k+1;   c0 = c0<0? 0 : c0;
+    int c1 = a+k;     c1 = c1>nb? nb : c1;
+    for(int c = c0; c < c1; c++) {
+      int i0, i1; Non0QuadIndex(a, c, k, nq, &i0, &i1);
+      i0s[a*nb+c] = i0; i1s[a*nb+c] = i1;
+      for(int i = i0; i < i1; i++)
+	wvv[a*nb*nq+c*nq+i] = d_ws[i]*d_vals[a*nq+i]*d_vals[c*nq+i];
+    }
+  }
+
+  int idx(0);
+  for(int a = 0; a < nb; a++) {
+    int c0 = a-k+1;   c0 = c0<0? 0 : c0;
+    int c1 = a+k;     c1 = c1>nb? nb : c1;
+    for(int c = c0; c < c1; c++) {
+      for(int b= 0; b < nb; b++) {
+	int d0 = b-k+1; d0 = d0<0? 0:d0;
+	int d1 = b+k;   d1 = d1>nb? nb:d1;
+	for(int d = d0; d < d1; d++) {
+
+	  int ac = nb*a+c; 
+	  int bd = nb*b+d;
+	  if(a >= c && b >= d && ac >= bd) {
+	    double res(0.0);
+	    for(int i = i0s[a*nb+c]; i < i1s[a*nb+c]; i++) {
+	      double aci = wvv[a*nb*nq+c*nq+i];
+	      for(int j = i0s[b*nb+d]; j < i1s[b*nb+d]; j++) 
+		res +=  aci * sg_ij[i*nq+j] * wvv[b*nb*nq+d*nq+j];
+	    }
+	    
+	    if(a > c && b > d) {
+	      data[idx] = res; col[idx] = a*nb+b; row[idx] = c*nb+d; idx++;
+	      data[idx] = res; col[idx] = a*nb+d; row[idx] = c*nb+b; idx++;	  
+	      data[idx] = res; col[idx] = c*nb+b; row[idx] = a*nb+d; idx++;
+	      data[idx] = res; col[idx] = c*nb+d; row[idx] = a*nb+b; idx++;
+	      
+	      if(ac > bd) {
+		data[idx] = res; col[idx] = b*nb+a; row[idx] = d*nb+c; idx++;
+		data[idx] = res; col[idx] = b*nb+c; row[idx] = d*nb+a; idx++;	  
+		data[idx] = res; col[idx] = d*nb+a; row[idx] = b*nb+c; idx++;
+		data[idx] = res; col[idx] = d*nb+c; row[idx] = b*nb+a; idx++;
+	      }
+	    } else if(a > c && b == d) {
+	      data[idx] = res; col[idx] = a*nb+b; row[idx] = c*nb+d; idx++;
+	      data[idx] = res; col[idx] = c*nb+b; row[idx] = a*nb+d; idx++;
+
+	      if(ac > bd) {
+		data[idx] = res; col[idx] = b*nb+a; row[idx] = d*nb+c; idx++;
+		data[idx] = res; col[idx] = d*nb+a; row[idx] = b*nb+c; idx++;
+	      }
+
+	    } else if (a == c && b > d) {
+	      data[idx] = res; col[idx] = a*nb+b; row[idx] = c*nb+d; idx++;
+	      data[idx] = res; col[idx] = a*nb+d; row[idx] = c*nb+b; idx++;
+
+	      if(ac > bd) {
+		data[idx] = res; col[idx] = b*nb+a; row[idx] = d*nb+c; idx++;
+		data[idx] = res; col[idx] = b*nb+c; row[idx] = d*nb+a; idx++;
+	      }
+	    } else if (a == c && b == d ) {
+	      data[idx] = res; col[idx] = a*nb+b; row[idx] = c*nb+d; idx++;
+	      if(ac > bd) 
+		data[idx] = res; col[idx] = c*nb+d; row[idx] = a*nb+c; idx++;
+	    }
+	  }
+	}
+      }
+    }
+  }
+  if(idx != num_ele) {
+    std::cout << "idx does not match num_ele" << std::endl;
+    std::cout << "idx: " << idx << std::endl;
+    std::cout << "num_ele: " << num_ele << std::endl;
+    throw std::runtime_error("idx does not match num_ele");
+  }
+  delete[] wvv; delete[] i0s;delete[] i1s;
+  np::ndarray np_data = np::from_data(data,
+			  np::dtype::get_builtin<double>(),
+			  bp::make_tuple(num_ele),
+			  bp::make_tuple(sizeof(double)),
+			  bp::object());
+  np::ndarray np_row = np::from_data(row,
+			 np::dtype::get_builtin<int>(),
+			 bp::make_tuple(num_ele),
+			 bp::make_tuple(sizeof(int)),
+			 bp::object());
+  np::ndarray np_col = np::from_data(col,
+			 np::dtype::get_builtin<int>(),
+			 bp::make_tuple(num_ele),
+			 bp::make_tuple(sizeof(int)),
+			 bp::object());
+  return bp::make_tuple(np_data, np_row, np_col);
+}
+
+
+bp::tuple ERI_matold(const np::ndarray& vals, const np::ndarray& xs, 
+		  const np::ndarray& ws, int L, int k) {
+  std::cout << "old" << std::endl;  
+  double* d_vals = reinterpret_cast<double*>(vals.get_data());
+  double* d_xs = reinterpret_cast<double*>(xs.get_data());
+  double* d_ws = reinterpret_cast<double*>(ws.get_data());
+  int nq = xs.shape(0);
+  int nb = vals.shape(0)/nq;
+  double* sg_ij;
+  CalcERI_L(d_xs, nq, L, &sg_ij);
+
+  int num_ele = (nb-k)*(2*k-1)+k*k;
+  num_ele = num_ele * num_ele;
+
+  double* data = new double[num_ele];
+  int* row = new int[num_ele];
+  int* col = new int[num_ele];
+  int idx(0);
+  for(int a = 0; a < nb; a++) {
+    int c0 = a-k+1;   c0 = c0<0? 0 : c0;
+    int c1 = a+k;     c1 = c1>nb? nb : c1;
+    for(int b= 0; b < nb; b++) {
+      int d0 = b-k+1; d0 = d0<0? 0:d0;
+      int d1 = b+k;   d1 = d1>nb? nb:d1;
+      for(int c = c0; c < c1; c++) {
+	int i0, i1; Non0QuadIndex(a, c, k, nq, &i0, &i1);
+	for(int d = d0; d < d1; d++) {
+	  int j0, j1; Non0QuadIndex(b, d, k, nq, &j0, &j1);
+
+	  double res(0.0);
+	  for(int i = i0; i < i1; i++)
+	    for(int j = j0; j < j1; j++) {
+	      res += d_ws[i]*d_ws[j]*sg_ij[i*nq+j]*
+		d_vals[a*nq+i]*d_vals[c*nq+i]*
+		d_vals[b*nq+j]*d_vals[d*nq+j];
+	    }
+	  data[idx] = res;
+	  col[idx] = a*nb+b;
+	  row[idx] = c*nb+d;
+	  idx++;
+	}
+      }
+    }
+  }
+  np::ndarray np_data = np::from_data(data,
+			  np::dtype::get_builtin<double>(),
+			  bp::make_tuple(num_ele),
+			  bp::make_tuple(sizeof(double)),
+			  bp::object());
+  np::ndarray np_row = np::from_data(row,
+			 np::dtype::get_builtin<int>(),
+			 bp::make_tuple(num_ele),
+			 bp::make_tuple(sizeof(int)),
+			 bp::object());
+  np::ndarray np_col = np::from_data(col,
+			 np::dtype::get_builtin<int>(),
+			 bp::make_tuple(num_ele),
+			 bp::make_tuple(sizeof(int)),
+			 bp::object());
+  return bp::make_tuple(np_data, np_row, np_col);
+}
+
+
+bp::tuple ERI_matOld(const np::ndarray& vals, const np::ndarray& xs, 
+		     const np::ndarray& ws, int L, int k) {
 		  
   double* d_vals = reinterpret_cast<double*>(vals.get_data());
   double* d_xs = reinterpret_cast<double*>(xs.get_data());

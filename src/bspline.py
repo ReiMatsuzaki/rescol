@@ -318,6 +318,7 @@ class BSplineSet:
         bs_vals = np.hstack([u.val for u in self.basis])
         (data, row, col) = eri_mat(bs_vals, self.xs,
                                    self.ws, L, self.order)
+
         return csr_matrix((data, (row, col)),
                           shape=(n*n, n*n))
 

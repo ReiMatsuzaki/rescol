@@ -103,7 +103,7 @@ class TestBSpline(unittest.TestCase):
     def test_eri(self):
         compare_flag = True
 
-        bspline_set = BSplineSet(5, lin_knots(0.0, 10.0, 20))
+        bspline_set = BSplineSet(5, lin_knots(0.0, 10.0, 24))
         L = 2
         t0 = time.clock()
         eri_cpp = bspline_set.eri_mat_cpp(L)

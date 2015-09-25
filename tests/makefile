@@ -16,3 +16,9 @@ test_utils: test_utils.py
 	pep8 test_utils.py
 	pep8 ../src/utils.py
 	python test_utils.py
+
+test_angmoment: test_angmoment.py
+	python --version
+	pep8 test_angmoment.py
+	pep8 ../src/angmoment.py
+	python test_angmoment.py
