@@ -38,6 +38,12 @@ def N6j(*args):
     return wigner.wigner_6j(*args)
 
 
+def ms_for_L(L):
+    """ gives M list for given L
+    """
+    return [m for m in range(-L, L+1)]
+
+
 def triangle_q(L1, L2, L3):
     """ gives whether given three numbers form triangle or not.
     """
@@ -109,7 +115,6 @@ class CoupledY:
         self.L2 = L2
         self.L = L
         self.M = M
-        print self.L
 
     def __str__(self):
         return """
@@ -151,6 +156,22 @@ def y2mat_YYq(yp, q, y):
     return _y2mat_YYq(yp, q, y)
 
 
+def y2mat_YYq_slow(yp, q, y):
+    """ slow version of function "y2mat_YYq"
+    """
+    cg = wigner.clebsch_gordan
+    return sum([(-1)**k *
+                float(cg(yp.L1, yp.L2, yp.L, Mp1, Mp2, yp.M)) *
+                float(cg(y.L1, y.L2, y.L, M1, M2, y.M)) *
+                y1mat_Yqk((yp.L1, Mp1), (q, -k), (y.L1, M1)) *
+                y1mat_Yqk((yp.L2, Mp2), (q, k), (y.L2, M2))
+                for k in ms_for_L(q)
+                for Mp1 in ms_for_L(yp.L1)
+                for Mp2 in ms_for_L(yp.L2)
+                for M1 in ms_for_L(y.L1)
+                for M2 in ms_for_L(y.L2)])
+
+
 def y2mat_Pq_r12(yp, q, y):
     """ gives matrix element of P_q(cos theta_12)
 
@@ -167,7 +188,7 @@ def _y2redmat_Y1q(yp, q, y):
         return 0
     t1 = (-1)**(y.L+yp.L1+y.L2+q)
     t2 = np.sqrt(prod_LLL(y.L, yp.L))
-    t3 = y1redmat_YL(yp.L1, q, y.L1)
+    t3 = y1redmat_Yq(yp.L1, q, y.L1)
     t4 = N6j(yp.L1, yp.L, y.L2,
              y.L,   y.L1, q)
     return t1*t2*t3*t4
@@ -212,6 +233,24 @@ def y2mat_Y1qk(yp, q, k, y):
     tj = N3j(+yp.L, +q, +y.L,
              -yp.M, +k, +y.M)
     return t * rm * tj
+
+
+def y2mat_Y1qk_slow(yp, q, k, y):
+    """ slow version of function "y2mat_Y1qk"
+    """
+    def cg(*args):
+        return float(wigner.clebsch_gordan(*args))
+
+    if yp.L2 != y.L2:
+        return 0
+    return sum([(-1)**k *
+                cg(yp.L1, yp.L2, yp.L, Mp1, Mp2, yp.M) *
+                cg(y.L1, y.L2, y.L, M1, M2, y.M) *
+                y1mat_Yqk((yp.L1, Mp1), (q, 0), (y.L1, M1))
+                for Mp1 in ms_for_L(yp.L1)
+                for Mp2 in ms_for_L(yp.L2)
+                for M1 in ms_for_L(y.L1)
+                for M2 in ms_for_L(y.L2)])
 
 
 def y2mat_Pq_r1A(yp, q, y):

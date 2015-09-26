@@ -44,7 +44,22 @@ class TestAngMoment(unittest.TestCase):
         y0 = CoupledY((0, 0), 0, 0)
         self.assertAlmostEqual(1.0, y2mat_Pq_r12(y0, 0, y0))
         self.assertAlmostEqual(0.0, y2mat_YYq(y0, 1, y0))
-                               
+
+    def test_Y2mat_YYq_slow(self):
+        yp = CoupledY((1, 1), 2, 0)
+        y = CoupledY((3, 1), 2, 0)
+        self.assertAlmostEqual(
+            y2mat_YYq_slow(yp, 2, y),
+            y2mat_YYq(yp, 2, y))
+
+    def test_y2mat_Y1qk(self):
+        yp = CoupledY((1, 1), 1, 0)
+        y = CoupledY((3, 1), 3, 0)
+        self.assertTrue(
+            abs(y2mat_Y1qk(yp, 2, 0, y)) > 0.00001)
+        self.assertAlmostEqual(
+            y2mat_Y1qk_slow(yp, 2, 0, y),
+            y2mat_Y1qk(yp, 2, 0, y))
 
 if __name__ == '__main__':
     unittest.main()
