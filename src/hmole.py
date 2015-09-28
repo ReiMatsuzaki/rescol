@@ -2,7 +2,9 @@ import numpy as np
 from numpy import pi, sqrt
 from scipy.sparse import bmat, coo_matrix
 from utils import flatten, uniq, synthesis_mat
-from angmoment import ls_non_zero_YYY, y1mat_Yqk
+from angmoment import ls_non_zero_YYY, y1mat_Yqk, y2mat_Pq_r12, y2mat_Pq_r1A
+from angmoment import y2mat_Pq_r2A
+import time
 
 
 def mat_h2_plus(bond_length, bspline_set, l_list):
@@ -104,3 +106,81 @@ def mat_h2_plus_old(bond_length, bspline_set, l_list):
                    for L1 in l_list]
                   for L2 in l_list])
     return (H_mat, S_mat)
+
+
+def mat_h2(bond_length, bspline_set, y_list):
+    """gives hamiltonian matrix and overlap matrix of hydrogen molecule"""
+
+    # settings
+    qmax = 10
+    qs = range(qmax+1)
+    calc_log = []
+
+    # compute r1 matrix
+    t0 = time.clock()
+    s_r1mat = bspline_set.s_mat()
+    d2_r1mat = bspline_set.d2_mat()
+    rs = bspline_set.xs
+    r2_r1mat = bspline_set.v_mat(1.0/(rs*rs))
+    ra_r1mat_q = {q: bspline_set.en_mat(q, bond_length/2.0)
+                  for q in qs}
+    t1 = time.clock()
+    calc_log.append(("r1mat", t1-t0))
+
+    # compute r2 matrix
+    t0 = time.clock()
+    s_r2mat = synthesis_mat(s_r1mat, s_r1mat)
+    d2_1_r2mat = synthesis_mat(d2_r1mat, s_r1mat)
+    d2_2_r2mat = synthesis_mat(s_r1mat, d2_r1mat)
+    r2_1_r2mat = synthesis_mat(r2_r1mat, s_r1mat)
+    r2_2_r2mat = synthesis_mat(s_r1mat, r2_r1mat)
+    ra_1_r2mat_q = {q: synthesis_mat(ra, s_r1mat)
+                    for (q, ra) in ra_r1mat_q.items()}
+    ra_2_r2mat_q = {q: synthesis_mat(s_r1mat, ra)
+                    for (q, ra) in ra_r1mat_q.items()}
+    eri_r2mat_q = {q: bspline_set.eri_mat(q) for q in qs}
+    t1 = time.clock()
+    calc_log.append(("r2mat", t1-t0))
+
+    # compute y2 matrix
+    def ymat(o):
+        m = {q: coo_matrix([[o(y1, q, y2) for y1 in y_list] for y2 in y_list])
+             for q in qs}
+        return m
+
+    t0 = time.clock()
+    y2mat_Pq_r12_q = ymat(y2mat_Pq_r12)
+    y2mat_Pq_r1A_q = ymat(y2mat_Pq_r1A)
+    y2mat_Pq_r2A_q = ymat(y2mat_Pq_r2A)
+    y2mat_LL1 = coo_matrix(np.diag([y.L1*(y.L1+1) for y in y_list]))
+    y2mat_LL2 = coo_matrix(np.diag([y.L2*(y.L2+1) for y in y_list]))
+    y2mat_diag = coo_matrix(np.diag([1 for y in y_list]))
+    t1 = time.clock()
+    calc_log.append(("y2mat", t1-t0))
+
+    # compute r2y2 matrix
+
+    t0 = time.clock()
+    t_mat = ((-0.5)*synthesis_mat(d2_1_r2mat, y2mat_diag) +
+             (-0.5)*synthesis_mat(d2_2_r2mat, y2mat_diag) +
+             (0.5)*synthesis_mat(r2_1_r2mat, y2mat_LL1) +
+             (0.5)*synthesis_mat(r2_2_r2mat, y2mat_LL2))
+    t1 = time.clock()
+    calc_log.append(("t_mat", t1-t0))
+    t0 = time.clock()
+    v_mat = -2.0*sum([synthesis_mat(ra_1_r2mat_q[q], y2mat_Pq_r1A_q[q]) +
+                      synthesis_mat(ra_2_r2mat_q[q], y2mat_Pq_r2A_q[q])
+                      for q in qs])
+    t1 = time.clock()
+    calc_log.append(("v_mat", t1-t0))
+    t0 = time.clock()
+    eri_mat = sum([synthesis_mat(eri_r2mat_q[q], y2mat_Pq_r12_q[q])
+                   for q in qs])
+    t1 = time.clock()
+    calc_log.append(("eri_mat", t1-t0))
+    t0 = time.clock()
+    s_mat = synthesis_mat(s_r2mat, y2mat_diag)
+    h_mat = t_mat + v_mat + eri_mat
+    t1 = time.clock()
+    calc_log.append(("last_mat", t1-t0))
+    return ((h_mat, s_mat), calc_log)

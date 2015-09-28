@@ -192,7 +192,6 @@ void CalcERI_L(double* xs, int num, int L, double** eri_L) {
 
 bp::tuple ERI_mat(const np::ndarray& vals, const np::ndarray& xs, 
 		  const np::ndarray& ws, int L, int k) {
-  std::cout << "Four Symmery" << std::endl;
   double* d_vals = reinterpret_cast<double*>(vals.get_data());
   double* d_xs = reinterpret_cast<double*>(xs.get_data());
   double* d_ws = reinterpret_cast<double*>(ws.get_data());
