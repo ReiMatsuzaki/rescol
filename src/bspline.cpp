@@ -8,7 +8,7 @@ namespace {
 }
 
 double CalcBSpline(int order, double* ts, int i, double x) {
-		   
+  
   if(order < 1) {
     std::domain_error err("bspline.cpp, CalcBSpline, order must be positive.");
     throw err;

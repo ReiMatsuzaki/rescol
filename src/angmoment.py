@@ -29,13 +29,13 @@ def prod_LLL(*args):
 def N3j(*args):
     """ gives numerical value of 3-j symbol
     """
-    return wigner.wigner_3j(*args)
+    return float(wigner.wigner_3j(*args))
 
 
 def N6j(*args):
     """ gives numerical value of 6-j symbol
     """
-    return wigner.wigner_6j(*args)
+    return float(wigner.wigner_6j(*args))
 
 
 def ms_for_L(L):
@@ -58,6 +58,36 @@ def zero_YYY_q(L1, L2, L3):
     """
     return (not triangle_q(L1, L2, L3) or
             (L1+L2+L3) % 2 != 0)
+
+
+def ls_non_zero_YYY(L1, L2):
+    """ gives list of qunatum number L which give non 0 <l1,0|l,0|l2,0>
+    <l1,m1|l,m|l2,m2> have non 0 value if
+    1. l1, l, l2 form triangle
+    2. m1 = m + m2
+    3. l1 + l + l2 is even integer
+
+    notice that <l1,m1|l,m|l2,m2> is proportional to two 3-j symbol.
+    <l1,m1|l,m|l2,m2> prop (L1,L,L2,0,0,0)(L1,L,L2,-M1,M,M2)
+    feature 3 is from first 3-j symbol
+
+    Parameters
+    ----------
+    l1, l2 : non negative Int
+
+    Returns
+    -------
+    : list of non negative Int
+
+    non0_ls(0, 3)
+    >>> [3]
+    non0_ls(2, 3)
+    >>> [1, 3, 5]
+    non0_ls(3, 3)
+    >>> [0, 2, 4, 6]
+    """
+    return [L for L in range(abs(L1-L2), abs(L1+L2)+1)
+            if not zero_YYY_q(L1, L, L2)]
 
 
 def _y1redmat_Yq(L1, q, L2):
@@ -115,6 +145,10 @@ class CoupledY:
         self.L2 = L2
         self.L = L
         self.M = M
+
+    def exchange(self):
+        y = CoupledY((self.L2, self.L1), self.L,  self.M)
+        return y
 
     def __str__(self):
         return """
@@ -254,8 +288,15 @@ def y2mat_Y1qk_slow(yp, q, k, y):
 
 
 def y2mat_Pq_r1A(yp, q, y):
-    """ gives matrix elemtn of P_q(cos theta_rA)
+    """ gives matrix elemtn of P_q(w_1A)
 
     A is on positive z-axis
     """
     return np.sqrt(4.0*np.pi/(2*q+1)) * y2mat_Y1qk(yp, q, 0, y)
+
+
+def y2mat_Pq_r2A(yp, q, y):
+    """gives matrix element of P_q(w_2A)"""
+    yp2 = yp.exchange()
+    y2 = y.exchange()
+    return y2mat_Pq_r1A(yp2, q, y2)

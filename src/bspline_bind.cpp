@@ -67,6 +67,7 @@ np::ndarray RAInv(const np::ndarray& xs, int L, double a) {
 			bp::object());
 }
 
+/* TO BE REMOVED
 np::ndarray ERI(const np::ndarray& xs, int L) {
 
   // type error check
@@ -98,7 +99,9 @@ np::ndarray ERI(const np::ndarray& xs, int L) {
 		       bp::make_tuple(sizeof(double)),
 		       bp::object());
 }
+*/
 
+/* to be removed
 double PartialDot(const np::ndarray& xs, const np::ndarray& ys, int i0, int i1) {
   // type error check
   if(xs.get_nd() != 1 || ys.get_nd() != 1) 
@@ -135,6 +138,7 @@ double PartialDot3(const np::ndarray& xs, const np::ndarray& ys,
     res += d_xs[i] * d_ys[i] * d_zs[i];
   return res;
 }
+*/
 
 double Dot_abwAcdw(const np::ndarray& as, const np::ndarray& bs, 
 			const np::ndarray& cs, const np::ndarray& ds,
@@ -403,7 +407,7 @@ bp::tuple ERI_mat8sym(const np::ndarray& vals, const np::ndarray& xs,
   return bp::make_tuple(np_data, np_row, np_col);
 }
 
-
+/* TO BE REMOVED
 bp::tuple ERI_matold(const np::ndarray& vals, const np::ndarray& xs, 
 		  const np::ndarray& ws, int L, int k) {
   std::cout << "old" << std::endl;  
@@ -528,18 +532,87 @@ bp::tuple ERI_matOld(const np::ndarray& vals, const np::ndarray& xs,
 			 bp::object());
   return bp::make_tuple(np_data, np_row, np_col);
 }
+*/
+
+template<class T>
+np::ndarray OuterSumTemplate(np::ndarray& a, np::ndarray& b) {
+
+  // type check
+  if(np::dtype::get_builtin<T>() != a.get_dtype() ||
+     np::dtype::get_builtin<T>() != b.get_dtype()) 
+    throw runtime_error("invalid data type for a or b");
+
+  // dimension check
+  if(a.get_nd() != 1 || b.get_nd() != 1)
+    throw runtime_error("a and b must be 1-dim array");
+
+  T* da = reinterpret_cast<T*>(a.get_data());
+  T* db = reinterpret_cast<T*>(b.get_data());
+  int na = a.shape(0);
+  int nb = b.shape(0);
+
+  int ny = na * nb;
+  T* y = new T[ny];
+  for(int i = 0; i < na; i++)
+    for(int j = 0; j < nb; j++)
+      y[nb*i+j] = (int)(da[i]+db[j]);
+  np::ndarray res = np::from_data(y,
+				  np::dtype::get_builtin<T>(),
+				  bp::make_tuple(ny),
+				  bp::make_tuple(sizeof(T)),
+				  bp::object());
+  return res;
+}
+
+np::ndarray OuterSum(np::ndarray& a, np::ndarray& b){
+  if(np::dtype::get_builtin<int>() == a.get_dtype() &&
+     np::dtype::get_builtin<int>() == b.get_dtype()) 
+    return OuterSumTemplate<int>(a, b);
+  else if(np::dtype::get_builtin<long long>() == a.get_dtype() &&
+     np::dtype::get_builtin<long long>() == b.get_dtype()) 
+    return OuterSumTemplate<long long>(a, b);
+  else 
+    throw std::runtime_error("data type for a or b are not supported");
+}
+
+/* TO BE REMOVED
+np::ndarray OuterSumInt(np::ndarray& a, np::ndarray& b) {
+  long long* da = reinterpret_cast<long long*>(a.get_data());
+  int na = a.shape(0);
+  long long* db = reinterpret_cast<long long*>(b.get_data());
+  int nb = b.shape(0);
+
+  int ny = na*nb;
+  int* ys = new int[ny];
+  for (int i = 0; i < na; i++) 
+    for (int j = 0; j < nb; j++){
+      ys[nb*i+j] = (int)(da[i]+db[j]); 
+  }
+
+  bp::object own;
+  np::ndarray res =  np::from_data(ys,
+				   np::dtype::get_builtin<int>(),
+				   bp::make_tuple(ny),
+				   bp::make_tuple(sizeof(int)),
+				   own);
+
+  return res;
+}
+*/
 
 BOOST_PYTHON_MODULE(bspline_bind) {
   Py_Initialize();
   np::initialize();
+  
   def( "calc_bspline_xs", CalcBSplineNumpy);
   def("calc_deriv_bspline_xs", CalcDerivBSplineNumpy);
   def("ra_inv", RAInv);
-  def("eri", ERI);
-  def("pdot", PartialDot);
-  def("pdot3", PartialDot3);
+  //  def("eri", ERI);
+  //  def("pdot", PartialDot);
+  //  def("pdot3", PartialDot3);
   def("dot_abwAcdw", Dot_abwAcdw);
   def("non0_quad_index", Non0QuadIndexPy);
   def("eri_mat", ERI_mat);
+  def("outer_sum", OuterSum);
 }
 

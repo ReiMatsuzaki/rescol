@@ -1,4 +1,5 @@
 export PYTHONPATH=../src
+
 test_bind: test_bind.py
 	python test_bind.py
 
@@ -22,3 +23,5 @@ test_angmoment: test_angmoment.py
 	pep8 test_angmoment.py
 	pep8 ../src/angmoment.py
 	python test_angmoment.py
+
+test_all: test_bind test_bspline test_hmole test_utils test_angmoment

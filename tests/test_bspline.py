@@ -114,17 +114,13 @@ class TestBSpline(unittest.TestCase):
             eri_slice = bspline_set.eri_mat(2)
             t_slice = time.clock()-t0
 
-            t0 = time.clock()
-            eri_py = bspline_set.eri_mat_old(2)
-            t_py = time.clock()-t0
-
-            self.assertEqual(len(eri_py.nonzero()[0]),
+            self.assertEqual(len(eri_slice.nonzero()[0]),
                              len(eri_cpp.nonzero()[0]))
-            eps = np.max(np.abs((eri_cpp - eri_py).toarray()))
+            eps = np.max(np.abs((eri_cpp - eri_slice).toarray()))
             self.assertTrue(abs(eps) < 10.0**(-10))
 
-            print "test_eri: c++, py, slice"
-            print (t_cpp, t_py, t_slice)
+            print "test_eri: c++, slice"
+            print (t_cpp, t_slice)
         else:
             print t_cpp
 

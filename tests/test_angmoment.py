@@ -30,15 +30,28 @@ class TestAngMoment(unittest.TestCase):
         self.assertTrue(zero_YYY_q(1, 0, 0))
         self.assertTrue(zero_YYY_q(3, 3, 3))
 
+    def test_non0_ls(self):
+        self.assertEqual([3], ls_non_zero_YYY(0, 3))
+        self.assertEqual([1, 3, 5], ls_non_zero_YYY(2, 3))
+        self.assertEqual([0, 2, 4, 6], ls_non_zero_YYY(3, 3))
+
     def test_y1mat_Yqk(self):
         self.assertAlmostEqual(
             -wigner.gaunt(2, 1, 3, -1, 0, 1, 10.0),
             y1mat_Yqk((2, 1), (1, 0), (3, 1)))
+        yyy = y1mat_Yqk((2, 1), (1, 0), (3, 1))
+        self.assertEqual(type(yyy), np.float64)
 
     def test_coupledY(self):
         y1 = CoupledY((1, 1), 2, 0)
         self.assertEqual(2, y1.L)
         self.assertEqual(1, y1.L1)
+
+    def test_coupledY_exchange(self):
+        y1 = CoupledY((2, 1), 3, 0)
+        y2 = y1.exchange()
+        self.assertEqual(1, y2.L1)
+        self.assertEqual(2, y1.L1)
 
     def test_y2mat_YYq(self):
         y0 = CoupledY((0, 0), 0, 0)

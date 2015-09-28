@@ -8,11 +8,6 @@ class TestHMole(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_non0_ls(self):
-        self.assertEqual([3], non0_ls(0, 3))
-        self.assertEqual([1, 3, 5], non0_ls(2, 3))
-        self.assertEqual([0, 2, 4, 6], non0_ls(3, 3))
-
     def test_h_mole_plus_ground(self):
         order = 8
         lmax = 8

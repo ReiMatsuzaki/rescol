@@ -1,8 +1,8 @@
 import numpy as np
 from numpy.polynomial.legendre import leggauss
-from scipy.sparse import csr_matrix
+from scipy.sparse import coo_matrix
 from bspline_bind import calc_bspline_xs, calc_deriv_bspline_xs
-from bspline_bind import eri, ra_inv, dot_abwAcdw, eri_mat
+from bspline_bind import ra_inv, dot_abwAcdw, eri_mat
 from utils import *
 
 
@@ -121,12 +121,6 @@ def num_bspline(order, knots):
     return len(knots)-1+(order-1)
 
 
-def eri(x, y, L):
-    s = min(x, y)
-    g = max(x, y)
-    return (s**L)/(g**(L+1))
-
-
 class BSpline:
     """ B-Spline basis function
     index: Int    index of this B-Spline function
@@ -172,9 +166,9 @@ class BSplineSet:
         self.basis = [one_basis(i) for i
                       in range(1, num_bspline(self.order, self.knots)-1)]
 
-    def calc_csr_matrix(self, mat_ele):
+    def calc_coo_matrix(self, mat_ele):
         """ TO BE REMOVED"""
-        return self.calc_csr_matrix_old(mat_ele)
+        return self.calc_coo_matrix_old(mat_ele)
 
     def calc_mat(self, ab_to_ys):
 
@@ -191,11 +185,11 @@ class BSplineSet:
              for (b, j) in with_index(self.basis)
              if has_non0(self.order, a.index, b.index)]).T
         n = len(self.basis)
-        return csr_matrix((data, (row, col)), shape=(n, n))
+        return coo_matrix((data, (row, col)), shape=(n, n))
 
-    def calc_csr_matrix_old(self, mat_ele):
+    def calc_coo_matrix_old(self, mat_ele):
         """TOO BE REMOVED
-        Gives CSR matrix using B-Spline function
+        Gives COO matrix using B-Spline function
         Parameters
         ----------
         mat_ele : (BSpline,BSpline) -> [Double]
@@ -210,7 +204,7 @@ class BSplineSet:
              for (a, i) in zip(self.basis, range(n))
              for (b, j) in zip(self.basis, range(n))
              if has_non0(self.order, a.index, b.index)]).T
-        return csr_matrix((data, (row, col)), shape=(n, n))
+        return coo_matrix((data, (row, col)), shape=(n, n))
 
     def non0_index(self, a, b):
         """give matrix element between BSpline a and b """
@@ -234,10 +228,10 @@ class BSplineSet:
              for (a, i) in zip(self.basis, range(n))
              for (b, j) in zip(self.basis, range(n))
              if has_non0(self.order, a.index, b.index)]).T
-        return csr_matrix((data, (row, col)), shape=(n, n))
+        return coo_matrix((data, (row, col)), shape=(n, n))
 
     def s_mat_old(self):
-        return self.calc_csr_matrix_old(lambda a, b: a.val*b.val)
+        return self.calc_coo_matrix_old(lambda a, b: a.val*b.val)
 
     def s_mat(self):
         return self.calc_mat(lambda a, b: [a.val, b.val])
@@ -246,6 +240,9 @@ class BSplineSet:
         v = v_x if type(v_x) == np.ndarray \
             else np.array([v_x(x) for x in self.xs])
         return self.calc_mat(lambda a, b: [a.val, v, b.val])
+
+    def en_mat(self, L, a):
+        return self.v_mat(ra_inv(self.xs, L, a))
 
     def two_v_mat(self, v):
 
@@ -263,7 +260,7 @@ class BSplineSet:
              for ((c, d), J) in with_index(usus)
              if has_non0(self.order, a.index, c.index) and
              has_non0(self.order, b.index, d.index)]).T
-        return csr_matrix((data, (row, col)), shape=(len(usus), len(usus)))
+        return coo_matrix((data, (row, col)), shape=(len(usus), len(usus)))
 
     def two_v_mat_old(self, v):
 
@@ -278,40 +275,10 @@ class BSplineSet:
              for ((c, d), J) in with_index(usus)
              if has_non0(self.order, a.index, c.index) and
              has_non0(self.order, b.index, d.index)]).T
-        return csr_matrix((data, (row, col)), shape=(len(usus), len(usus)))
-
-    def eri_mat2(self, L):
-        eri_ij = np.array([eri(x, y, L)
-                           for x in self.xs
-                           for y in self.xs])
-
-        def one_ele(a, b, c, d):
-            (i0, i1) = self.non0_index(a, c)
-            (j0, j1) = self.non0_index(b, d)
-            return dot_abwAcdw(a.val, b.val, c.val, d.val, self.ws, eri_ij,
-                               i0, i1, j0, j1)
-
-        usus = [(a, b) for a in self.basis for b in self.basis]
-        [row, col, data] = np.array(
-            [[I, J, one_ele(a, b, c, d)]
-             for ((a, b), I) in with_index(usus)
-             for ((c, d), J) in with_index(usus)
-             if has_non0(self.order, a.index, c.index) and
-             has_non0(self.order, b.index, d.index)]).T
-        return csr_matrix((data, (row, col)), shape=(len(usus), len(usus)))
+        return coo_matrix((data, (row, col)), shape=(len(usus), len(usus)))
 
     def eri_mat(self, L):
-
-        eri_ij = np.array([[eri(x, y, L)
-                            for x in self.xs]
-                           for y in self.xs])
-        return self.two_v_mat(eri_ij)
-
-    def eri_mat_old(self, L):
-        eri_ij = np.array([[eri(x, y, L)
-                            for x in self.xs]
-                           for y in self.xs])
-        return self.two_v_mat_old(eri_ij)
+        return self.eri_mat_cpp(L)
 
     def eri_mat_cpp(self, L):
         n = len(self.basis)
@@ -319,10 +286,14 @@ class BSplineSet:
         (data, row, col) = eri_mat(bs_vals, self.xs,
                                    self.ws, L, self.order)
 
-        return csr_matrix((data, (row, col)),
+        return coo_matrix((data, (row, col)),
                           shape=(n*n, n*n))
 
     def eri_mat_dense(self, L):
+        def eri(x, y, L):
+            s = min(x, y)
+            g = max(x, y)
+            return (s**L)/(g**(L+1))
 
         eri_ij = np.array([[eri(x, y, L)
                             for x in self.xs]
