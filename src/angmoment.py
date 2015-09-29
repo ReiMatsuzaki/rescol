@@ -300,3 +300,15 @@ def y2mat_Pq_r2A(yp, q, y):
     yp2 = yp.exchange()
     y2 = y.exchange()
     return y2mat_Pq_r1A(yp2, q, y2)
+
+
+def get_coupledY_set(L_max, M, L1L2_even_q, L_even_q):
+    def even_q(x):
+        return (x % 2) == 0
+    Ls = range(L_max+1)
+    return [CoupledY((L1, L2), L, M)
+            for L1 in Ls for L2 in Ls for L in Ls
+            if (even_q(L1+L2) == L1L2_even_q) and
+            (even_q(L) == L_even_q) and
+            (L1+L2 <= L_max) and
+            triangle_q(L2, L1, L)]
