@@ -159,20 +159,16 @@ def mat_h2(bond_length, bspline_set, y_list):
     calc_log.append(("y2mat", t1-t0))
 
     # compute r2y2 matrix
-
     t0 = time.clock()
     t_mat = ((-0.5)*synthesis_mat(d2_1_r2mat, y2mat_diag) +
              (-0.5)*synthesis_mat(d2_2_r2mat, y2mat_diag) +
              (0.5)*synthesis_mat(r2_1_r2mat, y2mat_LL1) +
              (0.5)*synthesis_mat(r2_2_r2mat, y2mat_LL2))
-    t1 = time.clock()
-    calc_log.append(("t_mat", t1-t0))
-    t0 = time.clock()
     v_mat = -2.0*sum([synthesis_mat(ra_1_r2mat_q[q], y2mat_Pq_r1A_q[q]) +
                       synthesis_mat(ra_2_r2mat_q[q], y2mat_Pq_r2A_q[q])
                       for q in qs])
     t1 = time.clock()
-    calc_log.append(("v_mat", t1-t0))
+    calc_log.append(("r2y2_mat", t1-t0))
     t0 = time.clock()
     eri_mat = sum([synthesis_mat(eri_r2mat_q[q], y2mat_Pq_r12_q[q])
                    for q in qs])
@@ -182,5 +178,5 @@ def mat_h2(bond_length, bspline_set, y_list):
     s_mat = synthesis_mat(s_r2mat, y2mat_diag)
     h_mat = t_mat + v_mat + eri_mat
     t1 = time.clock()
-    calc_log.append(("last_mat", t1-t0))
+    calc_log.append(("full_mat", t1-t0))
     return ((h_mat, s_mat), calc_log)
