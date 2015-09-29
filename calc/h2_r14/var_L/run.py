@@ -1,5 +1,5 @@
 import sys
-sys.path.append("../../src")
+sys.path.append("../../../src")
 from rescol import *
 import scipy.sparse.linalg as la
 import time
@@ -22,7 +22,7 @@ num_knots = 21
 lmax = 2
 
 vars = [ (lmax, num, order)
-         for lmax in [2]
+         for lmax in [2, 4, 6]
          for num in [21]
          for order in [4]]
 

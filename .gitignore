@@ -1,2 +1,5 @@
 *.pyc
 *.so
+*.e*
+*.o*
+qsub.sh

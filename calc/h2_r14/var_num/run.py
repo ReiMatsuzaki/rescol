@@ -1,5 +1,5 @@
 import sys
-sys.path.append("../../src")
+sys.path.append("../../../src")
 from rescol import *
 import scipy.sparse.linalg as la
 import time
@@ -23,7 +23,7 @@ lmax = 2
 
 vars = [ (lmax, num, order)
          for lmax in [2]
-         for num in [21]
+         for num in [20, 60, 100, 140]
          for order in [4]]
 
 acc = []

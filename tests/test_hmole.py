@@ -34,10 +34,8 @@ class TestHMole(unittest.TestCase):
                   for L1 in [0, 2] for L2 in [0, 2]
                   if triangle_q(L1, L2, L)]
         bond_length = 1.4
-        ((h, s), calc_log) = mat_h2(bond_length, bspline_set, y_list)
+        (h, s) = mat_h2(bond_length, bspline_set, y_list)
         (es, vecs) = la.eigsh(h, 5, s, sigma=-3.0)
-        for (key, time) in calc_log:
-            print key, ": ", time
         # 1.675 is come from 2015/9/28_rescol_check_h2mole.ipynb
         self.assertTrue(abs(es[0] - (-1.675)) < 0.01)
 
