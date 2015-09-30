@@ -132,9 +132,6 @@ def mat_h2(bond_length, bspline_set, y_list):
     d2_2_r2mat = synthesis_mat(s_r1mat, d2_r1mat)
     r2_1_r2mat = synthesis_mat(r2_r1mat, s_r1mat)
     r2_2_r2mat = synthesis_mat(s_r1mat, r2_r1mat)
-    ra_1_r2mat_q = {}
-    ra_2_r2mat_q = {}
-    eri_r2mat_q = {}
     ra_1_r2mat_q = dict([(q, synthesis_mat(ra, s_r1mat))
                          for (q, ra) in ra_r1mat_q.items()])
     ra_2_r2mat_q = dict([(q, synthesis_mat(s_r1mat, ra))
