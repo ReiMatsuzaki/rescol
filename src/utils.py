@@ -82,3 +82,20 @@ def synthesis_mat(a, b):
 
     data = np.reshape(np.outer(b.data, a.data), (num))
     return coo_matrix((data, (row, col)), shape=(n_row, n_col))
+
+
+def write_coo_mat(mat, file_name):
+    mat = coo_matrix(mat)
+    row = mat.row
+    col = mat.col
+    dat = mat.data
+    with open(file_name, mode='w') as f:
+        for (r, c, d) in zip(row, col, dat):
+            f.write("{0} {1} {2}\n".format(r, c, d))
+
+
+def read_coo_mat(file_name):
+    [row, col, dat] = np.loadtxt(file_name,
+                                 delimiter=" ",
+                                 usecols=(0, 1, 2)).T
+    return coo_matrix((dat, (row, col)))

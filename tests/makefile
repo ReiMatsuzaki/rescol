@@ -13,6 +13,11 @@ test_hmole: test_hmole.py
 	pep8 ../src/hmole.py
 	python test_hmole.py
 
+test_fdiff: test_fdiff.py
+	pep8 test_fdiff.py
+	pep8 ../src/fdiff.py
+	python test_fdiff.py
+
 test_utils: test_utils.py
 	pep8 test_utils.py
 	pep8 ../src/utils.py
