@@ -290,6 +290,7 @@ class BSplineSet:
                           shape=(n*n, n*n))
 
     def eri_mat_dense(self, L):
+
         def eri(x, y, L):
             s = min(x, y)
             g = max(x, y)
