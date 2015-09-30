@@ -115,7 +115,7 @@ def mat_h2(bond_length, bspline_set, y_list):
     """gives hamiltonian matrix and overlap matrix of hydrogen molecule"""
 
     # settings
-    qmax = 10
+    qmax = 2*max([y.L1 for y in y_list])
     qs = range(qmax+1)
 
     # compute r1 matrix
@@ -152,16 +152,17 @@ def mat_h2(bond_length, bspline_set, y_list):
     y2mat_diag = coo_matrix(np.diag([1 for y in y_list]))
 
     # compute r2y2 matrix
-    t_mat = ((-0.5)*synthesis_mat(d2_1_r2mat, y2mat_diag) +
+    h_mat = ((-0.5)*synthesis_mat(d2_1_r2mat, y2mat_diag) +
              (-0.5)*synthesis_mat(d2_2_r2mat, y2mat_diag) +
              (0.5)*synthesis_mat(r2_1_r2mat, y2mat_LL1) +
              (0.5)*synthesis_mat(r2_2_r2mat, y2mat_LL2))
-    v_mat = -2.0*sum([synthesis_mat(ra_1_r2mat_q[q], y2mat_Pq_r1A_q[q]) +
-                      synthesis_mat(ra_2_r2mat_q[q], y2mat_Pq_r2A_q[q])
-                      for q in qs])
-    eri_mat = sum([synthesis_mat(eri_r2mat_q[q], y2mat_Pq_r12_q[q])
-                   for q in qs])
+    for q in qs:
+        h_mat = h_mat + ((-2.0)*synthesis_mat(ra_1_r2mat_q[q],
+                                              y2mat_Pq_r1A_q[q]) +
+                         (-2.0)*synthesis_mat(ra_2_r2mat_q[q],
+                                              y2mat_Pq_r2A_q[q]) +
+                         synthesis_mat(eri_r2mat_q[q],
+                                       y2mat_Pq_r12_q[q]))
 
     s_mat = synthesis_mat(s_r2mat, y2mat_diag)
-    h_mat = t_mat + v_mat + eri_mat
     return (h_mat, s_mat)
