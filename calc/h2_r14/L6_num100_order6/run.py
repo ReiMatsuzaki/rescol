@@ -10,25 +10,15 @@ ref_E0 = -1.174475174
 bond_length = 1.4
 rmax = 60.0
 
-# in reference paper
-# order = 8
-# rmax = 60
-# num_knots =140
-#lmax = 8
-
 vars = [ (lmax, num, order)
          for lmax in [6]
-         for num in [61]
-         for order in [4, 6, 8]]
+         for num in [100]
+         for order in [6]]
 
 acc = []
 for (lmax, num, order) in vars:
     bspline_set = BSplineSet(order, lin_knots(0.0, rmax, num))
-    y_list = [CoupledY((L1, L2), L, 0)
-              for L in range(lmax+1)
-              for L1 in range(lmax+1)
-              for L2 in range(lmax+1)
-              if triangle_q(L1, L2, L) and (L1+L2)%2==0 and L1+L2<=lmax and L%2==0]
+    y_list = get_coupledY_set(lmax, 0, True, True)
     t0 = time.clock()
     (h, s) = mat_h2(bond_length, bspline_set, y_list)
     t1 = time.clock()
@@ -37,7 +27,8 @@ for (lmax, num, order) in vars:
     acc.append([("lmax", lmax),
                 ("num", num),
                 ("order", order),
-                ("N", h.shape[0]),
+                ("Nbasis", h.shape[0]),
+                ("Ndata", len(h.data)),
                 ("t_mat", t1-t0),
                 ("t_diag", t2-t1),
                 ("E0", es[0] + 1.0/bond_length)])
