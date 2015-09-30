@@ -1,6 +1,6 @@
 import numpy as np
 from numpy import pi, sqrt
-from scipy.sparse import bmat, coo_matrix
+from scipy.sparse import bmat, coo_matrix, lil_matrix, csr_matrix
 from utils import flatten, uniq, synthesis_mat
 from angmoment import ls_non_zero_YYY, y1mat_Yqk, y2mat_Pq_r12, y2mat_Pq_r1A
 from angmoment import y2mat_Pq_r2A
@@ -163,6 +163,63 @@ def mat_h2(bond_length, bspline_set, y_list):
                                               y2mat_Pq_r2A_q[q]) +
                          synthesis_mat(eri_r2mat_q[q],
                                        y2mat_Pq_r12_q[q]))
+
+    s_mat = synthesis_mat(s_r2mat, y2mat_diag)
+    return (h_mat, s_mat)
+
+
+def mat_h2_lil(bond_length, bspline_set, y_list):
+    """gives hamiltonian matrix and overlap matrix of hydrogen molecule"""
+
+    # settings
+    qmax = 2*max([y.L1 for y in y_list])
+    qs = range(qmax+1)
+
+    # compute r1 matrix
+    s_r1mat = bspline_set.s_mat()
+    d2_r1mat = bspline_set.d2_mat()
+    rs = bspline_set.xs
+    r2_r1mat = bspline_set.v_mat(1.0/(rs*rs))
+    ra_r1mat_q = dict([(q, bspline_set.en_mat(q, bond_length/2.0))
+                       for q in qs])
+
+    # compute r2 matrix
+    s_r2mat = synthesis_mat(s_r1mat, s_r1mat)
+    d2_1_r2mat = synthesis_mat(d2_r1mat, s_r1mat)
+    d2_2_r2mat = synthesis_mat(s_r1mat, d2_r1mat)
+    r2_1_r2mat = synthesis_mat(r2_r1mat, s_r1mat)
+    r2_2_r2mat = synthesis_mat(s_r1mat, r2_r1mat)
+    ra_1_r2mat_q = dict([(q, synthesis_mat(ra, s_r1mat))
+                         for (q, ra) in ra_r1mat_q.items()])
+    ra_2_r2mat_q = dict([(q, synthesis_mat(s_r1mat, ra))
+                         for (q, ra) in ra_r1mat_q.items()])
+    eri_r2mat_q = dict([(q, bspline_set.eri_mat(q)) for q in qs])
+
+    # compute y2 matrix
+    def ymat(o):
+        return dict([(q, coo_matrix([[o(y1, q, y2)
+                                      for y1 in y_list] for y2 in y_list]))
+                     for q in qs])
+
+    y2mat_Pq_r12_q = ymat(y2mat_Pq_r12)
+    y2mat_Pq_r1A_q = ymat(y2mat_Pq_r1A)
+    y2mat_Pq_r2A_q = ymat(y2mat_Pq_r2A)
+    y2mat_LL1 = coo_matrix(np.diag([y.L1*(y.L1+1) for y in y_list]))
+    y2mat_LL2 = coo_matrix(np.diag([y.L2*(y.L2+1) for y in y_list]))
+    y2mat_diag = coo_matrix(np.diag([1 for y in y_list]))
+
+    # compute r2y2 matrix
+    h_mat = lil_matrix(-0.5*synthesis_mat(d2_1_r2mat, y2mat_diag))
+    h_mat += lil_matrix(-0.5*synthesis_mat(d2_2_r2mat, y2mat_diag))
+    h_mat += lil_matrix(0.5*synthesis_mat(r2_1_r2mat, y2mat_LL1))
+    h_mat += lil_matrix(0.5*synthesis_mat(r2_2_r2mat, y2mat_LL2))
+    for q in qs:
+        h_mat += lil_matrix(-2.0*synthesis_mat(ra_1_r2mat_q[q],
+                                               y2mat_Pq_r1A_q[q]))
+        h_mat += lil_matrix(-2.0*synthesis_mat(ra_2_r2mat_q[q],
+                                               y2mat_Pq_r2A_q[q]))
+        h_mat += lil_matrix(synthesis_mat(eri_r2mat_q[q],
+                                          y2mat_Pq_r12_q[q]))
 
     s_mat = synthesis_mat(s_r2mat, y2mat_diag)
     return (h_mat, s_mat)

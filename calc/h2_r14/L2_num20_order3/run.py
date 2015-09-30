@@ -15,9 +15,9 @@ bond_length = 1.4
 rmax = 60.0
 
 vars = [ (lmax, num, order)
-         for lmax in [4]
-         for num in [60]
-         for order in [4]]
+         for lmax in [2]
+         for num in [20]
+         for order in [3]]
 
 t0 = time.clock()
 print "node: ", commands.getoutput("uname -n")
