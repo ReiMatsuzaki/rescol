@@ -33,15 +33,18 @@ def mat_h2_plus(bond_length, bspline_set, l_list):
     s_rmat = bspline_set.s_mat()
     tmp_L_list = uniq(flatten([ls_non_zero_YYY(L1, L2)
                                for L1 in l_list for L2 in l_list]))
-    en_r1mat_L = {L: bspline_set.en_mat(L, bond_length/2.0)
-                  for L in tmp_L_list}
+    en_r1mat_L = {}
+    for L in tmp_L_list:
+        en_r1mat_L[L] = bspline_set.en_mat(L, bond_length/2.0)
 
     # compute y1 matrix (Y_L1|P_L(w_A)|Y_L2)
-    en_y1mat_L = {L: coo_matrix([[np.sqrt(4.0*np.pi/(2*L+1)) *
-                                  y1mat_Yqk((L1, 0), (L, 0), (L2, 0))
-                                  for L1 in l_list]
-                                 for L2 in l_list])
-                  for L in tmp_L_list}
+    en_y1mat_L = {}
+    for L in tmp_L_list:
+        en_y1mat_L[L] = coo_matrix([[np.sqrt(4.0*np.pi/(2*L+1)) *
+                                     y1mat_Yqk((L1, 0), (L, 0), (L2, 0))
+                                     for L1 in l_list]
+                                    for L2 in l_list])
+
     LL_y1mat = coo_matrix(np.diag([1.0*L*(L+1) for L in l_list]))
     diag_y1mat = coo_matrix(np.diag([1 for L in l_list]))
 
@@ -82,8 +85,9 @@ def mat_h2_plus_old(bond_length, bspline_set, l_list):
     s_rmat = bspline_set.s_mat()
     tmp_L_list = uniq(flatten([ls_non_zero_YYY(L1, L2)
                                for L1 in l_list for L2 in l_list]))
-    en_r1mat_L = {L: bspline_set.en_mat(L, bond_length/2.0)
-                  for L in tmp_L_list}
+    en_r1mat_L = {}
+    for L in tmp_L_list:
+        en_r1mat_L[L] = bspline_set.en_mat(L, bond_length/2.0)
 
     # compute r1Y matrix (B_iY_L1M1|O|B_jY_L2M2)
     def one_block(L1, L2):
@@ -119,8 +123,8 @@ def mat_h2(bond_length, bspline_set, y_list):
     d2_r1mat = bspline_set.d2_mat()
     rs = bspline_set.xs
     r2_r1mat = bspline_set.v_mat(1.0/(rs*rs))
-    ra_r1mat_q = {q: bspline_set.en_mat(q, bond_length/2.0)
-                  for q in qs}
+    ra_r1mat_q = dict([(q, bspline_set.en_mat(q, bond_length/2.0))
+                       for q in qs])
 
     # compute r2 matrix
     s_r2mat = synthesis_mat(s_r1mat, s_r1mat)
@@ -128,17 +132,20 @@ def mat_h2(bond_length, bspline_set, y_list):
     d2_2_r2mat = synthesis_mat(s_r1mat, d2_r1mat)
     r2_1_r2mat = synthesis_mat(r2_r1mat, s_r1mat)
     r2_2_r2mat = synthesis_mat(s_r1mat, r2_r1mat)
-    ra_1_r2mat_q = {q: synthesis_mat(ra, s_r1mat)
-                    for (q, ra) in ra_r1mat_q.items()}
-    ra_2_r2mat_q = {q: synthesis_mat(s_r1mat, ra)
-                    for (q, ra) in ra_r1mat_q.items()}
-    eri_r2mat_q = {q: bspline_set.eri_mat(q) for q in qs}
+    ra_1_r2mat_q = {}
+    ra_2_r2mat_q = {}
+    eri_r2mat_q = {}
+    ra_1_r2mat_q = dict([(q, synthesis_mat(ra, s_r1mat))
+                         for (q, ra) in ra_r1mat_q.items()])
+    ra_2_r2mat_q = dict([(q, synthesis_mat(s_r1mat, ra))
+                         for (q, ra) in ra_r1mat_q.items()])
+    eri_r2mat_q = dict([(q, bspline_set.eri_mat(q)) for q in qs])
 
     # compute y2 matrix
     def ymat(o):
-        m = {q: coo_matrix([[o(y1, q, y2) for y1 in y_list] for y2 in y_list])
-             for q in qs}
-        return m
+        return dict([(q, coo_matrix([[o(y1, q, y2)
+                                      for y1 in y_list] for y2 in y_list]))
+                     for q in qs])
 
     y2mat_Pq_r12_q = ymat(y2mat_Pq_r12)
     y2mat_Pq_r1A_q = ymat(y2mat_Pq_r1A)

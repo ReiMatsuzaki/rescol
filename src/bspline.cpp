@@ -51,7 +51,7 @@ double CalcDerivBSpline(int order, double* ts, int i, double x) {
     throw err;
   }
 
-  if(index < 0) {
+  if(i < 0) {
     std::domain_error err("bspline.cpp, CalcDerivBSpline, index must be positive");
     throw err;    
   }

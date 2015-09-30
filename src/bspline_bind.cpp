@@ -17,7 +17,7 @@ np::ndarray CalcBSplineNumpy(int order, const np::ndarray& ts,
   double* d_xs = reinterpret_cast<double*>(xs.get_data());
   size_t num_x = xs.shape(0);
   double* d_ys = new double[num_x];
-  for(int i = 0; i < num_x; i++) 
+  for(size_t i = 0; i < num_x; i++) 
     d_ys[i] = CalcBSpline(order, d_ts, index, d_xs[i]);
   return np::from_data( d_ys, 
 			np::dtype::get_builtin<double>(),
@@ -31,7 +31,7 @@ np::ndarray CalcDerivBSplineNumpy(int order, const np::ndarray& ts,
   double* d_xs = reinterpret_cast<double*>(xs.get_data());
   size_t num_x = xs.shape(0);
   double* d_ys = new double[num_x];
-  for(int i = 0; i < num_x; i++) 
+  for(size_t i = 0; i < num_x; i++) 
     d_ys[i] = CalcDerivBSpline(order, d_ts, index, d_xs[i]);
   return np::from_data( d_ys, 
 			np::dtype::get_builtin<double>(),
@@ -44,7 +44,7 @@ np::ndarray RAInv(const np::ndarray& xs, int L, double a) {
   double* d_xs = reinterpret_cast<double*>(xs.get_data());
   size_t num_x = xs.shape(0);
   double* d_ys = new double[num_x];
-  for(int i = 0; i < num_x; i++) {
+  for(size_t i = 0; i < num_x; i++) {
     double s;
     double g;
     if(a < d_xs[i]) {
