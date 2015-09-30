@@ -1,4 +1,1 @@
-lmax   num   order   N   t_mat   t_diag   E0   
-2   21   4   4851   0.69   6.51   -0.967581976641   
-2   21   6   5819   1.8   17.82   -1.00383500227   
-2   21   8   6875   7.61   32.38   -1.19926381445   
+Not enough memory to perform factorization.
