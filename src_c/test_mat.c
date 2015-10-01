@@ -12,8 +12,10 @@ int main (int argc, char **args)
   // Initialization
   ierr = SlepcInitialize(&argc, &args, (char*)0, help);
   
-  //  MatCreate(PETSC_COMM_WORLD, &H);
+  // Read from options
+  PetscOptionsBegin(PETSC_COMM_WORLD, "", "test for mat.c options", "none");
   PetscOptionsString("-h-mat", "path for H matrix data file", "", h_path, h_path, 256, NULL);
+  PetscOptionsEnd();
 
   ierr = MatCreateFromCOOFormatFile(h_path, &H); CHKERRQ(ierr);
   
