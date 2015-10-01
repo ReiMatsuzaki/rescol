@@ -2,4 +2,4 @@
 *.so
 *.e*
 *.o*
-qsub.sh
+qsub*.sh
