@@ -1,6 +1,6 @@
 #include "mat.h"
 
-PetscErrorCode MatCreateFromCOOFormatFile(char* path, Mat* mat) {
+PetscErrorCode MatCreateFromCOOFormatFileOld(char* path, Mat* mat) {
   FILE* fp;
   PetscInt *rows, *cols;
   PetscScalar *datas;
@@ -36,5 +36,34 @@ PetscErrorCode MatCreateFromCOOFormatFile(char* path, Mat* mat) {
 				   mat,
 				   num_data, 0); CHKERRQ(ierr);
   fclose(fp);
+  return ierr;
+}
+
+PetscErrorCode MatCreateFromCOOFormatFile(char* path, Mat* mat) {
+  FILE* fp;
+  PetscInt i, col, row;
+  PetscErrorCode ierr;
+  int num_data, num_row, num_col;
+  PetscScalar dat;
+
+
+  if((fp = fopen(path, "r")) == NULL) {
+    const char* msg = "Failed to open file.\0";
+    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_FILE_OPEN, msg);
+  }
+
+  if(fscanf(fp, "%d %d %d", &num_data, &num_row, &num_col) == EOF) {
+    const char* msg = "Failed to read first line. Expected format is:\n num_data, num_row, num_col\0";
+    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_FILE_UNEXPECTED, msg);
+  }
+
+  i = 0;
+  while(fscanf(fp, "%d %d %lf", &row, &col, &dat) != EOF) {
+    i++;
+    ierr = MatSetValue(*mat, row, col, dat, INSERT_VALUES); CHKERRQ(ierr);
+  }
+  fclose(fp);
+  MatAssemblyBegin(*mat, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(*mat, MAT_FINAL_ASSEMBLY);
   return ierr;
 }

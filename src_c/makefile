@@ -2,8 +2,8 @@
 #SLEPC_DIR = ${HOME}/local/src/slepc-3.4.3
 #PETSC_DIR = ${HOME}/local/src/petsc-3.4.3
 #PETSC_ARCH = rccls_C
-#SLEPC_DIR = /usr/local/Cellar/slepc/3.6.1/real
-#PETSC_DIR = /usr/local/Cellar/petsc/3.6.1_3/real
+SLEPC_DIR = /usr/local/Cellar/slepc/3.6.1/real
+PETSC_DIR = /usr/local/Cellar/petsc/3.6.1_3/real
 
 PETSC_ARCH = real                          
 #$CXXFLAGS=-g
