@@ -90,6 +90,7 @@ def write_coo_mat(mat, file_name):
     col = mat.col
     dat = mat.data
     with open(file_name, mode='w') as f:
+        f.write("{0} {1} {2}\n".format(max(row)+1, max(col)+1, len(dat)))
         for (r, c, d) in zip(row, col, dat):
             f.write("{0} {1} {2}\n".format(r, c, d))
 
@@ -97,5 +98,6 @@ def write_coo_mat(mat, file_name):
 def read_coo_mat(file_name):
     [row, col, dat] = np.loadtxt(file_name,
                                  delimiter=" ",
+                                 skiprows=1,
                                  usecols=(0, 1, 2)).T
     return coo_matrix((dat, (row, col)))

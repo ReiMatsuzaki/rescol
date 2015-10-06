@@ -1,20 +1,25 @@
 #include "mat.h"
+#include <petscmat.h>
 
 static char help[] = "Read h_mat and s_mat written in COO format and solve eigen value problem";
 
+/*
+  important options in PETSc/SLEPc 
+  -eps_nev : # of necessary eigen pairs
+  -eps_ncv : # of column vectors to be used by the solutions
+  -eps_mpd : maximum dim of projected problem
+  
+  -eps_real : somputing nearest eigenvalues in real part
+  -eps_target : target eigen value
+*/
+
 int main (int argc, char **args)
 {
-
   PetscErrorCode ierr;
-  char h_path[256];
-  char s_path[256];
+  char h_path[256] = "hmat.dat";
+  char s_path[256] = "smat.dat";
   Mat H, S;
-  Vec xs, ys;
   EPS eps;
-
-  EPSType type;
-  PetscInt its, nev, maxit, nconv, i;
-  PetscReal tol, eig ,im_eig, error;
 
   // Initialization
   ierr = SlepcInitialize(&argc, &args, (char*)0, help);
@@ -30,37 +35,24 @@ int main (int argc, char **args)
   // Matrix and creation from file
   MatCreateFromCOOFormatFile(h_path, &H);
   MatCreateFromCOOFormatFile(s_path, &S);
-  MatView(H, PETSC_VIEWER_STDOUT_SELF);
-  ierr = MatCreateVecs(H, NULL, &xs); CHKERRQ(ierr);
-  ierr = MatCreateVecs(H, NULL, &ys); CHKERRQ(ierr);
 
   // Eigensolver
   ierr = EPSCreate(PETSC_COMM_WORLD, &eps); CHKERRQ(ierr);
   ierr = EPSSetOperators(eps, H, S); CHKERRQ(ierr);
-  ierr = EPSSetProblemType(eps, EPS_HEP); CHKERRQ(ierr);
+  ierr = EPSSetProblemType(eps, EPS_GHEP); CHKERRQ(ierr);
   ierr = EPSSetFromOptions(eps); CHKERRQ(ierr);
 
   // Solve 
   ierr = EPSSolve(eps); CHKERRQ(ierr);
 
-  ierr = EPSGetIterationNumber(eps, &its); CHKERRQ(ierr);
-  ierr = EPSGetType(eps, &type); CHKERRQ(ierr);
-  ierr = EPSGetDimensions(eps, &nev, NULL, NULL);
-  ierr = EPSGetTolerances(eps, &tol, &maxit); CHKERRQ(ierr);
-  
-  ierr = EPSGetConverged(eps, &nconv); CHKERRQ(ierr);
-  for(i = 0; i < nconv; i++) {
-    ierr = EPSGetEigenpair(eps, i, &eig, &im_eig, xs, ys); CHKERRQ(ierr);
-    ierr = EPSComputeError(eps, i, EPS_ERROR_RELATIVE, &error); CHKERRQ(ierr);
-    ierr = PetscPrintf(PETSC_COMM_WORLD, "%f (%g)", eig, error); CHKERRQ(ierr);
-  }
+  // write to file
+  //  EPSWriteToFile(eps, "diag_detail.dat", "diag_eigvals.dat", "diag_eigvecs.dat");
+    EPSWriteToFile(eps, "diag_detail.dat", "diag_eigvals.dat", NULL);
 
   // Finalization
   ierr = EPSDestroy(&eps); CHKERRQ(ierr);
   ierr = MatDestroy(&H); CHKERRQ(ierr);
   ierr = MatDestroy(&S); CHKERRQ(ierr);
-  ierr = VecDestroy(&xs); CHKERRQ(ierr);
-  ierr = VecDestroy(&ys); CHKERRQ(ierr);
   ierr = SlepcFinalize();
   return 0;
 }

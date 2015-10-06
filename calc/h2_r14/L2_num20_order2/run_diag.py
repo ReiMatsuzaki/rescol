@@ -12,7 +12,7 @@ bond_length = 1.4
 
 t0 = time.clock()
 try:
-    os.system("../src_c/diag.out -eps_nev 1 -eps_real -eps_target -3.0")
+    os.system("../../../src_c/diag.out -eps_nev 1 -eps_real -eps_target -3.0")
 except:
     print "Failed at diagonalizing matrix"
     print "--------------------------------"

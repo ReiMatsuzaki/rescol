@@ -12,12 +12,12 @@ import traceback
 # J.Sims, S.Hagstom, JCP *124*, 094101 (2006)
 ref_E0 = -1.174475174
 bond_length = 1.4
-rmax = 60.0
+rmax = 20.0
 
 vars = [ (lmax, num, order)
-         for lmax in [4]
-         for num in [100]
-         for order in [6]]
+         for lmax in [2]
+         for num in [20]
+         for order in [2]]
 
 t0 = time.clock()
 print "node: ", commands.getoutput("uname -n")
@@ -39,8 +39,8 @@ for (lmax, num, order) in vars:
     print "NBasis: ", h.shape[0]
     print "Ny2: ", len(y_list)
     print "NData: {0:e}".format(len(h.data))
-    write_coo_mat(h, "h.out")
-    write_coo_mat(s, "s.out")
+    write_coo_mat(h, "hmat.dat")
+    write_coo_mat(s, "smat.dat")
 
 t1 = time.clock()
 print "time: ", t1-t0

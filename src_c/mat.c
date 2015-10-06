@@ -52,10 +52,23 @@ PetscErrorCode MatCreateFromCOOFormatFile(char* path, Mat* mat) {
     SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_FILE_OPEN, msg);
   }
 
-  if(fscanf(fp, "%d %d %d", &num_data, &num_row, &num_col) == EOF) {
-    const char* msg = "Failed to read first line. Expected format is:\n num_data, num_row, num_col\0";
+  if(fscanf(fp, "%d %d %d", &num_row, &num_col, &num_data) == EOF) {
+    const char* msg = "Failed to read first line. Expected format is:\n num_row, num_col, num_data\0";
     SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_FILE_UNEXPECTED, msg);
   }
+  
+  if(num_data <= 0 || num_row <= 0 || num_col <= 0 || num_row != num_col) {
+    char msg[256];
+    sprintf(msg, "Invalid head value. num_data=%d, num_row=%d, num_col=%d", 
+	    num_data, num_row, num_col);
+    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_FILE_UNEXPECTED, msg);    
+  }
+
+  // Create Mat
+  MatCreate(PETSC_COMM_WORLD, mat);
+  MatSetSizes(*mat, PETSC_DECIDE, PETSC_DECIDE, num_row, num_col);
+  MatSetFromOptions(*mat);
+  MatSetUp(*mat);
 
   i = 0;
   while(fscanf(fp, "%d %d %lf", &row, &col, &dat) != EOF) {
@@ -66,4 +79,74 @@ PetscErrorCode MatCreateFromCOOFormatFile(char* path, Mat* mat) {
   MatAssemblyBegin(*mat, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(*mat, MAT_FINAL_ASSEMBLY);
   return ierr;
+}
+
+PetscErrorCode EPSWriteToFile(EPS eps, char* path_detail, char* path_eigvals, char* path_eigvecs) {
+  /*
+    Parameters
+    ----------
+    eps : EPS Context
+    path_detail : file path for writing calculation detail
+    path_eigvals : file path for eigenvalus (if NULL, no output)
+    path_eigvecs : file path for eigenvectors (if NULL, no output)
+   */
+  
+  FILE* fp_detail = NULL;
+  FILE* fp_eigvals = NULL;
+  FILE* fp_eigvecs = NULL;
+  EPSType type;
+  PetscErrorCode ierr;
+  PetscInt nconv, i, its, nev, maxit;
+  PetscScalar eig, im_eig, error, tol;
+  Mat H;
+  Vec xs, ys;
+  PetscViewer vec_viewer;
+
+  // prepare vector
+  ierr = EPSGetOperators(eps, &H, NULL); CHKERRQ(ierr);
+  ierr = MatCreateVecs(H, NULL, &xs); CHKERRQ(ierr);
+  ierr = MatCreateVecs(H, NULL, &ys); CHKERRQ(ierr);
+  if(path_eigvecs)
+    PetscViewerASCIIOpen(PETSC_COMM_WORLD, path_eigvecs, &vec_viewer);
+
+  // open file
+  fp_detail = fopen(path_detail, "w");
+  if(path_eigvals)
+    fp_eigvals = fopen(path_eigvals, "w");
+  if(path_eigvecs)
+    fp_eigvecs = fopen(path_eigvecs, "w");
+
+  // extract basic information
+  EPSGetIterationNumber(eps, &its); 
+  PetscFPrintf(PETSC_COMM_WORLD, fp_detail, "iteration: %d\n", its);
+  EPSGetType(eps, &type); 
+  PetscFPrintf(PETSC_COMM_WORLD, fp_detail, "EPSType: %s\n", type);
+  EPSGetDimensions(eps, &nev, NULL, NULL);
+  PetscFPrintf(PETSC_COMM_WORLD, fp_detail, "dim: %d\n", nev);
+  ierr = EPSGetTolerances(eps, &tol, &maxit);
+  PetscFPrintf(PETSC_COMM_WORLD, fp_detail, "tol: %f\n", tol);
+  PetscFPrintf(PETSC_COMM_WORLD, fp_detail, "maxit: %d\n", maxit);
+
+  // write to files
+  PetscFPrintf(PETSC_COMM_WORLD, fp_eigvals, "EigenValue, Error\n");
+  ierr = EPSGetConverged(eps, &nconv); CHKERRQ(ierr);
+  for(i = 0; i < nconv; i++) {
+    ierr = EPSGetEigenpair(eps, i, &eig, &im_eig, xs, ys); CHKERRQ(ierr);
+    ierr = EPSComputeError(eps, i, EPS_ERROR_RELATIVE, &error); CHKERRQ(ierr);
+    if(fp_eigvals)
+      PetscFPrintf(PETSC_COMM_WORLD, fp_eigvals, "%g %g\n", eig, error);    
+    if(fp_eigvecs)
+      VecView(xs, vec_viewer);
+  }
+  
+  // finalize
+  VecDestroy(&xs);
+  VecDestroy(&ys);
+  fclose(fp_detail);
+  if(fp_eigvals)
+    fclose(fp_eigvals);
+  if(fp_eigvecs)
+    fclose(fp_eigvecs);
+
+  return 0;
 }

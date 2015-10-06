@@ -3,3 +3,4 @@
 *.e*
 *.o*
 qsub*.sh
+*.dat
