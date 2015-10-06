@@ -2,6 +2,7 @@ from scipy.sparse import coo_matrix
 import numpy as np
 import bspline_bind
 
+# Basic functional programming utility
 
 def flatten(xs):
     return reduce(lambda a, b: a+b, xs)
@@ -14,6 +15,21 @@ def uniq(xs):
 def with_index(xs):
     return zip(xs, range(len(xs)))
 
+
+# I/O
+
+def keyval_to_dict(file_path):
+    """ gives the dict object from key-value text file.
+    """
+    my_dict = {}
+    with open(file_path) as f:
+        for line in f:
+            name, val = line.partition(":")[::2]
+            my_dict[name.strip()] = val.strip()
+    return my_dict
+
+
+# Linear algebra
 
 def outer_sum(a, b):
     """ gives summation version of outer product

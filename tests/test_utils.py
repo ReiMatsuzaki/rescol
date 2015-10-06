@@ -6,6 +6,7 @@ from scipy.sparse import coo_matrix
 
 
 class TestUtils(unittest.TestCase):
+
     def setUp(self):
         pass
 
@@ -16,6 +17,18 @@ class TestUtils(unittest.TestCase):
     def test_uniq(self):
         self.assertEqual([1, 2, 3],
                          uniq([1, 2, 2, 1, 3, 3]))
+
+    def test_keyval_to_dict(self):
+        with open("tmp.txt", "w") as f:
+            f.write("aval: 1\n")
+            f.write("bval: 3\n")
+            f.write("abc: 3.33\n")
+
+        kv = keyval_to_dict("tmp.txt")
+        self.assertEqual("1", kv["aval"])
+        self.assertEqual("3", kv["bval"])
+        self.assertEqual("3.33", kv["abc"])
+        os.system("rm tmp.txt")
 
     def test_synthesis_mat(self):
         """

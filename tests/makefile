@@ -1,5 +1,5 @@
 # petsc and slepc settings
-export PYTHONPATH=../src
+export PYTHONPATH=../src:
 
 test_bind: test_bind.py
 	python test_bind.py
