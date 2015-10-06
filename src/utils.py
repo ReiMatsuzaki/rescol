@@ -1,3 +1,4 @@
+import os
 from scipy.sparse import coo_matrix
 import numpy as np
 import bspline_bind
@@ -28,6 +29,34 @@ def keyval_to_dict(file_path):
             my_dict[name.strip()] = val.strip()
     return my_dict
 
+def cd(dir_name):
+    """ change directory to 'dir_name'. If dir_name does not exist make it"""
+    if not os.path.exists(dir_name):
+        os.mkdir(dir_name)
+    os.chdir(dir_name)
+
+def with_dir(dir_name, work):
+    """ work at directory 'dir_name' and do 'work'
+
+    Parameters
+    ----------
+    dir_name: String 
+         working directory name
+
+    work: lambda : ()
+         lambda expression with no argument and no outputs
+
+    Example
+    -------
+    with_dir("calc_dir",
+             lambda(: 
+               work1() or
+                rok2()))
+"""
+    orig_dir = os.path.abspath(".")
+    cd(dir_name)
+    work()
+    cd(orig_dir)
 
 # Linear algebra
 
