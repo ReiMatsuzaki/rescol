@@ -38,10 +38,14 @@ class TestAngMoment(unittest.TestCase):
 
     def test_y1mat_Yqk(self):
         self.assertAlmostEqual(
-            -wigner.gaunt(2, 1, 3, -1, 0, 1, 10.0),
+            (-1)**(2+1)*wigner.gaunt(2, 1, 3, -1, 0, 1, 10.0),
             y1mat_Yqk((2, 1), (1, 0), (3, 1)))
         yyy = y1mat_Yqk((2, 1), (1, 0), (3, 1))
         self.assertEqual(type(yyy), np.float64)
+
+    def test_y1mat_Pq(self):
+        self.assertAlmostEqual(1.0, y1mat_Pq((0, 0), 0, (0, 0)))
+        self.assertAlmostEqual(1.0, y1mat_Pq((1, 0), 0, (1, 0)))
 
     def test_coupledY(self):
         y1 = CoupledY((1, 1), 2, 0)

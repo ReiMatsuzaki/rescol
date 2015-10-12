@@ -18,6 +18,26 @@ class TestUtils(unittest.TestCase):
         self.assertEqual([1, 2, 3],
                          uniq([1, 2, 2, 1, 3, 3]))
 
+    def test_with_index(self):
+        xs = [3, 1, 2]
+        ixs = with_index(xs)
+        self.assertEqual(0, ixs[0][1])
+        self.assertEqual(3, ixs[0][0])
+        self.assertEqual(1, ixs[1][1])
+        self.assertEqual(1, ixs[1][0])
+
+    def test_repeat(self):
+        xs = repeat(3, 5)
+        self.assertEqual(5, len(xs))
+        self.assertEqual(3, xs[0])
+        self.assertEqual(3, xs[-1])
+
+    def self_replace_at(self):
+        xs = [3, 1, 2, 5]
+        ys = replace_at(xs, 1, -1)
+        self.assertEqual(4, len(xs))
+        self.assertEqual(-1, xs[1])
+
     def test_keyval_to_dict(self):
         with open("tmp.txt", "w") as f:
             f.write("aval: 1\n")
@@ -29,6 +49,23 @@ class TestUtils(unittest.TestCase):
         self.assertEqual("3", kv["bval"])
         self.assertEqual("3.33", kv["abc"])
         os.system("rm tmp.txt")
+
+    def test_diag_bmat(self):
+        m1 = coo_matrix([[1, 2],
+                         [0, 1]])
+        m2 = coo_matrix([[4, 1],
+                         [0, -1]])
+        m3 = coo_matrix([[3, 1],
+                         [0, -1]])
+        m = diag_bmat([m1, m2, m3])
+        self.assertEqual((6, 6), m.shape)
+        ma = m.toarray()
+        self.assertEqual(1, ma[0, 0])
+        self.assertEqual(2, ma[0, 1])
+        self.assertEqual(0, ma[0, 3])
+        self.assertEqual(4, ma[2, 2])
+        self.assertEqual(3, ma[4, 4])
+        self.assertEqual(1, ma[4, 5])
 
     def test_synthesis_mat(self):
         """

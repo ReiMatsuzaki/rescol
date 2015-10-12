@@ -1,6 +1,11 @@
 # petsc and slepc settings
 export PYTHONPATH=../src:
 
+test_femdvr: test_femdvr.py
+	pep8 test_femdvr.py
+	pep8 ../src/femdvr.py
+	python test_femdvr.py
+
 test_bind: test_bind.py
 	python test_bind.py
 

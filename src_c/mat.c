@@ -39,17 +39,16 @@ PetscErrorCode MatCreateFromCOOFormatFileOld(char* path, Mat* mat) {
   return ierr;
 }
 
-PetscErrorCode MatCreateFromCOOFormatFile(char* path, Mat* mat) {
-  FILE* fp;
+PetscErrorCode MatCreateFromCOOFormatFileHandler(FILE* fp, Mat* mat) {
+
   PetscInt i, col, row;
   PetscErrorCode ierr;
   int num_data, num_row, num_col;
-  PetscScalar dat;
+  PetscScalar dat;  
 
-
-  if((fp = fopen(path, "r")) == NULL) {
-    const char* msg = "Failed to open file.\0";
-    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_FILE_OPEN, msg);
+  if(fp == NULL) {
+    char msg[256] = "file path is NULL";
+    SETERRQ(PETSC_COMM_WORLD, 1, msg);
   }
 
   if(fscanf(fp, "%d %d %d", &num_row, &num_col, &num_data) == EOF) {
@@ -79,6 +78,21 @@ PetscErrorCode MatCreateFromCOOFormatFile(char* path, Mat* mat) {
   MatAssemblyBegin(*mat, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(*mat, MAT_FINAL_ASSEMBLY);
   return ierr;
+}
+
+PetscErrorCode MatCreateFromCOOFormatFile(char* path, Mat* mat) {
+
+  PetscErrorCode ierr;
+  FILE* fp = NULL;
+
+  if((fp = fopen(path, "r")) == NULL) {
+    char msg[256];
+    sprintf(msg, "Failed to open file. Target file path is :%s", path);
+    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_FILE_OPEN, msg);
+  }
+
+  ierr = MatCreateFromCOOFormatFileHandler(fp, mat); CHKERRQ(ierr);
+  return 0;
 }
 
 PetscErrorCode EPSWriteToFile(EPS eps, char* path_detail, char* path_eigvals, char* path_eigvecs) {
@@ -148,5 +162,97 @@ PetscErrorCode EPSWriteToFile(EPS eps, char* path_detail, char* path_eigvals, ch
   if(fp_eigvecs)
     fclose(fp_eigvecs);
 
+  return 0;
+}
+
+PetscErrorCode MatInitSynthesize(Mat A, Mat B, MPI_Comm comm, Mat *C) {
+
+  PetscInt na, nb, ma, mb;
+  PetscErrorCode ierr;
+  ierr = MatGetSize(A, &na, &ma); CHKERRQ(ierr);
+  ierr = MatGetSize(B, &nb, &mb); CHKERRQ(ierr);
+
+  ierr = MatCreate(comm, C); CHKERRQ(ierr);
+  ierr = MatSetSizes(*C, PETSC_DECIDE, PETSC_DECIDE, na*nb, ma*mb); CHKERRQ(ierr);
+  ierr = MatSetFromOptions(*C); CHKERRQ(ierr);
+  ierr = MatSetUp(*C); CHKERRQ(ierr);
+  return 0;
+}
+
+PetscErrorCode MatSynthesize(Mat A, Mat B, PetscScalar c,
+			     Mat *C, InsertMode mode) {
+  PetscErrorCode ierr;
+  PetscInt na, nb, ma, mb;
+  ierr = MatGetSize(A, &na, &ma); CHKERRQ(ierr);
+  ierr = MatGetSize(B, &nb, &mb); CHKERRQ(ierr);
+
+  const PetscScalar *row_a, *row_b;
+  PetscInt ncols_a, ncols_b;
+  const PetscInt *cols_a, *cols_b;
+
+  for(int i_a = 0; i_a < na; i_a++) {
+    for(int i_b = 0; i_b < nb; i_b++) { 
+      ierr = MatGetRow(A, i_a, &ncols_a, &cols_a, &row_a); CHKERRQ(ierr);
+      ierr = MatGetRow(B, i_b, &ncols_b, &cols_b, &row_b); CHKERRQ(ierr);
+      for(int idx_a = 0; idx_a < ncols_a; idx_a++) {
+	for(int idx_b = 0; idx_b < ncols_b; idx_b++) {
+	  int j_a = cols_a[idx_a];
+	  int j_b = cols_b[idx_b];
+	  int i = i_a + i_b * na;
+	  int j = j_a + j_b * ma;
+	  PetscScalar v = row_a[idx_a] * row_b[idx_b] * c;
+	  ierr = MatSetValue(*C, i, j, v, mode);  CHKERRQ(ierr);
+	}
+      }
+      ierr = MatRestoreRow(A, i_a, &ncols_a, &cols_a, &row_a); CHKERRQ(ierr);
+      ierr = MatRestoreRow(B, i_b, &ncols_b, &cols_b, &row_b); CHKERRQ(ierr);
+    }
+  }
+  return 0;
+}
+
+PetscErrorCode MatSetSynthesize(Mat A, Mat B, PetscScalar c, MPI_Comm comm, Mat *C) {
+  PetscErrorCode ierr;
+  ierr = MatInitSynthesize(A, B, comm, C); CHKERRQ(ierr);
+  ierr = MatSynthesize(A, B, c, C, INSERT_VALUES); CHKERRQ(ierr);
+  MatAssemblyBegin(*C, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(*C, MAT_FINAL_ASSEMBLY);
+  return 0;
+}
+
+PetscErrorCode MatInitSynthesize3(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D) {
+  PetscInt na, nb, nc, ma, mb, mc;
+  PetscErrorCode ierr;
+  ierr = MatGetSize(A, &na, &ma); CHKERRQ(ierr);
+  ierr = MatGetSize(B, &nb, &mb); CHKERRQ(ierr);
+  ierr = MatGetSize(C, &nc, &mc); CHKERRQ(ierr);
+
+  ierr = MatCreate(comm, D); CHKERRQ(ierr);
+  ierr = MatSetSizes(*D, PETSC_DECIDE, PETSC_DECIDE, na*nb*nc, ma*mb*mc);
+  CHKERRQ(ierr);
+  ierr = MatSetFromOptions(*D); CHKERRQ(ierr);
+  ierr = MatSetUp(*D); CHKERRQ(ierr);
+  return 0;
+}
+
+PetscErrorCode MatSynthesize3(Mat A, Mat B, Mat C, PetscScalar d, 
+			      Mat *D, InsertMode mode) {
+  PetscErrorCode ierr;
+  Mat BC;
+  ierr = MatSetSynthesize(B, C, d, PETSC_COMM_SELF, &BC); CHKERRQ(ierr);
+  
+  ierr = MatSynthesize(A, BC, 1.0, D, mode); CHKERRQ(ierr);
+
+  ierr = MatDestroy(&BC); CHKERRQ(ierr);
+
+  return 0;
+}
+
+PetscErrorCode MatSetSynthesize3(Mat A, Mat B, Mat C, PetscScalar d, MPI_Comm comm, Mat *D) {
+  PetscErrorCode ierr;
+  ierr = MatInitSynthesize3(A, B, C, comm, D); CHKERRQ(ierr);
+  ierr = MatSynthesize3(A, B, C, d, D, INSERT_VALUES); CHKERRQ(ierr);
+  MatAssemblyBegin(*D, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(*D, MAT_FINAL_ASSEMBLY);
   return 0;
 }
