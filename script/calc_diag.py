@@ -14,10 +14,7 @@ nev = int(key_val["nev"])
 target= float(key_val["target"])
 
 t0 = time.clock()
-os.system("{0}/src_c/diag.out".format(os.environ["RESCOL_DIR"]))
+os.system("{0}/src_c/diag.out -eps_nev {1} -eps_target_real -eps_target {2}"
+          .format(os.environ["RESCOL_DIR"], nev, target))
 t1 = time.clock()
-
-with open("diag.out.dat", "w") as f:
-    f.write("t_calc: {0}\n".format(t1-t0))
-
 
