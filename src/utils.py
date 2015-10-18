@@ -1,9 +1,10 @@
 import os
-from scipy.sparse import coo_matrix
+from scipy.sparse import coo_matrix, bmat
 import numpy as np
 import bspline_bind
 
 # Basic functional programming utility
+
 
 def flatten(xs):
     return reduce(lambda a, b: a+b, xs)
@@ -17,7 +18,17 @@ def with_index(xs):
     return zip(xs, range(len(xs)))
 
 
+def repeat(x, num):
+    return [x for i in range(num)]
+
+
+def replace_at(xs, i, y):
+    ys = list(xs)
+    ys[i] = y
+    return ys
+
 # I/O
+
 
 def keyval_to_dict(file_path):
     """ gives the dict object from key-value text file.
@@ -29,18 +40,20 @@ def keyval_to_dict(file_path):
             my_dict[name.strip()] = val.strip()
     return my_dict
 
+
 def cd(dir_name):
     """ change directory to 'dir_name'. If dir_name does not exist make it"""
     if not os.path.exists(dir_name):
         os.mkdir(dir_name)
     os.chdir(dir_name)
 
+
 def with_dir(dir_name, work):
     """ work at directory 'dir_name' and do 'work'
 
     Parameters
     ----------
-    dir_name: String 
+    dir_name: String
          working directory name
 
     work: lambda : ()
@@ -49,7 +62,7 @@ def with_dir(dir_name, work):
     Example
     -------
     with_dir("calc_dir",
-             lambda(: 
+             lambda(:
                work1() or
                 rok2()))
 """
@@ -59,6 +72,12 @@ def with_dir(dir_name, work):
     cd(orig_dir)
 
 # Linear algebra
+
+
+def diag_bmat(ms):
+    return bmat([replace_at(repeat(None, len(ms)), i, m)
+                 for (m, i) in with_index(ms)])
+
 
 def outer_sum(a, b):
     """ gives summation version of outer product
@@ -129,15 +148,26 @@ def synthesis_mat(a, b):
     return coo_matrix((data, (row, col)), shape=(n_row, n_col))
 
 
-def write_coo_mat(mat, file_name):
+def write_coo_mat(mat, file_name, zero_check = False):
     mat = coo_matrix(mat)
     row = mat.row
     col = mat.col
     dat = mat.data
+    (n, m) = mat.shape
+    
+    
+    if(zero_check and len(dat) == 0):
+        return 0
+
+    if(zero_check and max([abs(x) for x in dat]) == 0.0):
+        return 0
+
     with open(file_name, mode='w') as f:
-        f.write("{0} {1} {2}\n".format(max(row)+1, max(col)+1, len(dat)))
+        f.write("{0} {1} {2}\n".format(n, m, len(dat)))
         for (r, c, d) in zip(row, col, dat):
             f.write("{0} {1} {2}\n".format(r, c, d))
+
+    return 0
 
 
 def read_coo_mat(file_name):
@@ -146,3 +176,10 @@ def read_coo_mat(file_name):
                                  skiprows=1,
                                  usecols=(0, 1, 2)).T
     return coo_matrix((dat, (row, col)))
+
+
+def write_vec(vec, file_name):
+    with open(file_name, mode='w') as f:
+        f.write("{0}\n".format(len(vec)))
+        for x in vec:
+            f.write("{0}\n".format(x))

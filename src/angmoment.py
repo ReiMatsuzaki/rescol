@@ -91,7 +91,8 @@ def ls_non_zero_YYY(L1, L2):
 
 
 def _y1redmat_Yq(L1, q, L2):
-    return (np.sqrt(prod_LLL(L1, q, L2)/(4*np.pi)) *
+    return ((-1)**L1 *
+            np.sqrt(prod_LLL(L1, q, L2)/(4*np.pi)) *
             N3j(L1, q, L2, 0, 0, 0))
 
 
@@ -125,6 +126,10 @@ def y1mat_Yqk(L1M1, qk, L2M2):
     if M1 != k + M2:
         return 0
     return _y1mat_Yqk(L1M1, qk, L2M2)
+
+
+def y1mat_Pq(L1M1, q, L2M2):
+    return y1mat_Yqk(L1M1, (q, 0), L2M2) * np.sqrt(4.0*np.pi/(2*q+1))
 
 
 class CoupledY:

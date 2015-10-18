@@ -29,6 +29,17 @@ def lin_knots(x0, x1, num):
     return func
 
 
+def exp_knots(x0, x1, num, gamma):
+    a = float(x0)
+    b = float(x1)
+    g = float(gamma)
+    n = num
+    def func(order):
+        xs = [a+(b-a)*(np.exp((g*i)/(n-1))-1)/(np.exp(g)-1) for i in range(n)]
+        xn_list = [(xs[0], order)] + xs[1:-1] +[(xs[-1], order)]
+        return make_knots(*xn_list)
+    return func
+
 def make_intervals(knots):
     """ from knots, make intervals of knots.
 
