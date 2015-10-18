@@ -1,5 +1,6 @@
 #/usr/bin/python
 import argparse
+from scipy.sparse import coo_matrix
 from os.path import abspath, dirname, join
 import sys
 sys.path.append(join(dirname(dirname(__file__)), "src"))
@@ -10,6 +11,8 @@ parser = argparse.ArgumentParser(description = "compute matrix represented Spher
 #parser.set_defaults(l0=0, l1=2);
 parser.add_argument("-l0", default=0, type=int)
 parser.add_argument("-l1", default=2, type=int)
+parser.add_argument("-l1guess", default=0, type=int)
+parser.add_argument("-l2guess", default=2, type=int)
 parser.add_argument("-m", default=0, type=int)
 parser.add_argument("-t", "--target_dir", default=".")
 args = parser.parse_args()
@@ -44,9 +47,13 @@ if not os.path.exists(args.target_dir):
 
 l0 = args.l0
 l1 = args.l1
+l1g = args.l1guess
+l2g = args.l2guess
 m = args.m
 
 ys = get_coupledY_set(l1, m, True, True);
+for y in ys:
+    print y
 qmax = 2*max([y.L1 for y in ys])
 qs = range(qmax+1)
 
@@ -54,17 +61,21 @@ cd(args.target_dir)
 s_mat = [[ 1 if i==j else 0 
            for i in range(len(ys))]
          for j in range(len(ys))]
-write_coo_mat(s_mat, "s_y2mat.dat")
+write_coo_mat(s_mat, "s_y2mat.dat", True)
 
 l_1_mat = [[y.L1*(y.L1+1) if (i==j) else 0
            for (y, i) in with_index(ys)]
           for (yy, j) in with_index(ys)]
-write_coo_mat(l_1_mat, "l_1_y2mat.dat")
+write_coo_mat(l_1_mat, "l_1_y2mat.dat", True)
 
 l_2_mat = [[y.L2*(y.L2+1) if (i==j) else 0
            for (y, i) in with_index(ys)]
           for (yy, j) in with_index(ys)]
-write_coo_mat(l_2_mat, "l_2_y2mat.dat")
+write_coo_mat(l_2_mat, "l_2_y2mat.dat", True)
+
+guess_vec = [ 1 if l1g==y.L1 and l2g==y.L2 else 0
+               for (y,i) in with_index(ys)]
+write_vec(guess_vec, "guess_y2vec.dat")
 
 for q in qs:
     pq_1A_mat = [[y2mat_Pq_r1A(y1, q, y2)

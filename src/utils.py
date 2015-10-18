@@ -153,6 +153,8 @@ def write_coo_mat(mat, file_name, zero_check = False):
     row = mat.row
     col = mat.col
     dat = mat.data
+    (n, m) = mat.shape
+    
     
     if(zero_check and len(dat) == 0):
         return 0
@@ -161,9 +163,11 @@ def write_coo_mat(mat, file_name, zero_check = False):
         return 0
 
     with open(file_name, mode='w') as f:
-        f.write("{0} {1} {2}\n".format(max(row)+1, max(col)+1, len(dat)))
+        f.write("{0} {1} {2}\n".format(n, m, len(dat)))
         for (r, c, d) in zip(row, col, dat):
             f.write("{0} {1} {2}\n".format(r, c, d))
+
+    return 0
 
 
 def read_coo_mat(file_name):
@@ -172,3 +176,10 @@ def read_coo_mat(file_name):
                                  skiprows=1,
                                  usecols=(0, 1, 2)).T
     return coo_matrix((dat, (row, col)))
+
+
+def write_vec(vec, file_name):
+    with open(file_name, mode='w') as f:
+        f.write("{0}\n".format(len(vec)))
+        for x in vec:
+            f.write("{0}\n".format(x))

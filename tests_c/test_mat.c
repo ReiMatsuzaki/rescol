@@ -83,6 +83,45 @@ PetscErrorCode testMat() {
   
   return 0;
 }
+PetscErrorCode testVecSynthesize() {
+
+  Vec A, B;
+  MPI_Comm comm = PETSC_COMM_WORLD;
+  VecCreate(comm, &A); VecCreate(comm, &B);
+  VecSetSizes(A, PETSC_DECIDE, 3); VecSetSizes(B, PETSC_DECIDE, 2);
+  VecSetFromOptions(A); VecSetFromOptions(B);
+
+  VecSetValue(A, 0, 1.0, INSERT_VALUES);
+  VecSetValue(A, 1, 2.0, INSERT_VALUES);
+  VecSetValue(A, 2, 3.0, INSERT_VALUES);
+
+  VecSetValue(B, 0, 0.3, INSERT_VALUES);
+  VecSetValue(B, 1, 2.2, INSERT_VALUES);
+
+  VecAssemblyBegin(A); VecAssemblyEnd(A);
+  VecAssemblyBegin(B); VecAssemblyEnd(B);
+
+  Vec C;
+  VecSetSynthesize(A, B, 0.2, comm, &C);
+
+  PetscScalar *cs;
+  PetscInt n;
+  VecGetSize(C, &n);
+  VecGetArray(C, &cs);  
+  
+  ASSERT_EQ(6, n);
+  ASSERT_DOUBLE_EQ(1.0*0.3*0.2, cs[0]);
+  ASSERT_DOUBLE_EQ(2.0*0.3*0.2, cs[1]);
+  ASSERT_DOUBLE_EQ(3.0*0.3*0.2, cs[2]);
+  ASSERT_DOUBLE_EQ(1.0*2.2*0.2, cs[3]);
+  ASSERT_DOUBLE_EQ(2.0*2.2*0.2, cs[4]);
+  ASSERT_DOUBLE_EQ(3.0*2.2*0.2, cs[5]);
+
+  VecRestoreArray(C, &cs);
+  VecDestroy(&A); VecDestroy(&B);
+
+  return 0;
+}
 
 int main(int argc, char **args) {
   
@@ -90,6 +129,7 @@ int main(int argc, char **args) {
 
   PetscErrorCode ierr;
   ierr = testMat(); CHKERRQ(ierr);
+  ierr = testVecSynthesize(); CHKERRQ(ierr);
 
   SlepcFinalize();
   return 0;

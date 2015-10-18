@@ -3,7 +3,7 @@ from sympy.mpmath import taylor, polyroots
 import scipy.sparse as ma
 import scipy.sparse.linalg as la
 import numpy as np
-from utils import with_index
+from utils import with_index, diag_bmat, flatten, repeat, replace_at
 
 
 """
@@ -16,6 +16,11 @@ chimat: matrix represented by FEM-DVR basis which is continued function
 def lin_knots(a, b, num):
     d = (b-a)/(num-1)
     return [a+i*d for i in range(num)]
+
+
+def exp_knots(a, b, n, gamma):
+    g = float(gamma)
+    return [a+(b-a)*(np.exp((g*i)/(n-1))-1)/(np.exp(g)-1) for i in range(n)]
 
 
 def lobgauss(n, a=None, b=None):
@@ -79,8 +84,37 @@ def deriv_f(xs, ws, i, m, mp):
                    [(xs[i, mp]-xs[i, k])/(xs[i, m]-xs[i, k]) for k in ks])
 
 
+def trans_mat_f_to_chi(n, ne):
+    zero = ma.coo_matrix([repeat(0, n-2)])
+    middle = ma.identity(n-2)
+    comb = ma.coo_matrix([[1], [1]])
+    ds = flatten(repeat([middle, comb], ne-1)) + [middle]
+    nones = repeat(None, 2*(ne-1))
+    bmat_args = ([[zero] + nones] +
+                 diag_off_none(ds) +
+                 [nones + [zero]])
+    return ma.bmat(bmat_args)
+
+
+def diag_off_none(xs):
+    n = len(xs)
+    return [replace_at(repeat(None, n), i, x)
+            for (x, i) in with_index(xs)]
+
+
 def f_to_chi(m, n, ne):
-    pass
+    t = trans_mat_f_to_chi(n, ne)
+    return t.T.dot(m.dot(t))
+
+
+def lobatto_shape(xs, m, x):
+    """gives value of m th LobattoShape function for quadrature points xs"""
+    if x < xs[0]:
+        return 0.0
+    if xs[-1] < x:
+        return 0.0
+    xs_nonm = [xi for (xi, mi) in with_index(xs) if mi != m]
+    return reduce(lambda a, b: a*b, [(x-xi)/(xs[m]-xi) for xi in xs_nonm])
 
 
 class FemDvrSet:
@@ -98,13 +132,14 @@ class FemDvrSet:
 
     def prepare_deriv(self):
         # compute derivative of Lobatto-Shapiro functions
-        # fp_list.shape = ()
-        ne = len(ts)-1
+        # fp_list.shape = (# of element, # of basis in ele, # of quad point)
+        ne = len(self.ts)-1
         self.fp_list = np.array(
             [[[deriv_f(self.xs, self.ws, i, m, mp)
-               for mp in range(n)]
-              for m in range(n)]
-             for i in range(ne)])
+               for mp in range(self.n)]
+              for m in range(self.n)]
+             for i in range(ne)]
+        )
 
     def s_fmat(self):
         # diags : gives diagonal matrix
@@ -112,14 +147,22 @@ class FemDvrSet:
         return ma.diags([np.ravel(self.ws)], [0])
 
     def v_fmat(self, v):
-        vs = v(np.ravel(self.xs))
+        vs = np.r_[np.array([0.0]), v(np.ravel(self.xs)[1:])]
         return ma.diags([np.ravel(self.ws) * vs], [0])
 
-    def d2_fmat(self, v):
+    def d2_fmat(self):
         self.prepare_deriv()
-
         bmat_list = [ma.coo_matrix([[
-            -np.sum(fpi*fpj*self.ws)
+            -np.sum(fpi*fpj*ws)
             for fpi in fps] for fpj in fps])
-                for fps in self.fp_list]
+                     for (ws, fps) in zip(self.ws, self.fp_list)]
         return diag_bmat(bmat_list)
+
+    def f_to_chi(self, m):
+        return f_to_chi(m, self.n, len(self.ts)-1)
+
+    def basis_psi(self, xs):
+        return [[lobatto_shape(quad_xs, m, x)
+                 for x in xs]
+                for quad_xs in self.xs
+                for m in range(len(quad_xs))]

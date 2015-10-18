@@ -32,7 +32,7 @@ class TestUtils(unittest.TestCase):
         self.assertAlmostEqual(0.0, xs[0])
         self.assertAlmostEqual(1.0/6.0, ws[0])
 
-    def _test_f_to_chi(self):
+    def test_f_to_chi(self):
         # see project/rescol/calc/fem_dvr.ipynb in elnote
         n = 4   # number of quad points in each elements
         ne = 3  # number of element
@@ -44,7 +44,7 @@ class TestUtils(unittest.TestCase):
         self.assertEqual((8, 8), B.shape)
         self.assertAlmostEqual(0.0, npB[0, 0])
         self.assertAlmostEqual(5.0, npB[2, 3])
-        self.assertAlmostEqual(20.0, npB[5, 2])
+        self.assertAlmostEqual(20., npB[5, 2])
 
 
 class _TestFemDvrSet(unittest.TestCase):
@@ -71,7 +71,7 @@ class _TestFemDvrSet(unittest.TestCase):
         self.assertEqual((n*ne, n*ne), v_mat.shape)
         self.assertEqual(n*ne, len(v_mat.data[0]))
 
-    def _test_femdvr_d2_fmat(self):
+    def test_femdvr_d2_fmat(self):
         n = self.n
         ne = self.ne
         d2_mat = self.femdvr_set.d2_fmat()

@@ -29,7 +29,7 @@ PetscErrorCode CreateLinKnots(int num, double zmax, double *zs[]);
 
 // Methods
 PetscErrorCode BSSCreate(BSS *bss, int order, double* zs, int num_zs);
-PetscErrorCode BSSCreateFromOptions(BSS *bss);
+PetscErrorCode BSSCreateFromOptions(BSS *bss, MPI_Comm comm);
 PetscErrorCode BSSDestroy(BSS *bss);
 PetscErrorCode BSSFPrintf(BSS this, MPI_Comm comm, FILE* file, int lvl);
 PetscErrorCode BSSBasisPsi(BSS this, int i, PetscScalar x, PetscScalar *y);

@@ -104,6 +104,14 @@ PetscErrorCode CreateLinKnots(int num, double zmax, double *zs[]) {
   return 0;
 }
 
+PetscErrorCode CreateExpKnots(int num, double zmax, double gamma, double *zs[]){
+  *zs = (double*)malloc(sizeof(double)*num);
+  for(int n = 0; n < num; n++) {
+    (*zs)[n] = zmax * (exp(gamma*n/(num-1)) - 1.0) / (exp(gamma) - 1.0);
+  }
+  return 0;
+}
+
 PetscErrorCode Non0QuadIndex(int a, int c, int k, int nq, int* i0, int* i1) {
   *i0 = a<c ? (c-k+2)*k : (a-k+2)*k;
   if(*i0<0)
@@ -177,11 +185,12 @@ PetscErrorCode BSSCreate(BSS *bss, int order, double*zs, int num_zs) {
   return 0;
 }
 
-PetscErrorCode BSSCreateFromOptions(BSS *bss) {
+PetscErrorCode BSSCreateFromOptions(BSS *bss, MPI_Comm comm) {
   PetscBool find;
   PetscReal rmax;
   PetscInt order, num;
   PetscErrorCode ierr;
+  char knots[10] = "line";
 
   order = 2;
   ierr = PetscOptionsGetInt(NULL, "-bss_order", &order, &find); CHKERRQ(ierr);
@@ -189,12 +198,18 @@ PetscErrorCode BSSCreateFromOptions(BSS *bss) {
   ierr = PetscOptionsGetReal(NULL, "-bss_rmax", &rmax, &find); CHKERRQ(ierr);
   num = 21;
   ierr = PetscOptionsGetInt(NULL, "-bss_knots_num", &num, &find); CHKERRQ(ierr);
+  ierr = PetscOptionsGetString(NULL, "-bss_knots_type", knots, 10, &find); 
+  CHKERRQ(ierr);
   
   double *zs;
-  ierr = CreateLinKnots(num, rmax, &zs); CHKERRQ(ierr);
+  if(strcmp(knots, "line") == 0) {
+    ierr = CreateLinKnots(num, rmax, &zs); CHKERRQ(ierr);
+  } else if(strcmp(knots, "exp") == 0) {
+    ierr = CreateExpKnots(num, rmax, 5.0, &zs); CHKERRQ(ierr);
+  } else {
+    SETERRQ(comm, 1, "bss_knots_type must be line or exp."); }
 
   ierr = BSSCreate(bss, order, zs, num);  CHKERRQ(ierr);
-
   return 0;
  }
 

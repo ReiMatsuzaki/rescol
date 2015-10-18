@@ -95,6 +95,56 @@ PetscErrorCode MatCreateFromCOOFormatFile(char* path, Mat* mat) {
   return 0;
 }
 
+PetscErrorCode VecCreateFromFile(const char* path, MPI_Comm comm, Vec *v ) {
+
+  PetscErrorCode ierr;
+  FILE *fp = NULL;
+  
+  if((fp = fopen(path, "r")) == NULL) {
+    char msg[256]; 
+    sprintf(msg, "Failed to open file: %s", path);
+    SETERRQ(comm, 1, "failed to open file");
+  }
+
+  PetscInt n;
+  if(fscanf(fp, "%d", &n) == EOF) {
+    SETERRQ(comm, 1, "failed to read header (# of data)");
+  }
+
+  VecCreate(comm, v);
+  VecSetSizes(*v, PETSC_DECIDE, n);
+  VecSetFromOptions(*v);
+  VecSetUp(*v);
+
+  PetscInt i = 0;
+  double x;
+  while(fscanf(fp, "%lf", &x) != EOF) {
+    ierr = VecSetValue(*v, i, x, INSERT_VALUES); CHKERRQ(ierr);
+    i++;
+  }
+  fclose(fp);
+  VecAssemblyBegin(*v);VecAssemblyEnd(*v);
+
+  return 0;
+}
+
+PetscErrorCode MatSetDirFile(const char* dn, const char* fn, Mat *M) {
+  PetscErrorCode ierr;
+  char path[100];
+  sprintf(path, "%s/%s", dn, fn);
+  ierr = MatCreateFromCOOFormatFile(path, M); CHKERRQ(ierr);  
+  return 0;
+}
+
+PetscErrorCode PrintTimeStamp(MPI_Comm comm, const char* label, time_t *t) {
+  time_t tt;
+  time(&tt);
+  if(t != NULL)
+    *t = tt;
+  PetscPrintf(comm, "[%10s] %s", label, ctime(&tt));
+  return 0;
+}
+
 PetscErrorCode EPSWriteToFile(EPS eps, char* path_detail, char* path_eigvals, char* path_eigvecs) {
   /*
     Parameters
@@ -165,6 +215,56 @@ PetscErrorCode EPSWriteToFile(EPS eps, char* path_detail, char* path_eigvals, ch
   return 0;
 }
 
+PetscErrorCode VecInitSynthesize(Vec A, Vec B, MPI_Comm comm, Vec *C) {
+  
+  PetscInt na, nb;
+  VecGetSize(A, &na); VecGetSize(B, &nb);
+
+  VecCreate(comm, C);
+  VecSetSizes(*C, PETSC_DECIDE, na*nb);
+  VecSetFromOptions(*C);
+  
+  return 0;
+}
+
+PetscErrorCode VecSynthesize(Vec A, Vec B, PetscScalar c, 
+			     Vec *C, InsertMode mode) {
+  
+  PetscInt na, nb;
+  VecGetSize(A, &na); VecGetSize(B, &nb);
+
+  PetscScalar *as, *bs, *cs;
+  VecGetArray(A, &as); VecGetArray(B, &bs);
+  cs = (PetscScalar*)malloc(sizeof(PetscScalar)*na*nb);
+
+  PetscInt *idxs;
+  idxs = (PetscInt*)malloc(sizeof(PetscInt)*na*nb);
+
+  PetscInt idx = 0;
+  for(int j = 0; j < nb; j++) 
+    for(int i = 0; i < na; i++) {
+      cs[i + na*j] = as[i] * bs[j] * c;
+      idxs[i + na*j] = idx;
+      idx++;
+    }
+
+  VecSetValues(*C, na*nb, idxs, cs, mode);
+
+  VecRestoreArray(A, &as); VecRestoreArray(B, &bs); 
+  free(cs); free(idxs);
+
+  return 0;
+}
+
+PetscErrorCode VecSetSynthesize(Vec A, Vec B, PetscScalar c, 
+				MPI_Comm comm, Vec *C){
+  PetscErrorCode ierr;
+  ierr = VecInitSynthesize(A, B, comm, C);
+  ierr = VecSynthesize(A, B, c, C, INSERT_VALUES);
+  VecAssemblyBegin(*C); VecAssemblyEnd(*C);
+  return 0;
+}
+
 PetscErrorCode MatInitSynthesize(Mat A, Mat B, MPI_Comm comm, Mat *C) {
 
   PetscInt na, nb, ma, mb;
@@ -211,7 +311,8 @@ PetscErrorCode MatSynthesize(Mat A, Mat B, PetscScalar c,
   return 0;
 }
 
-PetscErrorCode MatSetSynthesize(Mat A, Mat B, PetscScalar c, MPI_Comm comm, Mat *C) {
+PetscErrorCode MatSetSynthesize(Mat A, Mat B, PetscScalar c, 
+				MPI_Comm comm, Mat *C) {
   PetscErrorCode ierr;
   ierr = MatInitSynthesize(A, B, comm, C); CHKERRQ(ierr);
   ierr = MatSynthesize(A, B, c, C, INSERT_VALUES); CHKERRQ(ierr);

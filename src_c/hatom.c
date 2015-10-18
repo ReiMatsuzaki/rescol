@@ -19,11 +19,15 @@ int main(int argc, char **args) {
 
   PetscErrorCode ierr;
   BSS bss;
-  
+  MPI_Comm comm = PETSC_COMM_SELF;
+  char target_dir[100]  = ".";
+  PetscInt L = 0;
   
   // Initialize
   ierr = SlepcInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);
-  PetscOptionsBegin(PETSC_COMM_SELF, "", "test for mat.c options", "none");
+  PetscOptionsBegin(PETSC_COMM_SELF, "", "solve h atom eigen problem", "none");
+  PetscOptionsGetString(NULL, "-target_dir", target_dir, 100, NULL);
+  PetscOptionsGetInt(NULL, "-L", &L, NULL);
   ierr = BSSCreateFromOptions(&bss);  CHKERRQ(ierr);
   PetscOptionsEnd();
 
