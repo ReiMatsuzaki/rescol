@@ -15,8 +15,8 @@ python ../../../script/calc_y2mat.py -l0 0 -l1 2 -l1guess 0 -l2guess 0 | tee cal
 			  -eri direct \
 			  -qmax 10 \
 			  -bond_length 0.0 \
-			  -guess_type non_ee \
+			  -guess_type vec \
 			  -eps_target -4.2 \
 			  -eps_nev 1 \
-
-
+			  -in_dir . \
+			  -out_dir out \

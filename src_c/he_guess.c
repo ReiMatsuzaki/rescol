@@ -17,7 +17,8 @@ static char help[] = "create initial guess for He atom from hydrogen eigen funct
   ======= other ==========
   -l1 :
   -l2 :
-  -target_dir
+  -in_dir
+  -out_dir
 */
 
 PetscErrorCode CalcHVec(BSS bss, PetscReal z, PetscInt L, MPI_Comm comm, Vec *x, PetscScalar *e) {
@@ -72,14 +73,16 @@ int main(int argc, char **args) {
   PetscReal z = 2.0;
   PetscInt L1 = 0;
   PetscInt L2 = 0;
-  char target_dir[100] = ".";
+  char in_dir[100] = ".";
+  char out_dir[100] = ".";
   
   // Initialize
   ierr = SlepcInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);
   PetscPrintf(comm, "\nhe_guess start\n");
   time_t t0; PrintTimeStamp(comm, "Init", &t0 );
   PetscOptionsBegin(comm, "", "he_guess.c options", "none");
-  PetscOptionsGetString(NULL, "-target_dir", target_dir, 100, NULL);
+  PetscOptionsGetString(NULL, "-in_dir", in_dir, 100, NULL);
+  PetscOptionsGetString(NULL, "-out_dir", out_dir, 100, NULL);
   PetscOptionsGetInt(NULL, "-L1", &L1, NULL);
   PetscOptionsGetInt(NULL, "-L2", &L2, NULL);
   PetscOptionsGetInt(NULL, "-L2", &L2, NULL);
@@ -93,27 +96,36 @@ int main(int argc, char **args) {
   PetscScalar e1, e2;
   ierr = CalcHVec(bss, z, L1, comm, &x1, &e1); CHKERRQ(ierr);
   ierr = CalcHVec(bss, z, L2, comm, &x2, &e2); CHKERRQ(ierr);
+
+  // y2
+  Vec y2;
+  char path[100]; sprintf(path, "%s/guess_y2vec.dat", in_dir);
+  ierr = VecCreateFromFile(path, comm, &y2);
+
+  // r2y2
+  Vec r2, r2y2;
+  ierr = VecSetSynthesize(x1, x2, 1.0, comm, &r2); CHKERRQ(ierr);
+  ierr = VecSetSynthesize(r2, y2, 1.0, comm, &r2y2); CHKERRQ(ierr);
   
   // output
-  
   PrintTimeStamp(comm, "Output", NULL);
-  Vec y;
   PetscViewer viewer;
-  PetscViewerBinaryOpen(comm, "guess.vec.dat", FILE_MODE_WRITE, &viewer);
-  ierr = VecSetSynthesize(x1, x2, 1.0, comm, &y);
-  VecView(y, viewer);
+  char out_path[100]; sprintf(out_path, "%s/guess.vec.dat", out_dir);
+  PetscViewerBinaryOpen(comm, out_path, FILE_MODE_WRITE, &viewer);
+  VecView(r2y2, viewer);
 
   PetscPrintf(comm, "z: %lf\n", z);
   PetscPrintf(comm, "L1: %d\n", L1);
   PetscPrintf(comm, "L2: %d\n", L2);
-  PetscPrintf(comm, "target_dir: %s\n", target_dir);
+  PetscPrintf(comm, "in_dir: %s\n", in_dir);
+  PetscPrintf(comm, "out_dir: %s\n", out_dir);
   PetscPrintf(comm, "eig1: %f\n", e1);
   PetscPrintf(comm, "eig2: %f\n", e2);
   BSSFPrintf(bss, comm, stdout, 0);
-
   
   PrintTimeStamp(comm, "Finalize", NULL);
-  VecDestroy(&x1); VecDestroy(&x2); VecDestroy(&y);
+  VecDestroy(&x1); VecDestroy(&x2); VecDestroy(&y2);
+  VecDestroy(&r2); VecDestroy(&r2y2);
   PetscPrintf(comm, "he_guess end\n");
 
   SlepcFinalize();

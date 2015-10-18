@@ -48,7 +48,7 @@ PetscErrorCode testMat() {
   MatRestoreRow(C, 0, &ncols, &cols, &row);
 
   MatGetRow(C, 1, &ncols, &cols, &row);
-  ASSERT_EQ(ncols, 6);
+  ASSERT_EQ(6, ncols);
   ASSERT_DOUBLE_EQ(0.3, row[0]);   ASSERT_DOUBLE_EQ(0.1, row[1]);
   ASSERT_DOUBLE_EQ(0.2, row[2]);   ASSERT_DOUBLE_EQ(0.6, row[3]);
   ASSERT_EQ(0, cols[0]);   ASSERT_EQ(1, cols[1]);

@@ -286,28 +286,41 @@ PetscErrorCode MatSynthesize(Mat A, Mat B, PetscScalar c,
   ierr = MatGetSize(A, &na, &ma); CHKERRQ(ierr);
   ierr = MatGetSize(B, &nb, &mb); CHKERRQ(ierr);
 
-  const PetscScalar *row_a, *row_b;
-  PetscInt ncols_a, ncols_b;
-  const PetscInt *cols_a, *cols_b;
+  const PetscScalar **row_a, **row_b;
+  PetscInt *ncols_a, *ncols_b;
+  const PetscInt **cols_a, **cols_b;
+  
+  row_a = (const PetscScalar**)malloc(sizeof(PetscScalar*)*na);
+  ncols_a = (PetscInt*)malloc(sizeof(PetscInt)*na);
+  cols_a = (const PetscInt**)malloc(sizeof(PetscInt*)*na);
+  row_b = (const PetscScalar**)malloc(sizeof(PetscScalar*)*nb);
+  ncols_b = (PetscInt*)malloc(sizeof(PetscInt)*nb);
+  cols_b = (const PetscInt**)malloc(sizeof(PetscInt*)*nb);
+
+  for(int i = 0; i < na; i++) 
+    ierr = MatGetRow(A, i, &ncols_a[i], &cols_a[i], &row_a[i]); CHKERRQ(ierr);
+  for(int i = 0; i < nb; i++) 
+    ierr = MatGetRow(B, i, &ncols_b[i], &cols_b[i], &row_b[i]); CHKERRQ(ierr);
 
   for(int i_a = 0; i_a < na; i_a++) {
-    for(int i_b = 0; i_b < nb; i_b++) { 
-      ierr = MatGetRow(A, i_a, &ncols_a, &cols_a, &row_a); CHKERRQ(ierr);
-      ierr = MatGetRow(B, i_b, &ncols_b, &cols_b, &row_b); CHKERRQ(ierr);
-      for(int idx_a = 0; idx_a < ncols_a; idx_a++) {
-	for(int idx_b = 0; idx_b < ncols_b; idx_b++) {
-	  int j_a = cols_a[idx_a];
-	  int j_b = cols_b[idx_b];
+    for(int idx_a = 0; idx_a < ncols_a[i_a]; idx_a++) {
+      int j_a = cols_a[i_a][idx_a];
+      for(int i_b = 0; i_b < nb; i_b++) { 
+      	for(int idx_b = 0; idx_b < ncols_b[i_b]; idx_b++) {
+	  int j_b = cols_b[i_b][idx_b];
 	  int i = i_a + i_b * na;
 	  int j = j_a + j_b * ma;
-	  PetscScalar v = row_a[idx_a] * row_b[idx_b] * c;
+	  PetscScalar v = row_a[i_a][idx_a] * row_b[i_b][idx_b] * c;
 	  ierr = MatSetValue(*C, i, j, v, mode);  CHKERRQ(ierr);
 	}
       }
-      ierr = MatRestoreRow(A, i_a, &ncols_a, &cols_a, &row_a); CHKERRQ(ierr);
-      ierr = MatRestoreRow(B, i_b, &ncols_b, &cols_b, &row_b); CHKERRQ(ierr);
     }
   }
+
+  for(int i = 0; i < na; i++)
+    ierr = MatRestoreRow(A, i, &ncols_a[i], &cols_a[i], &row_a[i]); CHKERRQ(ierr);
+  for(int i = 0; i < nb; i++)
+    ierr = MatRestoreRow(B, i, &ncols_b[i], &cols_b[i], &row_b[i]); CHKERRQ(ierr);
   return 0;
 }
 

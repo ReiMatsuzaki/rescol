@@ -23,7 +23,8 @@ int main(int argc, char **args) {
   PetscErrorCode ierr;
   BSS bss;
   MPI_Comm comm = PETSC_COMM_SELF;
-  char target_dir[100] = ".";
+  char in_dir[100] = "default_in";
+  char out_dir[100] = "default_out";
   char guess_type[10] = "none";
   double bond_length = 2.0;
   int qmax = 10;
@@ -34,7 +35,8 @@ int main(int argc, char **args) {
   ierr = SlepcInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);
   time_t t0; PrintTimeStamp(comm, "Init", &t0);
   PetscOptionsBegin(comm, "", "h2mole.c options", "none");
-  PetscOptionsGetString(NULL, "-target_dir", target_dir, 100, NULL);
+  PetscOptionsGetString(NULL, "-in_dir", in_dir, 100, NULL);
+  PetscOptionsGetString(NULL, "-out_dir", out_dir, 100, NULL);
   PetscOptionsGetString(NULL, "-guess_type", guess_type, 10, NULL);
   PetscOptionsGetReal(NULL, "-bond_length", &bond_length, NULL);
   PetscOptionsGetInt(NULL, "-qmax", &qmax, NULL);
@@ -45,7 +47,7 @@ int main(int argc, char **args) {
   Mat s_r1, s_y2, S;
   PrintTimeStamp(comm, "SMat", NULL);
   ierr = BSSSetSR1Mat(bss, comm,                &s_r1); CHKERRQ(ierr);
-  ierr = MatSetDirFile(target_dir, "s_y2mat.dat", &s_y2);   CHKERRQ(ierr);
+  ierr = MatSetDirFile(in_dir, "s_y2mat.dat", &s_y2);   CHKERRQ(ierr);
   ierr = MatSetSynthesize3(s_r1, s_r1, s_y2, 1.0, comm, &S);
 
   Mat H;  
@@ -84,8 +86,8 @@ int main(int argc, char **args) {
   PetscScalar a = bond_length/2.0;
   for(int q = 0; q < qmax; q++) {
     char path1[100]; char path2[100]; 
-    sprintf(path1, "%s/p%d_A1_y2mat.dat", target_dir, q);
-    sprintf(path2, "%s/p%d_A2_y2mat.dat", target_dir, q);
+    sprintf(path1, "%s/p%d_A1_y2mat.dat", in_dir, q);
+    sprintf(path2, "%s/p%d_A2_y2mat.dat", in_dir, q);
     FILE* f1 = fopen(path1, "r"); FILE* f2 = fopen(path2, "r");
     if(f1 != NULL && f2 != NULL) {
       Mat pq_1_y2, pq_2_y2, q_r1;
@@ -103,7 +105,7 @@ int main(int argc, char **args) {
   if(strcmp(eri_option, "direct") == 0) {
     PrintTimeStamp(PETSC_COMM_SELF, "EEMat", NULL);
     for(int q = 0; q < qmax; q++) {
-      char path[100]; sprintf(path, "%s/p%d_12_y2mat.dat", target_dir, q);
+      char path[100]; sprintf(path, "%s/p%d_12_y2mat.dat", in_dir, q);
       FILE *f = fopen(path, "r"); 
       if(f != NULL) {
 	Mat r2, y2; 
@@ -126,18 +128,18 @@ int main(int argc, char **args) {
   time_t t_solve; PrintTimeStamp(PETSC_COMM_SELF, "eps", &t_solve);
   EPSCreate(comm, &eps); EPSSetOperators(eps, H, S);
   EPSSetTarget(eps, -2.0); EPSSetProblemType(eps, EPS_GHEP); 
-  if(strcmp(guess_type, "non_ee") == 0) {
-    Vec y2, r2;
-    ierr = VecCreateFromFile("guess_y2vec.dat", comm, &y2);
+
+  if(strcmp(guess_type, "vec") == 0) {
+    PrintTimeStamp(PETSC_COMM_SELF, "guess", NULL);
     PetscViewer viewer;
-    VecCreate(comm, &r2);
-    PetscViewerBinaryOpen(comm, "guess.vec.dat", FILE_MODE_READ, &viewer);
-    ierr = VecLoad(r2, viewer); CHKERRQ(ierr);
-    Vec *r2y2_list;
-    r2y2_list = (Vec*)malloc(sizeof(Vec)*1);
-    ierr = VecSetSynthesize(r2, y2, 1.0, comm, &r2y2_list[0]);
-    VecDestroy(&y2); VecDestroy(&r2);
-    EPSSetInitialSpace(eps, 1, r2y2_list);
+    Vec *guess; guess = (Vec*)malloc(sizeof(Vec)*1);
+    VecCreate(comm, &guess[0]);
+    char path[100]; sprintf(path, "%s/guess.vec.dat", in_dir);
+    PetscViewerBinaryOpen(comm, path, FILE_MODE_READ, &viewer);
+    ierr = VecLoad(guess[0], viewer); CHKERRQ(ierr);    
+    EPSSetInitialSpace(eps, 1, guess);
+    VecDestroy(&guess[0]);
+    free(guess);
   }
   EPSSetFromOptions(eps);
   EPSSetWhichEigenpairs(eps, EPS_TARGET_MAGNITUDE); 
@@ -146,7 +148,8 @@ int main(int argc, char **args) {
   // Output
   time_t t1; PrintTimeStamp(PETSC_COMM_SELF, "Output", &t1);
   PetscPrintf(comm, "\nCalculation Condition\n");
-  PetscPrintf(comm, "target_dir: %s\n", target_dir);
+  PetscPrintf(comm, "in_dir: %s\n", in_dir);
+  PetscPrintf(comm, "out_dir: %s\n", out_dir);
   PetscPrintf(comm, "bond_length: %f\n", bond_length);
   PetscPrintf(comm, "qmax: %d\n", qmax);
   PetscPrintf(comm, "ERI: %s\n", eri_option);
@@ -169,6 +172,10 @@ int main(int argc, char **args) {
   for(int i = 0; i < nconv; i++) {
     EPSGetEigenpair(eps, i, &kr, &ki, xr, xi);
     PetscPrintf(comm, "eig%i: %f\n", i, kr);
+    PetscViewer viewer;
+    char path[100]; sprintf(path, "%s/eig%d.vec.dat", out_dir, i);
+    PetscViewerBinaryOpen(comm, path, FILE_MODE_WRITE, &viewer);
+    VecView(xr, viewer);
   }  
 
   // Destroy
