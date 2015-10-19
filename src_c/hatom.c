@@ -10,9 +10,7 @@ static char help[] = "solve hydrogen atom eigenvalue problem";
   
   -bss_order : 
   -bss_rmax  : 
-  -bss_knots_num :
-
-  
+  -bss_knots_num :  
 */
 
 int main(int argc, char **args) {
@@ -25,14 +23,20 @@ int main(int argc, char **args) {
   
   // Initialize
   ierr = SlepcInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);
-  PetscOptionsBegin(PETSC_COMM_SELF, "", "solve h atom eigen problem", "none");
+  PrintTimeStamp(comm, "Init", NULL);
+  PetscOptionsBegin(comm, "", "solve h atom eigen problem", "none");
+  PrintTimeStamp(comm, "Init1", NULL);
   PetscOptionsGetString(NULL, "-target_dir", target_dir, 100, NULL);
+  PrintTimeStamp(comm, "Init2", NULL);
   PetscOptionsGetInt(NULL, "-L", &L, NULL);
-  ierr = BSSCreateFromOptions(&bss);  CHKERRQ(ierr);
+  PrintTimeStamp(comm, "Init3", NULL);
+  ierr = BSSCreateFromOptions(&bss, comm);  CHKERRQ(ierr);
+  PrintTimeStamp(comm, "Init4", NULL);
   PetscOptionsEnd();
 
   // Matrix
   Mat H, S, tmp;
+  PrintTimeStamp(comm, "Mat", NULL);
   BSSInitR1Mat(bss, PETSC_COMM_SELF, &H);
   BSSInitR1Mat(bss, PETSC_COMM_SELF, &S);
 
@@ -55,6 +59,7 @@ int main(int argc, char **args) {
 
   // Solve
   EPS eps; 
+  PrintTimeStamp(comm, "EPS", NULL);
   EPSCreate(PETSC_COMM_SELF, &eps);
   EPSSetOperators(eps, H, S);
   EPSSetProblemType(eps, EPS_GHEP);
