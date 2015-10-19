@@ -1,19 +1,23 @@
 CFLAGS=-std=gnu99
 include ${SLEPC_DIR}/lib/slepc/conf/slepc_common
 
-test_hatom: hatom.o bspline.o
-	-${CLINKER} -o hatom.out  hatom.o bspline.o ${SLEPC_EPS_LIB}
-	./hatom.out -bss_order 6 -bss_rmax 30.0 -bss_knots_num 100 -eps_nev 5
+test_hatom: hatom.o bspline.o mat.o
+	-${CLINKER} -o hatom.out  hatom.o bspline.o mat.o ${SLEPC_EPS_LIB}
+	./hatom.out \
+	-bss_order 4 \
+	-bss_rmax 30.0 \
+	-bss_knots_num 30 \
+	-bss_knots_type exp \
+	-eps_nev 5
 
-test_mat: mat.o test_mat.o chkopts
+test_mat: mat.o test_mat.o
 	-${CLINKER} -o test_mat.out  test_mat.o mat.o ${SLEPC_EPS_LIB}
 	./test_mat.out -h-mat hmat.dat
 
+hatom.out: hatom.o bspline.o mat.o chkopts
+
 diag.out: diag.o mat.o chkopts
 	-${CLINKER} -I/usr/local/Cellar/petsc/3.6.1_3/real/include/petsc/mpiuni/ -o $@ diag.o mat.o ${SLEPC_EPS_LIB}
-
-test_diag: diag.out chkopts
-	python test_diag.py
 
 h2plus.out: h2plus.o chkopts
 	-${CLINKER} -o $@ h2plus.o bspline.o mat.o ${SLEPC_EPS_LIB}
@@ -23,6 +27,11 @@ h2mole.out: h2mole.o mat.o chkopts
 
 he_guess.out: he_guess.o mat.o bspline.o chkopts
 	-${CLINKER} -o $@ he_guess.o bspline.o mat.o ${SLEPC_EPS_LIB}
+
+
+test_diag: diag.out chkopts
+	python test_diag.py
+
 
 test_h2plus: h2plus.out chkopts
 	./h2plus.out -target_dir h2plus -bss_order 6 -bss_knots_num 61 -bss_rmax 30.0 -qmax 32 -bond_length 2.0 -eps_target -1.0 -eps_nev 1 -eps_max_it 1000

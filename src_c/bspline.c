@@ -2,7 +2,7 @@
 
 
 // External functions
-int NumBSpline(order, num_ele) {
+int NumBSpline(int order, int num_ele) {
   return num_ele + 2*(order-1) - 2 - (order-1);
 }
 
@@ -128,7 +128,7 @@ PetscErrorCode BSSCreate(BSS *bss, int order, double*zs, int num_zs) {
   int i, ib, ie, iq;
   BSS _bss;
 
-  _bss = malloc(sizeof(struct _p_BSS));
+  _bss = (BSS)malloc(sizeof(struct _p_BSS));
   *bss = NULL;
   
   // data num
@@ -144,22 +144,32 @@ PetscErrorCode BSSCreate(BSS *bss, int order, double*zs, int num_zs) {
     _bss->ts[i] = zs[0];
     _bss->ts[order-1+num_zs+i] = zs[num_zs-1];
   }
+  printf("for2\n");
   for(i = 0; i < num_zs; i++) {
     _bss->zs[i] = zs[i];
     _bss->ts[i+order-1] = zs[i];
   }
+  
 
   // calculate appreciate quadrature points
   int n_xs = _bss->num_ele * _bss->order;
-  _bss->b_idx_list = (int*)malloc(sizeof(int)*_bss->num_basis);
+  printf("n_xs: %d\n", n_xs);
+  printf("num_basis: %d\n", _bss->num_basis);
+  _bss->b_idx_list = (int*)malloc(sizeof(int)*(_bss->num_basis));
+  printf("1\n");
   _bss->xs = (PetscScalar*)malloc(sizeof(PetscScalar)*n_xs);
+  printf("2\n");
   _bss->ws = (PetscScalar*)malloc(sizeof(PetscScalar)*n_xs);
-  _bss->vals = (PetscScalar*)malloc(sizeof(PetscScalar)*n_xs*_bss->num_basis);
-  _bss->derivs = (PetscScalar*)malloc(sizeof(PetscScalar)*n_xs*_bss->num_basis);
+  printf("3\n");
+  int num = sizeof(PetscScalar)*(n_xs)*(_bss->num_basis);
+  printf("3.5, %d\n", num);
+  _bss->vals = (PetscScalar*)malloc(num);
+  printf("4\n");
+  _bss->derivs = (PetscScalar*)malloc(sizeof(PetscScalar)*(n_xs)*(_bss->num_basis));
 
+  printf("A\n");
   for(ib = 0; ib < _bss->num_basis; ib++)
     _bss->b_idx_list[ib] = ib + 1;
-
   for(ie = 0; ie < _bss->num_ele; ie++) {
     PetscScalar a, b; a = _bss->zs[ie]; b = _bss->zs[ie+1];
     for(iq = 0; iq < order; iq++) {
@@ -180,6 +190,7 @@ PetscErrorCode BSSCreate(BSS *bss, int order, double*zs, int num_zs) {
       }
     }
   }
+  printf("C\n");
 
   *bss = _bss;
   return 0;
@@ -209,7 +220,9 @@ PetscErrorCode BSSCreateFromOptions(BSS *bss, MPI_Comm comm) {
   } else {
     SETERRQ(comm, 1, "bss_knots_type must be line or exp."); }
 
+  printf("<<creating\n");
   ierr = BSSCreate(bss, order, zs, num);  CHKERRQ(ierr);
+  printf(">>creating\n");
   return 0;
  }
 
