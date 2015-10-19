@@ -1,0 +1,5 @@
+bond_length: xxx
+order: 4
+rmax: 40.0
+num: 40
+lmax: 4

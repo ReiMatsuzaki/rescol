@@ -41,7 +41,7 @@ PetscErrorCode MatCreateFromCOOFormatFileOld(char* path, Mat* mat) {
 
 PetscErrorCode MatCreateFromCOOFormatFileHandler(FILE* fp, Mat* mat) {
 
-  PetscInt i, col, row;
+  PetscInt col, row;
   PetscErrorCode ierr;
   int num_data, num_row, num_col;
   PetscScalar dat;  
@@ -64,20 +64,17 @@ PetscErrorCode MatCreateFromCOOFormatFileHandler(FILE* fp, Mat* mat) {
   }
 
   // Create Mat
-  MatCreate(PETSC_COMM_WORLD, mat);
-  MatSetSizes(*mat, PETSC_DECIDE, PETSC_DECIDE, num_row, num_col);
-  MatSetFromOptions(*mat);
-  MatSetUp(*mat);
+  ierr = MatCreate(PETSC_COMM_WORLD, mat); CHKERRQ(ierr);
+  ierr = MatSetSizes(*mat, PETSC_DECIDE, PETSC_DECIDE, num_row, num_col); CHKERRQ(ierr);
+  ierr = MatSetFromOptions(*mat); CHKERRQ(ierr);
+  ierr = MatSetUp(*mat); CHKERRQ(ierr);
 
-  i = 0;
   while(fscanf(fp, "%d %d %lf", &row, &col, &dat) != EOF) {
-    i++;
     ierr = MatSetValue(*mat, row, col, dat, INSERT_VALUES); CHKERRQ(ierr);
   }
-  fclose(fp);
   MatAssemblyBegin(*mat, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(*mat, MAT_FINAL_ASSEMBLY);
-  return ierr;
+  return 0;
 }
 
 PetscErrorCode MatCreateFromCOOFormatFile(char* path, Mat* mat) {
@@ -92,6 +89,8 @@ PetscErrorCode MatCreateFromCOOFormatFile(char* path, Mat* mat) {
   }
 
   ierr = MatCreateFromCOOFormatFileHandler(fp, mat); CHKERRQ(ierr);
+
+  fclose(fp);
   return 0;
 }
 

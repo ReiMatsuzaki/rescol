@@ -140,34 +140,24 @@ PetscErrorCode BSSCreate(BSS *bss, int order, double*zs, int num_zs) {
   _bss->zs = (PetscScalar*)malloc(sizeof(PetscScalar)*(num_zs));
   _bss->ts = (PetscScalar*)malloc(sizeof(PetscScalar)*(num_zs+2*order-2));
 
-  for(i = 0; i < order; i++) {
+  for(i = 0; i < order-1; i++) {
     _bss->ts[i] = zs[0];
     _bss->ts[order-1+num_zs+i] = zs[num_zs-1];
   }
-  printf("for2\n");
   for(i = 0; i < num_zs; i++) {
     _bss->zs[i] = zs[i];
     _bss->ts[i+order-1] = zs[i];
   }
-  
 
   // calculate appreciate quadrature points
   int n_xs = _bss->num_ele * _bss->order;
-  printf("n_xs: %d\n", n_xs);
-  printf("num_basis: %d\n", _bss->num_basis);
   _bss->b_idx_list = (int*)malloc(sizeof(int)*(_bss->num_basis));
-  printf("1\n");
   _bss->xs = (PetscScalar*)malloc(sizeof(PetscScalar)*n_xs);
-  printf("2\n");
   _bss->ws = (PetscScalar*)malloc(sizeof(PetscScalar)*n_xs);
-  printf("3\n");
   int num = sizeof(PetscScalar)*(n_xs)*(_bss->num_basis);
-  printf("3.5, %d\n", num);
   _bss->vals = (PetscScalar*)malloc(num);
-  printf("4\n");
-  _bss->derivs = (PetscScalar*)malloc(sizeof(PetscScalar)*(n_xs)*(_bss->num_basis));
+  _bss->derivs = (PetscScalar*)malloc(num);
 
-  printf("A\n");
   for(ib = 0; ib < _bss->num_basis; ib++)
     _bss->b_idx_list[ib] = ib + 1;
   for(ie = 0; ie < _bss->num_ele; ie++) {
@@ -190,7 +180,6 @@ PetscErrorCode BSSCreate(BSS *bss, int order, double*zs, int num_zs) {
       }
     }
   }
-  printf("C\n");
 
   *bss = _bss;
   return 0;
@@ -220,9 +209,7 @@ PetscErrorCode BSSCreateFromOptions(BSS *bss, MPI_Comm comm) {
   } else {
     SETERRQ(comm, 1, "bss_knots_type must be line or exp."); }
 
-  printf("<<creating\n");
   ierr = BSSCreate(bss, order, zs, num);  CHKERRQ(ierr);
-  printf(">>creating\n");
   return 0;
  }
 
