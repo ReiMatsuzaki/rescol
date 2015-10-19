@@ -28,7 +28,7 @@ int main(int argc, char **args) {
   PetscOptionsBegin(PETSC_COMM_SELF, "", "solve h atom eigen problem", "none");
   PetscOptionsGetString(NULL, "-target_dir", target_dir, 100, NULL);
   PetscOptionsGetInt(NULL, "-L", &L, NULL);
-  ierr = BSSCreateFromOptions(&bss);  CHKERRQ(ierr);
+  ierr = BSSCreateFromOptions(&bss, comm);  CHKERRQ(ierr);
   PetscOptionsEnd();
 
   // Matrix
