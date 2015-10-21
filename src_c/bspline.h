@@ -52,5 +52,7 @@ PetscErrorCode BSSSetR2invR1Mat(BSS this, MPI_Comm comm, Mat *M);
 PetscErrorCode BSSSetD2R1Mat(BSS this, MPI_Comm comm, Mat *D);
 PetscErrorCode BSSSetENR1Mat(BSS this, int q, double a, MPI_Comm comm, Mat *D);
 PetscErrorCode BSSSetEER2Mat(BSS this, int q, MPI_Comm comm, Mat *V);
+PetscErrorCode BSSSetUR1R2Mat(BSS this, Mat *U);
+PetscErrorCode BSSSetEER2MatGreen(BSS this, int q, MPI_Comm, Mat *V);
 
 #endif

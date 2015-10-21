@@ -334,8 +334,7 @@ PetscErrorCode MatSetSynthesizeSlow(Mat A, Mat B, PetscScalar c,
   return 0;
 }
 
-PetscErrorCode MatSetSynthesizeFast(Mat A, Mat B, PetscScalar c, 
-				MPI_Comm comm, Mat *C) {
+PetscErrorCode MatSetSynthesizeFast(Mat A, Mat B, MPI_Comm comm, Mat *C) {
  
   PetscErrorCode ierr;
   PetscInt na, nb, ma, mb;
@@ -380,7 +379,7 @@ PetscErrorCode MatSetSynthesizeFast(Mat A, Mat B, PetscScalar c,
 	  int j_b = cols_b[i_b][idx_b];
 	  row[idx] = i_a + i_b * na;
 	  col[idx] = j_a + j_b * ma;
-	  val[idx] = row_a[i_a][idx_a] * row_b[i_b][idx_b] * c;
+	  val[idx] = row_a[i_a][idx_a] * row_b[i_b][idx_b];
 	  idx++;
 	}
       }
@@ -393,7 +392,7 @@ PetscErrorCode MatSetSynthesizeFast(Mat A, Mat B, PetscScalar c,
 
 PetscErrorCode MatSetSynthesize(Mat A, Mat B, PetscScalar c, 
 				MPI_Comm comm, Mat *C) {
-  return MatSetSynthesizeFast(A, B, c, comm, C);
+  return MatSetSynthesizeSlow(A, B, c, comm, C);
 }
 
 PetscErrorCode MatInitSynthesize3(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D) {
@@ -430,5 +429,14 @@ PetscErrorCode MatSetSynthesize3(Mat A, Mat B, Mat C, PetscScalar d, MPI_Comm co
   ierr = MatSynthesize3(A, B, C, d, D, INSERT_VALUES); CHKERRQ(ierr);
   MatAssemblyBegin(*D, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(*D, MAT_FINAL_ASSEMBLY);
+  return 0;
+}
+
+PetscErrorCode MatSetSynthesize3Fast(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D) {
+  Mat BC;
+  PetscErrorCode ierr;
+  ierr = MatSetSynthesizeFast(B, C, comm, &BC); CHKERRQ(ierr);
+  ierr = MatSetSynthesizeFast(A, BC, comm, D); CHKERRQ(ierr);
+  MatDestroy(&BC);
   return 0;
 }

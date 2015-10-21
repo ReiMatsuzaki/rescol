@@ -110,8 +110,49 @@ PetscErrorCode testMatSynthesize() {
   MatAssemblyBegin(B, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(B, MAT_FINAL_ASSEMBLY);
 
-  MatSetSynthesizeFast(A, B, 1.2, PETSC_COMM_WORLD, &C0);
-  MatSetSynthesizeSlow(A, B, 1.2, PETSC_COMM_WORLD, &C1);
+  MatSetSynthesizeFast(A, B, PETSC_COMM_WORLD, &C0);
+  MatSetSynthesizeSlow(A, B, 1.0, PETSC_COMM_WORLD, &C1);
+
+  const PetscScalar *row0, *row1;
+  PetscInt ncols0, ncols1;
+  const PetscInt *cols0, *cols1;
+  MatGetRow(C0, 0, &ncols0, &cols0, &row0);
+  MatGetRow(C1, 0, &ncols1, &cols1, &row1);
+  ASSERT_EQ(ncols0, ncols1);
+  ASSERT_EQ(cols0[0], cols1[0]);
+  ASSERT_EQ(cols0[1], cols1[1]);
+
+  return 0;
+}
+PetscErrorCode testMatSynthesize3() {
+  Mat A, B, C0, C1;
+  MatCreate(PETSC_COMM_WORLD, &A);
+  MatCreate(PETSC_COMM_WORLD, &B);
+  MatSetSizes(A, PETSC_DECIDE, PETSC_DECIDE, 2, 3);
+  MatSetSizes(B, PETSC_DECIDE, PETSC_DECIDE, 4, 5);
+  MatSetFromOptions(A);
+  MatSetFromOptions(B);
+  MatSetUp(A);
+  MatSetUp(B);
+
+  MatSetValue(A, 0, 0, 1.0, INSERT_VALUES);
+  MatSetValue(A, 1, 0, 3.0, INSERT_VALUES);
+  MatSetValue(A, 1, 1, 1.0, INSERT_VALUES);
+  MatSetValue(A, 1, 2, 2.0, INSERT_VALUES);
+  MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+
+  MatSetValue(B, 0, 0, 1.0, INSERT_VALUES);
+  MatSetValue(B, 1, 0, 3.0, INSERT_VALUES);
+  MatSetValue(B, 1, 1, 1.0, INSERT_VALUES);
+  MatSetValue(B, 1, 2, 2.0, INSERT_VALUES);
+  MatSetValue(B, 3, 4, 1.0, INSERT_VALUES);
+  MatSetValue(B, 0, 3, 2.0, INSERT_VALUES);
+  MatAssemblyBegin(B, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(B, MAT_FINAL_ASSEMBLY);
+
+  MatSetSynthesize3Fast(A, B, A, PETSC_COMM_WORLD, &C0);
+  MatSetSynthesize3(A, B, A, 1.0, PETSC_COMM_WORLD, &C1);
 
   const PetscScalar *row0, *row1;
   PetscInt ncols0, ncols1;
@@ -171,6 +212,7 @@ int main(int argc, char **args) {
   PetscErrorCode ierr;
   ierr = testMat(); CHKERRQ(ierr);
   ierr = testMatSynthesize(); CHKERRQ(ierr);
+  ierr = testMatSynthesize3(); CHKERRQ(ierr);  
   ierr = testVecSynthesize(); CHKERRQ(ierr);
 
   SlepcFinalize();

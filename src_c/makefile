@@ -13,8 +13,11 @@ diag.out: diag.o mat.o chkopts
 h2plus.out: h2plus.o bspline.o mat.o chkopts
 	-${CLINKER} -o $@ h2plus.o bspline.o mat.o ${SLEPC_EPS_LIB}
 
-h2mole.out: h2mole.o mat.o chkopts
+h2mole.out: h2mole.o bspline.o mat.o chkopts
 	-${CLINKER} -o $@ h2mole.o bspline.o mat.o ${SLEPC_EPS_LIB}
+
+h2mole2.out: h2mole2.o bspline.o mat.o chkopts
+	-${CLINKER} -o $@ h2mole2.o bspline.o mat.o ${SLEPC_EPS_LIB}
 
 he_guess.out: he_guess.o mat.o bspline.o chkopts
 	-${CLINKER} -o $@ he_guess.o bspline.o mat.o ${SLEPC_EPS_LIB}
@@ -54,7 +57,17 @@ test_h2plus_h_L1: h2plus.out chkopts
 test_h2plus_h: h2plus.out chkopts
 	./h2plus.out -target_dir h2plus -bss_order 6 -bss_knots_num 61 -bss_rmax 30.0 -qmax 32 -bond_length 0.0 -eps_target -2.2 -eps_nev 10 -eps_max_it 1000
 
+# this test takes 145s+82s=4min
 test_h2mole: h2mole.out chkopts
-	python ../script/calc_y2mat.py -t h2mole -l1 2
-	./h2mole.out -target_dir h2mole -bss_order 2 -bss_knots_num 21 -bss_rmax 20.0 -qmax 10 -bond_length 1.4 -eps_target -3.0 -eps_nev 1 -eps_max_it 1000
+	python ../script/calc_y2mat.py -t tmp -l1 2 > tmp/y2mat.dat
+	./h2mole.out -in_dir tmp -out_dir tmp -bss_order 4 -bss_knots_num 31 -bss_rmax 20.0 -bss_knots_type exp -qmax 10 -bond_length 0.0 -eps_target -3.0 -eps_nev 1 -eps_max_it 1000
 
+# this test takes 
+# 15s+82s = 2min (default eigen solver)
+# 15s+197s = 4min (lanczos)
+# 15s+157s =      (arnoldi)
+# 15s+2s   (gd, -2.90375)
+test_h2mole2: h2mole2.out
+	rm tmp/*
+	python ../script/calc_y2mat.py -t tmp -l1 2 > tmp/y2mat.dat
+	./h2mole2.out -in_dir tmp -out_dir tmp -bond_length 0.0 -eps_target -3.0  -bss_order 4 -bss_knots_num 31 -bss_rmax 30.0 -bss_knots_type exp -qmax 10 -eps_max_it 1000 -eps_target -5.0 -eps_nev 1 -eps_type krylovschur
