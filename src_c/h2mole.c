@@ -64,7 +64,8 @@ int main(int argc, char **args) {
   // L
   Mat l_r1; ierr = BSSSetR2invR1Mat(bss, comm, &l_r1); CHKERRQ(ierr);
 
-  char l1_path[100] = "l_1_y2mat.dat"; FILE *fl1 = fopen(l1_path, "r");
+  char l1_path[100]; sprintf(l1_path, "%s/l_1_y2mat.dat", in_dir); 
+  FILE *fl1 = fopen(l1_path, "r");
   if(fl1 != NULL) {
     Mat l_1_y2;
     ierr = MatCreateFromCOOFormatFileHandler(fl1, &l_1_y2); CHKERRQ(ierr);
@@ -72,7 +73,8 @@ int main(int argc, char **args) {
     MatDestroy(&l_1_y2); fclose(fl1);
   }
 
-  char l2_path[100] = "l_2_y2mat.dat"; FILE *fl2 = fopen(l2_path, "r");
+  char l2_path[100]; sprintf(l2_path, "%s/l_2_y2mat.dat", in_dir); 
+  FILE *fl2 = fopen(l2_path, "r");
   if(fl2 != NULL) {
     Mat l_2_y2;
     ierr = MatCreateFromCOOFormatFileHandler(fl1, &l_2_y2); CHKERRQ(ierr);

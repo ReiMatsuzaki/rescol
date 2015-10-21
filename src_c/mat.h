@@ -21,6 +21,8 @@ PetscErrorCode VecSetSynthesize(Vec A, Vec B, PetscScalar c, MPI_Comm comm, Vec 
 PetscErrorCode MatInitSynthesize(Mat A, Mat B, MPI_Comm comm, Mat *C);
 PetscErrorCode MatSynthesize(Mat A, Mat B, PetscScalar c, Mat *C, InsertMode mode);
 PetscErrorCode MatSetSynthesize(Mat A, Mat B, PetscScalar c, MPI_Comm comm, Mat *C);
+PetscErrorCode MatSetSynthesizeSlow(Mat A, Mat B, PetscScalar c, MPI_Comm comm, Mat *C);
+PetscErrorCode MatSetSynthesizeFast(Mat A, Mat B, PetscScalar c, MPI_Comm comm, Mat *C);
 
 PetscErrorCode MatInitSynthesize3(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D);
 PetscErrorCode MatSynthesize3(Mat A, Mat B, Mat C, PetscScalar d, Mat *D, InsertMode mode);

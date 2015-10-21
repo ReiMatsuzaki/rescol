@@ -19,4 +19,4 @@ python ../../../script/calc_y2mat.py -l0 0 -l1 2 -l1guess 0 -l2guess 0 | tee cal
 			  -eps_target -4.2 \
 			  -eps_nev 1 \
 			  -in_dir . \
-			  -out_dir out \
+			  -out_dir out | tee h2mole.out.dat

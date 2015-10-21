@@ -324,7 +324,7 @@ PetscErrorCode MatSynthesize(Mat A, Mat B, PetscScalar c,
   return 0;
 }
 
-PetscErrorCode MatSetSynthesize(Mat A, Mat B, PetscScalar c, 
+PetscErrorCode MatSetSynthesizeSlow(Mat A, Mat B, PetscScalar c, 
 				MPI_Comm comm, Mat *C) {
   PetscErrorCode ierr;
   ierr = MatInitSynthesize(A, B, comm, C); CHKERRQ(ierr);
@@ -332,6 +332,68 @@ PetscErrorCode MatSetSynthesize(Mat A, Mat B, PetscScalar c,
   MatAssemblyBegin(*C, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(*C, MAT_FINAL_ASSEMBLY);
   return 0;
+}
+
+PetscErrorCode MatSetSynthesizeFast(Mat A, Mat B, PetscScalar c, 
+				MPI_Comm comm, Mat *C) {
+ 
+  PetscErrorCode ierr;
+  PetscInt na, nb, ma, mb;
+  ierr = MatGetSize(A, &na, &ma); CHKERRQ(ierr);
+  ierr = MatGetSize(B, &nb, &mb); CHKERRQ(ierr);
+
+  const PetscScalar **row_a, **row_b;
+  PetscInt *ncols_a, *ncols_b;
+  const PetscInt **cols_a, **cols_b;
+
+  row_a = (const PetscScalar**)malloc(sizeof(PetscScalar*)*na);
+  ncols_a = (PetscInt*)malloc(sizeof(PetscInt)*na);
+  cols_a = (const PetscInt**)malloc(sizeof(PetscInt*)*na);
+  row_b = (const PetscScalar**)malloc(sizeof(PetscScalar*)*nb);
+  ncols_b = (PetscInt*)malloc(sizeof(PetscInt)*nb);
+  cols_b = (const PetscInt**)malloc(sizeof(PetscInt*)*nb);
+
+  PetscInt num_a = 0;
+  PetscInt num_b = 0;
+  for(int i = 0; i < na; i++) {
+    ierr = MatGetRow(A, i, &ncols_a[i], &cols_a[i], &row_a[i]); CHKERRQ(ierr);
+    num_a += ncols_a[i];
+  }
+  for(int i = 0; i < nb; i++) {
+    ierr = MatGetRow(B, i, &ncols_b[i], &cols_b[i], &row_b[i]); CHKERRQ(ierr);
+    num_b += ncols_b[i];
+  }
+  
+  PetscInt num_c = num_a*num_b;
+  PetscScalar *val;
+  PetscInt *row, *col;
+  val = (PetscScalar*)malloc(sizeof(PetscScalar)*num_c);
+  row = (PetscInt*)malloc(sizeof(PetscInt)*num_c);
+  col = (PetscInt*)malloc(sizeof(PetscInt)*num_c);
+
+  PetscInt idx = 0;
+  for(int i_a = 0; i_a < na; i_a++) {
+    for(int idx_a = 0; idx_a < ncols_a[i_a]; idx_a++) {
+      int j_a = cols_a[i_a][idx_a];
+      for(int i_b = 0; i_b < nb; i_b++) { 
+      	for(int idx_b = 0; idx_b < ncols_b[i_b]; idx_b++) {
+	  int j_b = cols_b[i_b][idx_b];
+	  row[idx] = i_a + i_b * na;
+	  col[idx] = j_a + j_b * ma;
+	  val[idx] = row_a[i_a][idx_a] * row_b[i_b][idx_b] * c;
+	  idx++;
+	}
+      }
+    }
+  }
+  ierr = MatCreateSeqAIJFromTriple(comm, na*nb, ma*mb, row, col, val, C, num_c, 0);
+  CHKERRQ(ierr);
+  return 0;
+}
+
+PetscErrorCode MatSetSynthesize(Mat A, Mat B, PetscScalar c, 
+				MPI_Comm comm, Mat *C) {
+  return MatSetSynthesizeFast(A, B, c, comm, C);
 }
 
 PetscErrorCode MatInitSynthesize3(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D) {

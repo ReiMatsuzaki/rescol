@@ -135,6 +135,8 @@ PetscErrorCode BSSCreate(BSS *bss, int order, double*zs, int num_zs) {
   _bss->order = order;
   _bss->num_ele = num_zs-1;
   _bss->num_basis = NumBSpline(order, num_zs-1);
+  _bss->rmax = zs[num_zs-1];
+  -bss->knots_type = "unknown";
 
   // copy ts and zs
   _bss->zs = (PetscScalar*)malloc(sizeof(PetscScalar)*(num_zs));
@@ -201,15 +203,19 @@ PetscErrorCode BSSCreateFromOptions(BSS *bss, MPI_Comm comm) {
   ierr = PetscOptionsGetString(NULL, "-bss_knots_type", knots, 10, &find); 
   CHKERRQ(ierr);
   
-  double *zs;
+  double *zs; 
+  char knots_type[10];
   if(strcmp(knots, "line") == 0) {
     ierr = CreateLinKnots(num, rmax, &zs); CHKERRQ(ierr);
+    knots_type = "line";
   } else if(strcmp(knots, "exp") == 0) {
     ierr = CreateExpKnots(num, rmax, 5.0, &zs); CHKERRQ(ierr);
+    knots_type = "exp";
   } else {
     SETERRQ(comm, 1, "bss_knots_type must be line or exp."); }
 
   ierr = BSSCreate(bss, order, zs, num);  CHKERRQ(ierr);
+  strcpy(bss->knots_type, knots_type);
   return 0;
  }
 
@@ -233,7 +239,8 @@ PetscErrorCode BSSFPrintf(BSS this, MPI_Comm comm, FILE* file, int lvl) {
   PetscFPrintf(comm, file, "order: %d\n", this->order);
   PetscFPrintf(comm, file, "num_ele: %d\n", this->num_ele);
   PetscFPrintf(comm, file, "num_basis: %d\n", this->num_basis);
-  
+  PetscFPrintf(comm, file, "knots_type: %s\n", this->knots_type);
+  PetscFPrintf(comm, file, "rmax: %f\n", this->this->rmax);
   return 0;
 }
 

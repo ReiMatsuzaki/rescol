@@ -9,6 +9,8 @@ struct _p_BSS {
   int num_ele;  // number of finite elements
   int num_basis; 
   int* b_idx_list; // basis index list;
+  PetscScalar rmax;
+  char knots_type[10];
   PetscScalar* ts; // overlapped knots points
   PetscScalar* zs; // non overlapped knots points
   PetscScalar* xs; // quadrature points
