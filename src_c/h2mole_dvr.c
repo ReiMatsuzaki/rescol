@@ -1,27 +1,30 @@
 #include "mat.h"
-#include "bspline.h"
+#include "dvr.h"
 
-static char help[] = "solve H2 mole eigen value problem using bspline basis";
+static char help[] = "solve H2 mole eigen value problem using FEM-DVR basis";
 /*
   -eps_nev : # of necessary eigen pairs
   -eps_ncv : # of column vectors to be used by the solutions
   -eps_max_it : maximum iteration 
   -eps_mpd : maximum dim of projected problem
 
+  -dvr_nq 5 
+  -dvr_knots_num 10 
+  -dvr_rmax 30.0 
+  -dvr_knots_type exp
+
   -lmax :
   -gerade or -ungerade
-  -bss_order : 
-  -bss_rmax  : 
-  -bss_knots_num :
-  -bond_length :
+  -bond_length : 
 
-  -target_dir : working directory. input and output files are located in this.
+  -in_dir : working directory. input and output files are located in this.
+  -out_dir : working directory. input and output files are located in this.
 */
 
 int main(int argc, char **args) {
 
   PetscErrorCode ierr;
-  BSS bss;
+  DVR fem;
   MPI_Comm comm = PETSC_COMM_SELF;
   char in_dir[100] = "default_in";
   char out_dir[100] = "default_out";
@@ -34,55 +37,57 @@ int main(int argc, char **args) {
   // Initialize
   ierr = SlepcInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);
   time_t t0; PrintTimeStamp(comm, "Init", &t0);
-  PetscOptionsBegin(comm, "", "h2mole.c options", "none");
+  PetscOptionsBegin(comm, "", "h2mole_dvr.c options", "none");
   PetscOptionsGetString(NULL, "-in_dir", in_dir, 100, NULL);
   PetscOptionsGetString(NULL, "-out_dir", out_dir, 100, NULL);
   PetscOptionsGetString(NULL, "-guess_type", guess_type, 10, NULL);
   PetscOptionsGetReal(NULL, "-bond_length", &bond_length, NULL);
   PetscOptionsGetInt(NULL, "-qmax", &qmax, NULL);
   PetscOptionsGetString(NULL, "-eri", eri_option, 10, NULL);
-  ierr = BSSCreateFromOptions(&bss, comm); CHKERRQ(ierr);
+  ierr = DVRCreateFromOptions(&fem, comm); CHKERRQ(ierr);
   PetscOptionsEnd();
 
   Mat s_r1, s_y2, S;
   PrintTimeStamp(comm, "SMat", NULL);
-  ierr = BSSSetSR1Mat(bss, comm, &s_r1); CHKERRQ(ierr);
+  ierr = DVRSetSR1Mat(fem, comm,                &s_r1); CHKERRQ(ierr);
   ierr = MatSetDirFile(in_dir, "s_y2mat.dat", &s_y2);   CHKERRQ(ierr);
-  ierr = MatSetSynthesize3Fast(s_r1, s_r1, s_y2, comm, &S);
+  ierr = MatSetSynthesize3(s_r1, s_r1, s_y2, 1.0, comm, &S);
 
-  Mat d2_r1, T, H;
-  PrintTimeStamp(PETSC_COMM_SELF, "D2Mat", NULL);
-  ierr = BSSSetD2R1Mat(bss, comm, &d2_r1); CHKERRQ(ierr);
-  MatSetSynthesize3Fast(s_r1, d2_r1, s_y2, comm, &H);
-  MatScale(H, -0.5);
-  MatSetSynthesize3Fast(d2_r1, s_r1, s_y2, comm, &T);
-  MatAXPY(H, -0.5, T, DIFFERENT_NONZERO_PATTERN);
-  MatDestroy(&T); MatDestroy(&d2_r1); MatDestroy(&s_y2);
+  Mat H;  
+  ierr = MatInitSynthesize3(s_r1, s_r1, s_y2, comm, &H); CHKERRQ(ierr);
+  
+  // D2 
+  Mat d2_r1;
+  PrintTimeStamp(comm, "D2Mat", NULL);
+  ierr = DVRSetD2R1Mat(fem, comm, &d2_r1); CHKERRQ(ierr); CHKERRQ(ierr);
+  ierr = MatSynthesize3(s_r1, d2_r1, s_y2, -0.5, &H, ADD_VALUES); CHKERRQ(ierr);
+  ierr = MatSynthesize3(d2_r1, s_r1, s_y2, -0.5, &H, ADD_VALUES); CHKERRQ(ierr);
+  MatDestroy(&d2_r1);
+
+  // L
+  Mat l_r1; ierr = FEMSetR2invR1Mat(fem, comm, &l_r1); CHKERRQ(ierr);
 
   char l1_path[100]; sprintf(l1_path, "%s/l_1_y2mat.dat", in_dir); 
   FILE *fl1 = fopen(l1_path, "r");
   if(fl1 != NULL) {
-    Mat l_y2, l_r1, L;
-    ierr = BSSSetR2invR1Mat(bss, comm, &l_r1); CHKERRQ(ierr);
-    ierr = MatCreateFromCOOFormatFileHandler(fl1, &l_y2); CHKERRQ(ierr);
-    ierr = MatSetSynthesize3Fast(l_r1, s_r1, l_y2, comm, &L);
-    ierr = MatAXPY(H, 0.5, L, DIFFERENT_NONZERO_PATTERN);
-    MatDestroy(&l_r1); MatDestroy(&l_y2); fclose(fl1); MatDestroy(&L);
-  }  
+    Mat l_1_y2;
+    ierr = MatCreateFromCOOFormatFileHandler(fl1, &l_1_y2); CHKERRQ(ierr);
+    ierr = MatSynthesize3(l_r1, s_r1, l_1_y2, 0.5, &H, ADD_VALUES);
+    MatDestroy(&l_1_y2); fclose(fl1);
+  }
 
   char l2_path[100]; sprintf(l2_path, "%s/l_2_y2mat.dat", in_dir); 
   FILE *fl2 = fopen(l2_path, "r");
-  if(fl1 != NULL) {
-    Mat l_y2, l_r1, L;
-    ierr = BSSSetR2invR1Mat(bss, comm, &l_r1); CHKERRQ(ierr);
-    ierr = MatCreateFromCOOFormatFileHandler(fl2, &l_y2); CHKERRQ(ierr);
-    ierr = MatSetSynthesize3Fast(s_r1, l_r1, l_y2, comm, &L);
-    ierr = MatAXPY(H, 0.5, L, DIFFERENT_NONZERO_PATTERN);
-    MatDestroy(&l_r1); MatDestroy(&l_y2); fclose(fl1); MatDestroy(&L);
-  } 
+  if(fl2 != NULL) {
+    Mat l_2_y2;
+    ierr = MatCreateFromCOOFormatFileHandler(fl1, &l_2_y2); CHKERRQ(ierr);
+    ierr = MatSynthesize3(s_r1, l_r1, l_2_y2, 0.5, &H, ADD_VALUES);
+    MatDestroy(&l_2_y2); fclose(fl2);
+  }
+  MatDestroy(&l_r1);
 
   // e-n
-  PrintTimeStamp(comm, "ENMat", NULL);
+  PrintTimeStamp(PETSC_COMM_SELF, "ENMat", NULL);
   PetscScalar a = bond_length/2.0;
   for(int q = 0; q < qmax; q++) {
     char path1[100]; char path2[100]; 
@@ -90,25 +95,16 @@ int main(int argc, char **args) {
     sprintf(path2, "%s/p%d_A2_y2mat.dat", in_dir, q);
     FILE* f1 = fopen(path1, "r"); FILE* f2 = fopen(path2, "r");
     if(f1 != NULL && f2 != NULL) {
-      PetscPrintf(comm, "%d ", q);
-      Mat pq_1_y2, pq_2_y2, q_r1, V1, V2;
-      ierr = BSSSetENR1Mat(bss, q, a, comm, &q_r1);  CHKERRQ(ierr);
-
+      Mat pq_1_y2, pq_2_y2, q_r1;
       ierr = MatCreateFromCOOFormatFileHandler(f1, &pq_1_y2); CHKERRQ(ierr);
-      ierr = MatSetSynthesize3Fast(q_r1, s_r1, pq_1_y2, comm, &V1); CHKERRQ(ierr);
-      MatAXPY(H, -2.0, V1, DIFFERENT_NONZERO_PATTERN);
-      MatDestroy(&V1);
-      
       ierr = MatCreateFromCOOFormatFileHandler(f2, &pq_2_y2); CHKERRQ(ierr);
-      ierr = MatSetSynthesize3Fast(s_r1, q_r1, pq_2_y2, comm, &V2); CHKERRQ(ierr);
-      MatAXPY(H, -2.0, V2, DIFFERENT_NONZERO_PATTERN);
-      MatDestroy(&V2);
-
+      ierr = BSSSetENR1Mat(bss, q, a, comm, &q_r1);  CHKERRQ(ierr);
+      ierr = MatSynthesize3(q_r1, s_r1, pq_1_y2,-2.0,&H,ADD_VALUES); CHKERRQ(ierr);
+      ierr = MatSynthesize3(s_r1, q_r1, pq_2_y2,-2.0,&H,ADD_VALUES); CHKERRQ(ierr);
       MatDestroy(&pq_1_y2); MatDestroy(&pq_2_y2); MatDestroy(&q_r1);
       fclose(f1); fclose(f2);
     }
-  } 
-  PetscPrintf(comm, "\n"); 
+  }
 
   // e-e
   if(strcmp(eri_option, "direct") == 0) {
@@ -117,21 +113,24 @@ int main(int argc, char **args) {
       char path[100]; sprintf(path, "%s/p%d_12_y2mat.dat", in_dir, q);
       FILE *f = fopen(path, "r"); 
       if(f != NULL) {
-	PetscPrintf(comm, "%d ", q);
-	Mat r2, y2, EE; 
-	ierr = BSSSetEER2Mat(bss, q, comm, &r2); CHKERRQ(ierr);
+	Mat r2, y2; 
 	ierr = MatCreateFromCOOFormatFileHandler(f, &y2); CHKERRQ(ierr);
-	ierr = MatSetSynthesizeFast(r2, y2, comm, &EE); CHKERRQ(ierr);
-	MatAXPY(H, 1.0, EE, DIFFERENT_NONZERO_PATTERN);
-	MatDestroy(&r2); MatDestroy(&y2); MatDestroy(&EE);
+	ierr = BSSSetEER2Mat(bss, q, comm, &r2); CHKERRQ(ierr);
+	ierr = MatSynthesize(r2, y2, 1.0, &H, ADD_VALUES); CHKERRQ(ierr);
+	MatDestroy(&r2); MatDestroy(&y2);
       }
     }
-    PetscPrintf(comm, "\n");
   }
-  
+
+  // Finalize for matrix
+  PrintTimeStamp(PETSC_COMM_SELF, "Assemble", NULL);
+  MatAssemblyBegin(H, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(H, MAT_FINAL_ASSEMBLY);
+  MatDestroy(&s_r1); MatDestroy(&s_y2);
+
   // Solve
   EPS eps; 
-  time_t t_solve; PrintTimeStamp(PETSC_COMM_SELF, "EPS", &t_solve);
+  time_t t_solve; PrintTimeStamp(PETSC_COMM_SELF, "eps", &t_solve);
   EPSCreate(comm, &eps); EPSSetOperators(eps, H, S);
   EPSSetTarget(eps, -2.0); EPSSetProblemType(eps, EPS_GHEP); 
 
@@ -190,6 +189,5 @@ int main(int argc, char **args) {
   MatDestroy(&H); MatDestroy(&S);
   BSSDestroy(&bss);
 
-  return 0;  
-
+  return 0;
 }

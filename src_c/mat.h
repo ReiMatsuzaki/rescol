@@ -29,4 +29,10 @@ PetscErrorCode MatSynthesize3(Mat A, Mat B, Mat C, PetscScalar d, Mat *D, Insert
 PetscErrorCode MatSetSynthesize3(Mat A, Mat B, Mat C, PetscScalar d, MPI_Comm comm, Mat *D);
 PetscErrorCode MatSetSynthesize3Fast(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D);
 
+PetscErrorCode PartialCoulomb(int q, double r1, double r2, double *y);
+PetscErrorCode LegGauss(int n, int i, PetscScalar *x, PetscScalar *w);
+PetscErrorCode LobGauss(int n, int i, PetscScalar *x, PetscScalar *w);
+//PetscErrorCode CreateLinKnots(int num, double zmax, double *zs[]);
+//PetscErrorCode CreateExpKnots(int num, double zmax, double gamma, double *zs[]);
+
 #endif

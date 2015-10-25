@@ -1,37 +1,14 @@
 #include "bspline.h"
 
 
-// External functions
+// ---- External functions ----
+
 int NumBSpline(int order, int num_ele) {
   return num_ele + 2*(order-1) - 2 - (order-1);
 }
 
 int HasNon0Value(int order, int i, int j) {
   return abs(i-j) < order;
-}
-
-PetscErrorCode PartialCoulomb(int q, double r1, double r2, double *y) {
-
-  if(q < 0) {
-    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_ARG_OUTOFRANGE, 
-	    "q must be non negative integer");
-  }
-
-  double g = r1>r2 ? r1 : r2;
-  double s = r1>r2 ? r2 : r1;
-  *y = pow(s/g, q)/g;
-  return 0;
-}
-
-PetscScalar LegGauss(int n, int i, PetscScalar* x, PetscScalar* w) {
-  PetscScalar xs[45] = {
-    0.0, -0.5773502691896257, 0.5773502691896257, -0.7745966692414834, 0.0, 0.7745966692414834, -0.8611363115940526, -0.33998104358485626, 0.33998104358485626, 0.8611363115940526, -0.906179845938664, -0.5384693101056831, 0.0, 0.5384693101056831, 0.906179845938664, -0.932469514203152, -0.6612093864662645, -0.23861918608319693, 0.23861918608319693, 0.6612093864662645, 0.932469514203152, -0.9491079123427585, -0.7415311855993945, -0.4058451513773972, 0.0, 0.4058451513773972, 0.7415311855993945, 0.9491079123427585, -0.9602898564975362, -0.7966664774136267, -0.525532409916329, -0.18343464249564984, 0.18343464249564984, 0.525532409916329, 0.7966664774136267, 0.9602898564975362, -0.9681602395076261, -0.8360311073266358, -0.6133714327005904, -0.3242534234038089, 0.0, 0.3242534234038089, 0.6133714327005904, 0.8360311073266358, 0.9681602395076261};
-  PetscScalar ws[45] = {
-    2.0, 1.0, 1.0, 0.5555555555555555, 0.888888888888889, 0.5555555555555555, 0.34785484513745396, 0.6521451548625462, 0.6521451548625462, 0.34785484513745396, 0.236926885056189, 0.4786286704993665, 0.5688888888888888, 0.4786286704993665, 0.236926885056189, 0.17132449237916944, 0.36076157304813883, 0.4679139345726918, 0.4679139345726918, 0.36076157304813883, 0.17132449237916944, 0.12948496616886826, 0.2797053914892774, 0.38183005050511937, 0.41795918367347007, 0.38183005050511937, 0.2797053914892774, 0.12948496616886826, 0.10122853629037527, 0.22238103445337512, 0.3137066458778874, 0.362683783378362, 0.362683783378362, 0.3137066458778874, 0.22238103445337512, 0.10122853629037527, 0.08127438836157427, 0.18064816069485748, 0.2606106964029357, 0.31234707704000275, 0.3302393550012596, 0.31234707704000275, 0.2606106964029357, 0.18064816069485748, 0.0812743883615742};
-
-  *x = xs[n * (n-1)/2 + i];
-  *w = ws[n * (n-1)/2 + i];
-  return 0;
 }
 
 PetscErrorCode CalcBSpline(int order, double* ts, int i, double x, double* y) {
@@ -96,22 +73,6 @@ PetscErrorCode CalcDerivBSpline(int order, double* ts, int i, double x, double* 
   return 0;
 }
 
-PetscErrorCode CreateLinKnots(int num, double zmax, double *zs[]) {
-  double dz = zmax / (num-1);
-  *zs = (double*)malloc(sizeof(double)*num);
-  for(int i = 0; i < num; i++) 
-    (*zs)[i] = i * dz;
-  return 0;
-}
-
-PetscErrorCode CreateExpKnots(int num, double zmax, double gamma, double *zs[]){
-  *zs = (double*)malloc(sizeof(double)*num);
-  for(int n = 0; n < num; n++) {
-    (*zs)[n] = zmax * (exp(gamma*n/(num-1)) - 1.0) / (exp(gamma) - 1.0);
-  }
-  return 0;
-}
-
 PetscErrorCode Non0QuadIndex(int a, int c, int k, int nq, int* i0, int* i1) {
   *i0 = a<c ? (c-k+2)*k : (a-k+2)*k;
   if(*i0<0)
@@ -123,33 +84,36 @@ PetscErrorCode Non0QuadIndex(int a, int c, int k, int nq, int* i0, int* i1) {
   return 0;
 }
 
-// Methods
-PetscErrorCode BSSCreate(BSS *bss, int order, double*zs, int num_zs) {
+
+// ---- Basic Methods ----
+PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, MPI_Comm comm) {
   int i, ib, ie, iq;
   BSS _bss;
 
   _bss = (BSS)malloc(sizeof(struct _p_BSS));
   *bss = NULL;
+
+  PetscScalar *zs; PetscInt num_zs;
+  BPSGetZs(bps, &zs, &num_zs);
   
   // data num
+  _bss->comm = comm;
   _bss->order = order;
-  _bss->num_ele = num_zs-1;
+  _bss->bps = bps;
+  BPSGetNumEle(bps, &_bss->num_ele);
   _bss->num_basis = NumBSpline(order, num_zs-1);
-  _bss->rmax = zs[num_zs-1];
-  strcpy(_bss->knots_type, "unknown");
+  BPSGetZMax(bps, &_bss->rmax);
 
   // copy ts and zs
-  _bss->zs = (PetscScalar*)malloc(sizeof(PetscScalar)*(num_zs));
+  
   _bss->ts = (PetscScalar*)malloc(sizeof(PetscScalar)*(num_zs+2*order-2));
 
   for(i = 0; i < order-1; i++) {
     _bss->ts[i] = zs[0];
     _bss->ts[order-1+num_zs+i] = zs[num_zs-1];
   }
-  for(i = 0; i < num_zs; i++) {
-    _bss->zs[i] = zs[i];
+  for(i = 0; i < num_zs; i++) 
     _bss->ts[i+order-1] = zs[i];
-  }
 
   // calculate appreciate quadrature points
   int n_xs = _bss->num_ele * _bss->order;
@@ -163,7 +127,7 @@ PetscErrorCode BSSCreate(BSS *bss, int order, double*zs, int num_zs) {
   for(ib = 0; ib < _bss->num_basis; ib++)
     _bss->b_idx_list[ib] = ib + 1;
   for(ie = 0; ie < _bss->num_ele; ie++) {
-    PetscScalar a, b; a = _bss->zs[ie]; b = _bss->zs[ie+1];
+    PetscScalar a, b; a = zs[ie]; b = zs[ie+1];
     for(iq = 0; iq < order; iq++) {
       PetscScalar x, w;
       int ix = ie*order+iq;
@@ -189,62 +153,49 @@ PetscErrorCode BSSCreate(BSS *bss, int order, double*zs, int num_zs) {
 
 PetscErrorCode BSSCreateFromOptions(BSS *bss, MPI_Comm comm) {
   PetscBool find;
-  PetscReal rmax;
-  PetscInt order, num;
+  PetscInt order;
+  BPS bps;
   PetscErrorCode ierr;
-  char knots[10] = "line";
 
   order = 2;
   ierr = PetscOptionsGetInt(NULL, "-bss_order", &order, &find); CHKERRQ(ierr);
-  rmax = 20.0;
-  ierr = PetscOptionsGetReal(NULL, "-bss_rmax", &rmax, &find); CHKERRQ(ierr);
-  num = 21;
-  ierr = PetscOptionsGetInt(NULL, "-bss_knots_num", &num, &find); CHKERRQ(ierr);
-  ierr = PetscOptionsGetString(NULL, "-bss_knots_type", knots, 10, &find); 
-  CHKERRQ(ierr);
-  
-  double *zs; 
-  char knots_type[10];
-  if(strcmp(knots, "line") == 0) {
-    ierr = CreateLinKnots(num, rmax, &zs); CHKERRQ(ierr);
-    strcpy(knots_type, "line");
-  } else if(strcmp(knots, "exp") == 0) {
-    ierr = CreateExpKnots(num, rmax, 5.0, &zs); CHKERRQ(ierr);
-    strcpy(knots_type, "exp");
-  } else {
-    SETERRQ(comm, 1, "bss_knots_type must be line or exp."); }
+  ierr = BPSCreate(&bps, comm); CHKERRQ(ierr);
+  ierr = BPSSetFromOptions(bps); CHKERRQ(ierr);
+  ierr = BSSCreate(bss, order, bps, comm);  CHKERRQ(ierr);
 
-  ierr = BSSCreate(bss, order, zs, num);  CHKERRQ(ierr);
-  strcpy((*bss)->knots_type, knots_type);
   return 0;
  }
 
 PetscErrorCode BSSDestroy(BSS *bss) {
    BSS this = *bss;
+   BPSDestroy(&this->bps);
    free(this->ts); 
    free(this->xs);
+   free(this->ws);
    free(this->vals);
    free(this->derivs);
    return 0;
 }
 
-PetscErrorCode BSSFPrintf(BSS this, MPI_Comm comm, FILE* file, int lvl) {
+PetscErrorCode BSSFPrintf(BSS this, FILE* file, int lvl) {
+
+  MPI_Comm comm = this->comm;
 
   if(lvl != 0) {
     SETERRQ(comm, PETSC_ERR_ARG_OUTOFRANGE, 
 	    "now only lvl=0 is supported.");
   }
 
-  PetscFPrintf(comm, file, "SUMMARY: B-Spline set\n");
+  PetscFPrintf(comm, file, "===== Begin B-Spline =====\n");
   PetscFPrintf(comm, file, "order: %d\n", this->order);
-  PetscFPrintf(comm, file, "num_ele: %d\n", this->num_ele);
   PetscFPrintf(comm, file, "num_basis: %d\n", this->num_basis);
-  PetscFPrintf(comm, file, "knots_type: %s\n", this->knots_type);
-  PetscFPrintf(comm, file, "rmax: %f\n", this->rmax);
+  BPSFPrintf(this->bps, file, lvl);
+  PetscFPrintf(comm, file, "===== End B-Spline =====\n");
   return 0;
 }
 
 PetscErrorCode BSSBasisPsi(BSS this, int i, PetscScalar x, PetscScalar *y) {
+
   PetscScalar z;
   CalcBSpline(this->order, 
 	      this->ts, 
@@ -266,18 +217,21 @@ PetscErrorCode BSSDerivBasisPsi(BSS this, int i, PetscScalar x, PetscScalar *y) 
   return 0;
 }
 
-PetscErrorCode BSSInitR1Mat(BSS this, MPI_Comm comm, Mat *M) {
+
+// ---- Matrix -----
+
+PetscErrorCode BSSInitR1Mat(BSS this, Mat *M) {
   int nb = this->num_basis;
-  MatCreate(comm, M);
+  MatCreate(this->comm, M);
   MatSetSizes(*M, PETSC_DECIDE, PETSC_DECIDE, nb, nb);
   MatSetFromOptions(*M);
   MatSetUp(*M);
   return 0;
 }
 
-PetscErrorCode BSSInitR2Mat(BSS this, MPI_Comm comm, Mat *M) {
+PetscErrorCode BSSInitR2Mat(BSS this, Mat *M) {
   int nb = this->num_basis;
-  MatCreate(comm, M);
+  MatCreate(this->comm, M);
   MatSetSizes(*M, PETSC_DECIDE, PETSC_DECIDE, nb*nb, nb*nb);
   MatSetFromOptions(*M);
   MatSetUp(*M);
@@ -347,7 +301,7 @@ PetscErrorCode BSSCalcD2R1Mat(BSS this, Mat D, InsertMode mode) {
   return 0;
 }
 
-PetscErrorCode BSSCalcENR1Mat(BSS this, int q, double a, Mat V, InsertMode mode) {
+PetscErrorCode BSSCalcENR1Mat(BSS this, int q, PetscScalar a, Mat V, InsertMode mode) {
   int i, j, k;
   int nb = this->num_basis;
   int ne = this->num_ele;
@@ -371,6 +325,7 @@ PetscErrorCode BSSCalcENR1Mat(BSS this, int q, double a, Mat V, InsertMode mode)
     }
   return 0;
 }
+
 PetscErrorCode BSSCalcEER2Mat(BSS this, int q, Mat V, InsertMode mode) {
 
   int k = this->order;
@@ -463,62 +418,48 @@ PetscErrorCode BSSCalcEER2Mat_ver1(BSS this, int q, Mat V, InsertMode mode) {
   return 0;
 }
 
-PetscErrorCode BSSSetSR1Mat(BSS this, MPI_Comm comm, Mat *S) {
+PetscErrorCode BSSSetSR1Mat(BSS this, Mat *S) {
   PetscErrorCode ierr;
-  ierr = BSSInitR1Mat(this, comm, S); CHKERRQ(ierr);
+  ierr = BSSInitR1Mat(this, S); CHKERRQ(ierr);
   ierr = BSSCalcSR1Mat(this, *S, INSERT_VALUES); CHKERRQ(ierr);
   MatAssemblyBegin(*S, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(*S, MAT_FINAL_ASSEMBLY);
   return 0;
 }
 
-PetscErrorCode BSSSetR2invR1Mat(BSS this, MPI_Comm comm, Mat *M) {
+PetscErrorCode BSSSetR2invR1Mat(BSS this, Mat *M) {
   PetscErrorCode ierr;
-  ierr = BSSInitR1Mat(this, comm, M); CHKERRQ(ierr);
+  ierr = BSSInitR1Mat(this, M); CHKERRQ(ierr);
   ierr = BSSCalcR2invR1Mat(this, *M, INSERT_VALUES); CHKERRQ(ierr);
   MatAssemblyBegin(*M, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(*M, MAT_FINAL_ASSEMBLY);
   return 0;  
 }
 
-PetscErrorCode BSSSetD2R1Mat(BSS this, MPI_Comm comm, Mat* D) {
+PetscErrorCode BSSSetD2R1Mat(BSS this, Mat* D) {
   PetscErrorCode ierr;
-  ierr = BSSInitR1Mat(this, comm, D); CHKERRQ(ierr);
+  ierr = BSSInitR1Mat(this, D); CHKERRQ(ierr);
   ierr = BSSCalcD2R1Mat(this, *D, INSERT_VALUES); CHKERRQ(ierr);
   MatAssemblyBegin(*D, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(*D, MAT_FINAL_ASSEMBLY);
   return 0;  
 }
 
-PetscErrorCode BSSSetENR1Mat(BSS this, int q, double a, MPI_Comm comm, Mat *D) {
+PetscErrorCode BSSSetENR1Mat(BSS this, int q, PetscScalar a, Mat *D) {
   PetscErrorCode ierr;
-  ierr = BSSInitR1Mat(this, comm, D); CHKERRQ(ierr);
+  ierr = BSSInitR1Mat(this, D); CHKERRQ(ierr);
   ierr = BSSCalcENR1Mat(this, q, a, *D, INSERT_VALUES); CHKERRQ(ierr);
   MatAssemblyBegin(*D, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(*D, MAT_FINAL_ASSEMBLY);
   return 0;  
 }
 
-PetscErrorCode BSSSetEER2Mat(BSS this, int q, MPI_Comm comm, Mat *V) {
+PetscErrorCode BSSSetEER2Mat(BSS this, int q, Mat *V) {
   PetscErrorCode ierr;
-  ierr = BSSInitR2Mat(this, comm, V); CHKERRQ(ierr);
+  ierr = BSSInitR2Mat(this, V); CHKERRQ(ierr);
   ierr = BSSCalcEER2Mat(this, q, *V, INSERT_VALUES ); CHKERRQ(ierr);
   MatAssemblyBegin(*V, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(*V, MAT_FINAL_ASSEMBLY);
   return 0;
 }
 
-PetscErrorCode BSSSetUR1R2Mat(BSS this, Mat *U) {
-  /*
-    {<B_m | 1/r | rho_A>}_mA
-    rho_A(r) = B_i(r)B_j(r)
-   */
-  
-  return 0;
-  
-
-}
-
-PetscErrorCode BSSSetEER2MatGreen(BSS this, int q, MPI_Comm, Mat *V) {
-  return 0;
-}
