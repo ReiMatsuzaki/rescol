@@ -20,6 +20,7 @@ PetscErrorCode FDDestroy(FD *fd);
 PetscErrorCode FDFPrintf(FD this, FILE *file, int lvl);
 
 // ---- Matrix ----
+PetscErrorCode FDSetSR1Mat(FD this, Mat *M);
 PetscErrorCode FDSetD2R1Mat(FD this, Mat *M);
 PetscErrorCode FDSetR2invR1Mat(FD this, Mat *M);
 PetscErrorCode FDSetENR1Mat(FD this, int q, PetscScalar a, Mat *M);

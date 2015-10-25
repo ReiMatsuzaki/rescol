@@ -12,7 +12,7 @@ PetscErrorCode FEMInfCreateFD(FEMInf *inf, FD this) {
     FD_Sc.CreateFromOptions = FDCreateFromOptions;
     FD_Sc.Destory = FDDestroy;
     FD_Sc.FPrintf = FDFPrintf;
-    FD_Sc.SetSR1Mat = NULL;
+    FD_Sc.SetSR1Mat = FDSetSR1Mat;
     FD_Sc.SetD2R1Mat = FDSetD2R1Mat;
     FD_Sc.SetR2invR1Mat = FDSetR2invR1Mat;
     FD_Sc.SetENR1Mat = FDSetENR1Mat;    

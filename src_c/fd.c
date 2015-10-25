@@ -75,8 +75,20 @@ PetscErrorCode FDInitR2Mat(FD this, Mat *M) {
 }
 
 // ---- Matrix (public) ----
-PetscErrorCode FDSetD2R1Mat(FD this, Mat *M) {
+PetscErrorCode FDSetSR1Mat(FD this, Mat *M) {
 
+  PetscErrorCode ierr;
+  ierr = FDInitR1Mat(this, M); CHKERRQ(ierr);
+  for(int i = 0; i < this->num; i++) {
+    ierr = MatSetValue(*M, i, i, 1.0, INSERT_VALUES); CHKERRQ(ierr);
+  }
+
+  ierr = MatAssemblyBegin(*M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  ierr = MatAssemblyEnd(*M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+
+  return 0;
+}
+PetscErrorCode FDSetD2R1Mat(FD this, Mat *M) {
 
   PetscErrorCode ierr;
   PetscInt n = this->num;

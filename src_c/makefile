@@ -58,15 +58,40 @@ test_he_guess: he_guess.out
 	python ../script/calc_y2mat.py -t tmp -l1 2 > tmp/y2mat.dat
 	./he_guess.out -z 1.0 -in_dir tmp -out_dir tmp -guess_type eig -fem_type fd -fd_num 100 -fd_xmax 20.0
 
-# this test takes 145s+82s=4min
-test_h2mole: h2mole.out chkopts
+
+test_h2mole_fd: h2mole.out chkopts
 	rm tmp/*
 	python ../script/calc_y2mat.py -t tmp -l1 2 > tmp/y2mat.dat
-	./h2mole.out \
-	-bond_length 0.0 \
-	-in_dir tmp -out_dir tmp -qmax 32  \
+	./he_guess.out -z 1.5 -in_dir tmp -out_dir tmp -guess_type calc \
+	-fem_type fd -fd_xmax 30.0 -fd_num 300 
+	./h2mole.out -bond_length 0.0 -eri direct -guess_type read  -qmax 32 \
+	-in_dir tmp -out_dir tmp  \
+	-fem_type fd -fd_xmax 30.0 -fd_num 300 \
+	-eps_nev 1 -eps_max_it 1000 -eps_type jd \
+	-bondlength0 0.0 -num_bondlength 2 -d_bondlength 0.5
+
+test_h2mole_bss: h2mole.out chkopts
+	rm tmp/*
+	python ../script/calc_y2mat.py -t tmp -l1 2 > tmp/y2mat.dat
+	./he_guess.out -z 1.5 -in_dir tmp -out_dir tmp -guess_type calc \
+	-fem_type bss -bss_order 4 -bps_num_zs 21 -bps_type exp -bps_zmax 30.0
+	./h2mole.out -bond_length 0.0 -eri direct -guess_type read  -qmax 32 \
+	-in_dir tmp -out_dir tmp  \
 	-fem_type bss -bss_order 4 -bps_num_zs 21 -bps_type exp -bps_zmax 30.0 \
-	-eps_nev 1 -eps_max_it 1000 -eps_type jd 
+	-eps_nev 1 -eps_max_it 1000 -eps_type jd \
+	-bondlength0 0.0 -num_bondlength 2 -d_bondlength 0.5
+
+test_h2mole_dvr: h2mole.out chkopts
+	rm tmp/*
+	python ../script/calc_y2mat.py -t tmp -l1 2 > tmp/y2mat.dat
+	./he_guess.out -z 1.0 -in_dir tmp -out_dir tmp -guess_type calc \
+	-fem_type dvr -dvr_nq 4 -bps_num_zs 11 -bps_type exp -bps_zmax 30.0
+	./h2mole.out -bond_length 0.0 -eri direct -guess_type read  -qmax 32 \
+	-in_dir tmp -out_dir tmp  \
+	-fem_type dvr -dvr_nq 4 -bps_num_zs 11 -bps_type exp -bps_zmax 30.0 \
+	-eps_nev 1 -eps_max_it 1000 -eps_type krylovschur \
+	-bondlength0 0.0 -num_bondlength 2 -d_bondlength 0.5
+
 
 # this test takes 
 # 15s+82s = 2min (default eigen solver)
@@ -78,7 +103,3 @@ test_h2mole2: h2mole2.out
 	python ../script/calc_y2mat.py -t tmp -l1 2 > tmp/y2mat.dat
 	./h2mole2.out -in_dir tmp -out_dir tmp -bond_length 0.0 -eps_target -3.0  -bss_order 4 -bss_knots_num 31 -bss_rmax 30.0 -bss_knots_type exp -qmax 10 -eps_max_it 1000 -eps_target -5.0 -eps_nev 1 -eps_type krylovschur
 
-test_h2mole_dvr: he_guess_dvr.out
-	rm tmp/*
-	python ../script/calc_y2mat.py -t tmp -l1 2 > tmp/y2mat.dat
-	./he_guess_dvr.out -L1 0 -L2 0 -z 1.0 -in_dir tmp -out_dir tmp  -dvr_nq 5 -dvr_knots_num 10 -dvr_rmax 30.0 -dvr_knots_type exp -eps_type jd
