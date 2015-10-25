@@ -44,6 +44,6 @@ PetscErrorCode FEMInfSetENR1Mat(FEMInf this, int q, double a, Mat *M);
 PetscErrorCode FEMInfSetEER2Mat(FEMInf this, int q, Mat *M); 
 PetscErrorCode FEMInfBasisPsi(FEMInf this, int i, PetscScalar x, PetscScalar *y);
 PetscErrorCode FEMInfGetOverlapIsId(FEMInf this, PetscBool *is_id);
-PetscErrorCode FEMInfGuessHEig(FEMInf this, int n, int l, Vec *v);
+PetscErrorCode FEMInfGuessHEig(FEMInf this, int n, int l, PetscScalar z, Vec *v);
 
 #endif

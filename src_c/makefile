@@ -14,14 +14,14 @@ diag.out: diag.o mat.o chkopts
 h2plus.out: h2plus.o ${FEMOBJS} chkopts
 	-${CLINKER} -o $@ h2plus.o ${FEMOBJS} ${SLEPC_EPS_LIB}
 
-h2mole.out: h2mole.o bspline.o mat.o chkopts
-	-${CLINKER} -o $@ h2mole.o bspline.o mat.o ${SLEPC_EPS_LIB}
+h2mole.out: h2mole.o ${FEMOBJS} chkopts
+	-${CLINKER} -o $@ h2mole.o ${FEMOBJS} ${SLEPC_EPS_LIB}
 
 h2mole2.out: h2mole2.o fem_inf.o dvr.o bspline.o fd.o bps.o mat.o chkopts
 	-${CLINKER} -o $@ h2mole2.o fem_inf.o dvr.o bspline.o fd.o bps.o mat.o ${SLEPC_EPS_LIB}
 
-he_guess.out: he_guess.o mat.o bspline.o chkopts
-	-${CLINKER} -o $@ he_guess.o bspline.o mat.o ${SLEPC_EPS_LIB}
+he_guess.out: he_guess.o ${FEMOBJS} chkopts
+	-${CLINKER} -o $@ he_guess.o ${FEMOBJS} ${SLEPC_EPS_LIB}
 
 he_guess_dvr.out: he_guess_dvr.o mat.o dvr.o chkopts
 	-${CLINKER} -o $@ he_guess_dvr.o dvr.o mat.o ${SLEPC_EPS_LIB}
@@ -53,10 +53,20 @@ test_h2plus_h_L1: h2plus.out chkopts
 test_h2plus_h: h2plus.out chkopts
 	./h2plus.out -target_dir h2plus -bss_order 6 -bss_knots_num 61 -bss_rmax 30.0 -qmax 32 -bond_length 0.0 -eps_target -2.2 -eps_nev 10 -eps_max_it 1000
 
+test_he_guess: he_guess.out
+	rm tmp/*
+	python ../script/calc_y2mat.py -t tmp -l1 2 > tmp/y2mat.dat
+	./he_guess.out -z 1.0 -in_dir tmp -out_dir tmp -guess_type eig -fem_type fd -fd_num 100 -fd_xmax 20.0
+
 # this test takes 145s+82s=4min
 test_h2mole: h2mole.out chkopts
+	rm tmp/*
 	python ../script/calc_y2mat.py -t tmp -l1 2 > tmp/y2mat.dat
-	./h2mole.out -in_dir tmp -out_dir tmp -bss_order 4 -bss_knots_num 31 -bss_rmax 20.0 -bss_knots_type exp -qmax 10 -bond_length 0.0 -eps_target -3.0 -eps_nev 1 -eps_max_it 1000
+	./h2mole.out \
+	-bond_length 0.0 \
+	-in_dir tmp -out_dir tmp -qmax 32  \
+	-fem_type bss -bss_order 4 -bps_num_zs 21 -bps_type exp -bps_zmax 30.0 \
+	-eps_nev 1 -eps_max_it 1000 -eps_type jd 
 
 # this test takes 
 # 15s+82s = 2min (default eigen solver)

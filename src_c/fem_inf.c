@@ -42,7 +42,7 @@ PetscErrorCode FEMInfCreateBSS(FEMInf *inf, BSS this) {
     BSS_Sc.SetD2R1Mat = BSSSetD2R1Mat;
     BSS_Sc.SetR2invR1Mat = BSSSetR2invR1Mat;
     BSS_Sc.SetENR1Mat = BSSSetENR1Mat;    
-    BSS_Sc.SetEER2Mat = BSSSetEER2Mat;        
+    BSS_Sc.SetEER2Mat = BSSSetEER2Mat;
     BSS_Sc.BasisPsi = BSSBasisPsi;
     BSS_Sc.GuessHEig = NULL;
     BSS_Sc.overlap_is_id = PETSC_FALSE;
@@ -179,17 +179,17 @@ PetscErrorCode FEMInfSetEER2Mat(FEMInf this, int q, Mat *M) {
   if(this.sc->SetEER2Mat == NULL)
     SETERRQ(PETSC_COMM_SELF, 1, "method is null");
 
-  this.sc->SetEER2Mat(this.obj, M);
+  this.sc->SetEER2Mat(this.obj, q, M);
   return 0;
 
 }
 
-PetscErrorCode FEMInfGuessHEig(FEMInf this, int n, int l, Vec *v) {
+PetscErrorCode FEMInfGuessHEig(FEMInf this, int n, int l, PetscScalar z, Vec *v) {
 
   if(this.sc->GuessHEig == NULL)
     SETERRQ(PETSC_COMM_SELF, 1, "method is null");
 
-  this.sc->GuessHEig(this.obj, n, l, v);
+  this.sc->GuessHEig(this.obj, n, l, z, v);
   return 0;
 }
 
