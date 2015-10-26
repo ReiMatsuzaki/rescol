@@ -39,12 +39,14 @@ struct _p_H2 {
   
   PetscReal d_bondlength; // delta of bond length
   PetscInt num_bondlength; // number of bond length for caluclation
+  
 
   // ---- varable -----
   PetscReal bondlength;  // initial bond length
-  
   Mat H;
-  Vec guess[1];
+  Vec *guess;
+  int num_guess; // # of guess vector to use
+  int max_num_guess; // size of array "guess"
 };
 
 typedef struct _p_H2* H2; 
@@ -72,8 +74,7 @@ PetscErrorCode H2CreateFromOptions(H2 *h2, MPI_Comm comm) {
   PetscOptionsGetString(NULL, "-out_dir", _h2->out_dir, 100, NULL);
   PetscOptionsGetString(NULL, "-guess_type", _h2->guess_type, 10, NULL);
   PetscOptionsGetInt(NULL, "-qmax", &_h2->qmax, NULL);
-  PetscOptionsGetString(NULL, "-eri", _h2->eri_option, 10, NULL);
-  PetscOptionsGetReal(NULL, "-bondlength0", &_h2->bondlength, NULL);
+  PetscOptionsGetString(NULL, "-eri", _h2->eri_option, 10, NULL);  
   PetscOptionsGetReal(NULL, "-d_bondlength", &_h2->d_bondlength, NULL);
   PetscOptionsGetInt(NULL, "-num_bondlength", &_h2->num_bondlength, NULL);
 
@@ -84,12 +85,20 @@ PetscErrorCode H2CreateFromOptions(H2 *h2, MPI_Comm comm) {
   if(_h2->num_bondlength < 1)
     SETERRQ(comm, 1, "num_bondlength > 0");
 
-  _h2->H0 = NULL;
-  _h2->S = NULL;
-  //  _h2->H = NULL;
-
   _h2->s_r1 = NULL;
   _h2->s_y2 = NULL;
+  _h2->H0 = NULL;
+  _h2->S = NULL;
+
+  PetscOptionsGetReal(NULL, "-bondlength0", &_h2->bondlength, NULL);
+  _h2->H = NULL;
+  _h2->num_guess = 1;
+  int nev = 0; PetscOptionsGetInt(NULL, "-eps_nev", &nev, NULL);
+  if(nev > 0)
+    _h2->max_num_guess = nev;
+  else
+    _h2->max_num_guess = 1;
+  ierr = PetscMalloc1(_h2->max_num_guess, &_h2->guess);
 
   *h2 = _h2;
   return 0;
@@ -105,7 +114,11 @@ PetscErrorCode H2Destroy(H2 *h2) {
     ierr = MatDestroy(&this->S); CHKERRQ(ierr);
   }
   ierr = MatDestroy(&this->H0); CHKERRQ(ierr);
-
+  for(int i = 0; i < this->max_num_guess; i++) {
+    ierr = VecDestroy(&this->guess[i]); CHKERRQ(ierr);
+  }
+  ierr = PetscFree(this->guess); CHKERRQ(ierr);
+  
   return 0;
 }
 
@@ -116,8 +129,19 @@ PetscErrorCode H2SetBasic(H2 this) {
   ierr = MatSetDirFile(this->in_dir, "s_y2mat.dat", &this->s_y2); 
   CHKERRQ(ierr);
 
-  return 0;
+  if(strcmp(this->guess_type, "read") == 0) {
+    PrintTimeStamp(this->comm, "read guess", NULL);
+    PetscViewer viewer;
+    VecCreate(this->comm, &this->guess[0]);
+    char path[100]; sprintf(path, "%s/guess.vec.dat", this->in_dir);
+    PetscViewerBinaryOpen(this->comm, path, FILE_MODE_READ, &viewer);
+    ierr = VecLoad(this->guess[0], viewer); CHKERRQ(ierr);        
+  } else if (strcmp(this->guess_type, "none") == 0) {
+    this->guess[0] = NULL;
+  } else
+    SETERRQ(this->comm, 1, "guess_type<-{read, none}");
 
+  return 0;
 }
 
 PetscErrorCode H2SetSMat(H2 this) {
@@ -132,6 +156,7 @@ PetscErrorCode H2SetSMat(H2 this) {
 PetscErrorCode H2SetD2(H2 this) {
 
   PrintTimeStamp(this->comm, "D2Mat", NULL);
+  PrintTimeStamp(this->comm, "D2(r1)", NULL);
   
   // D2 
   Mat d2_r1;
@@ -140,44 +165,40 @@ PetscErrorCode H2SetD2(H2 this) {
   ierr = MatScale(d2_r1, -0.5); CHKERRQ(ierr);
 
   Mat D;
+  PrintTimeStamp(this->comm, "D2(syn)", NULL);
   ierr = MatSetSynthesize3Fast(this->s_r1, d2_r1, this->s_y2, 
 			       this->comm, &this->H0); 
   CHKERRQ(ierr);
   ierr = MatSetSynthesize3Fast(d2_r1, this->s_r1, this->s_y2, 
 			       this->comm, &D); CHKERRQ(ierr);
 
+  PrintTimeStamp(this->comm, "D2(axpy)", NULL);
   ierr = MatAXPY(this->H0, 1.0, D, DIFFERENT_NONZERO_PATTERN);  CHKERRQ(ierr);
 
+  PrintTimeStamp(this->comm, "D2(free)", NULL);
   MatDestroy(&d2_r1); MatDestroy(&D);
   return 0;
 }
 
 PetscErrorCode H2AddL(H2 this) {
 
-  PrintTimeStamp(this->comm, "LMat0", NULL);
+  PrintTimeStamp(this->comm, "LMat", NULL);
 
   Mat l_r1; 
   PetscErrorCode ierr;
-  PrintTimeStamp(this->comm, "LMat(r1)", NULL);
   ierr = FEMInfSetR2invR1Mat(this->fem, &l_r1); CHKERRQ(ierr);
-  
   
   char l1_path[100]; sprintf(l1_path, "%s/l_1_y2mat.dat", this->in_dir); 
   FILE *fl1 = fopen(l1_path, "r");
   if(fl1 != NULL) {
-    PrintTimeStamp(this->comm, "LMat(y2)", NULL);
     Mat l_1_y2, L;
     ierr = MatCreateFromCOOFormatFileHandler(fl1, &l_1_y2); CHKERRQ(ierr);
-    PrintTimeStamp(this->comm, "LMat(syn)", NULL);
     ierr = MatSetSynthesize3Fast(l_r1, this->s_r1, l_1_y2, this->comm, &L); 
     CHKERRQ(ierr);
-    PrintTimeStamp(this->comm, "LMat(axpy)", NULL);
     MatAXPY(this->H0, 0.5, L, SUBSET_NONZERO_PATTERN);
-    PrintTimeStamp(this->comm, "LMat(end)", NULL);
     MatDestroy(&L); MatDestroy(&l_1_y2); fclose(fl1);
   }
 
-  PrintTimeStamp(this->comm, "LMat(2)", NULL);
   char l2_path[100]; sprintf(l2_path, "%s/l_2_y2mat.dat", this->in_dir); 
   FILE *fl2 = fopen(l2_path, "r");
   if(fl2 != NULL) {
@@ -282,19 +303,7 @@ PetscErrorCode H2Solve(H2 this) {
   if(this->guess[0] != NULL) {
     ierr = EPSSetInitialSpace(eps, 1, this->guess); CHKERRQ(ierr);
   }
-
-  if(strcmp(this->guess_type, "read") == 0) {
-    PrintTimeStamp(this->comm, "guess", NULL);
-    PetscViewer viewer;
-    VecCreate(this->comm, &this->guess[0]);
-    char path[100]; sprintf(path, "%s/guess.vec.dat", this->in_dir);
-    PetscViewerBinaryOpen(this->comm, path, FILE_MODE_READ, &viewer);
-    ierr = VecLoad(this->guess[0], viewer); CHKERRQ(ierr);        
-  } else if (strcmp(this->guess_type, "none") == 0) {
-    this->guess[0] = NULL;
-  } else
-    SETERRQ(this->comm, 1, "guess_type<-{read, none}");
-
+  
   EPSSetFromOptions(eps);
   EPSSetWhichEigenpairs(eps, EPS_TARGET_MAGNITUDE); 
 
@@ -311,15 +320,7 @@ PetscErrorCode H2Solve(H2 this) {
   for(int i = 0; i < nconv; i++) {
     EPSGetEigenpair(eps, i, &kr, NULL, xr, NULL);
     PetscPrintf(comm, "eig%i: %f\n", i, kr);
-    if(i == 0) 
-      VecDuplicate(xr, &this->guess[0]);
-    /*
-    PetscViewer viewer;
-    char path[100]; 
-    sprintf(path, "%s/%d_eig%d.vec.dat", this->out_dir, this->calc_count, i);
-    PetscViewerBinaryOpen(this->comm, path, FILE_MODE_WRITE, &viewer);    
-    VecView(xr, viewer);
-    */
+    VecDuplicate(xr, &this->guess[i]);
   }  
 
   EPSDestroy(&eps);
@@ -361,7 +362,6 @@ int main(int argc, char **args) {
     ierr = H2DestroyMini(h2); CHKERRQ(ierr);
 
     h2->bondlength += h2->d_bondlength;
-    
   }
 
   return 0;

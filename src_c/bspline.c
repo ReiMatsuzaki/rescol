@@ -302,27 +302,36 @@ PetscErrorCode BSSCalcD2R1Mat(BSS this, Mat D, InsertMode mode) {
 }
 
 PetscErrorCode BSSCalcENR1Mat(BSS this, int q, PetscScalar a, Mat V, InsertMode mode) {
-  int i, j, k;
   int nb = this->num_basis;
   int ne = this->num_ele;
   int nq = this->order;
   PetscErrorCode ierr;
 
-  for(i = 0; i < nb; i++)
-    for(j = 0; j < nb; j++) {
+  PetscScalar *vs; 
+  PetscMalloc1(ne*nq, &vs);
+  for(int k = 0; k < ne*nq; k++) {
+    PetscScalar v;
+    PartialCoulomb(q, a, this->xs[k], &v);
+    vs[k] = v;
+  }
+
+  for(int i = 0; i < nb; i++)
+    for(int j = 0; j <= i; j++) {
       if(HasNon0Value(this->order, this->b_idx_list[i], this->b_idx_list[j])) {
 	PetscScalar v = 0.0;
-	for(k = 0; k < ne*nq; k++) {
-	  double r = this->xs[k];
+	for(int k = 0; k < ne*nq; k++) {
 	  double w = this->ws[k];
-	  double v1;
-	  PartialCoulomb(q, a, r, &v1);
+	  double v1 = vs[k];
 	  v += this->vals[k+i*(ne*nq)] * this->vals[k+j*(ne*nq)] 
 	    * w * v1;
 	}
 	ierr = MatSetValue(V, i, j, v, mode); CHKERRQ(ierr);
+	if(i!=j)
+	  ierr = MatSetValue(V, j, i, v, mode); CHKERRQ(ierr);
       }
     }
+
+  PetscFree(vs);
   return 0;
 }
 
@@ -333,23 +342,21 @@ PetscErrorCode BSSCalcEER2Mat(BSS this, int q, Mat V, InsertMode mode) {
   int nq = this->order * this->num_ele;
   PetscErrorCode ierr;
 
-  double *sg_ij;
-  sg_ij = (double*)malloc(sizeof(double)*nq*nq);
+  double *sg_ij; 
+  ierr = PetscMalloc1(nq*nq, &sg_ij); CHKERRQ(ierr);
   for(int i = 0; i < nq; i++)
     for(int j = 0; j < nq; j++) {
       double v; PartialCoulomb(q, this->xs[i], this->xs[j], &v);
       sg_ij[j+nq*i] = v;
     }
 
-  double *wvv = (double*)malloc(sizeof(double)*nb*nb*nq);
-  int *i0s = (int*)malloc(sizeof(int)*nb*nb);
-  int *i1s = (int*)malloc(sizeof(int)*nb*nb);
+  double *wvv; ierr = PetscMalloc1(nb*nb*nq, &wvv); CHKERRQ(ierr);
+  int *i0s; ierr = PetscMalloc1(nb*nb, &i0s); CHKERRQ(ierr);
+  int *i1s; ierr = PetscMalloc1(nb*nb, &i1s); CHKERRQ(ierr);
   for(int a = 0; a < nb; a++){
     int c0 = a-k+1; c0 = c0<0?0:c0;
     int c1 = a+k  ; c1 = c1>nb?nb:c1;
     for(int c = c0; c < c1; c++) {
-      //int i0, i1; Non0QuadIndex(a, c, k, nq, &i0, &i1);
-      //i0s[a*nb+c] = i0; i1s[a*nb+c] = i1;
       i0s[a*nb+c] = 0; i1s[a*nb+c] = nq;
       for(int n = 0; n < nq; n++) 
 	wvv[a*nb*nq+c*nq+n]= this->ws[n] * this->vals[a*nq+n] * this->vals[c*nq+n];
@@ -374,7 +381,7 @@ PetscErrorCode BSSCalcEER2Mat(BSS this, int q, Mat V, InsertMode mode) {
     }
   }
 
-  free(sg_ij);
+  PetscFree(sg_ij); PetscFree(wvv); PetscFree(i0s); PetscFree(i1s);
   return 0;
 }
 
