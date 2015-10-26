@@ -1,9 +1,9 @@
 import os
 
-rmax = 30.0
-order = 2
-num = 21
-l1 = 2
+rmax = 40.0
+order = 4
+num = 41
+l1 = 4
 
 x_list = range(25)
 for x in x_list:
