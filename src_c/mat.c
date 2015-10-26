@@ -216,13 +216,15 @@ PetscErrorCode EPSWriteToFile(EPS eps, char* path_detail, char* path_eigvals, ch
 }
 
 PetscErrorCode VecInitSynthesize(Vec A, Vec B, MPI_Comm comm, Vec *C) {
-  
-  PetscInt na, nb;
-  VecGetSize(A, &na); VecGetSize(B, &nb);
 
-  VecCreate(comm, C);
-  VecSetSizes(*C, PETSC_DECIDE, na*nb);
-  VecSetFromOptions(*C);
+  PetscErrorCode ierr;
+  PetscInt na, nb;
+  ierr = VecGetSize(A, &na);  CHKERRQ(ierr);
+  ierr = VecGetSize(B, &nb);  CHKERRQ(ierr);
+
+  ierr =VecCreate(comm, C);  CHKERRQ(ierr);
+  ierr =VecSetSizes(*C, PETSC_DECIDE, na*nb);  CHKERRQ(ierr);
+  ierr =VecSetFromOptions(*C);  CHKERRQ(ierr);
   
   return 0;
 }
@@ -259,9 +261,10 @@ PetscErrorCode VecSynthesize(Vec A, Vec B, PetscScalar c,
 PetscErrorCode VecSetSynthesize(Vec A, Vec B, PetscScalar c, 
 				MPI_Comm comm, Vec *C){
   PetscErrorCode ierr;
-  ierr = VecInitSynthesize(A, B, comm, C);
-  ierr = VecSynthesize(A, B, c, C, INSERT_VALUES);
-  VecAssemblyBegin(*C); VecAssemblyEnd(*C);
+  ierr = VecInitSynthesize(A, B, comm, C); CHKERRQ(ierr);
+  ierr = VecSynthesize(A, B, c, C, INSERT_VALUES); CHKERRQ(ierr);
+  ierr = VecAssemblyBegin(*C);  CHKERRQ(ierr);
+  ierr = VecAssemblyEnd(*C); CHKERRQ(ierr);
   return 0;
 }
 
@@ -324,7 +327,7 @@ PetscErrorCode MatSynthesize(Mat A, Mat B, PetscScalar c,
   return 0;
 }
 
-PetscErrorCode MatSetSynthesize(Mat A, Mat B, PetscScalar c, 
+PetscErrorCode MatSetSynthesizeSlow(Mat A, Mat B, PetscScalar c, 
 				MPI_Comm comm, Mat *C) {
   PetscErrorCode ierr;
   ierr = MatInitSynthesize(A, B, comm, C); CHKERRQ(ierr);
@@ -332,6 +335,67 @@ PetscErrorCode MatSetSynthesize(Mat A, Mat B, PetscScalar c,
   MatAssemblyBegin(*C, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(*C, MAT_FINAL_ASSEMBLY);
   return 0;
+}
+
+PetscErrorCode MatSetSynthesizeFast(Mat A, Mat B, MPI_Comm comm, Mat *C) {
+ 
+  PetscErrorCode ierr;
+  PetscInt na, nb, ma, mb;
+  ierr = MatGetSize(A, &na, &ma); CHKERRQ(ierr);
+  ierr = MatGetSize(B, &nb, &mb); CHKERRQ(ierr);
+
+  const PetscScalar **row_a, **row_b;
+  PetscInt *ncols_a, *ncols_b;
+  const PetscInt **cols_a, **cols_b;
+
+  row_a = (const PetscScalar**)malloc(sizeof(PetscScalar*)*na);
+  ncols_a = (PetscInt*)malloc(sizeof(PetscInt)*na);
+  cols_a = (const PetscInt**)malloc(sizeof(PetscInt*)*na);
+  row_b = (const PetscScalar**)malloc(sizeof(PetscScalar*)*nb);
+  ncols_b = (PetscInt*)malloc(sizeof(PetscInt)*nb);
+  cols_b = (const PetscInt**)malloc(sizeof(PetscInt*)*nb);
+
+  PetscInt num_a = 0;
+  PetscInt num_b = 0;
+  for(int i = 0; i < na; i++) {
+    ierr = MatGetRow(A, i, &ncols_a[i], &cols_a[i], &row_a[i]); CHKERRQ(ierr);
+    num_a += ncols_a[i];
+  }
+  for(int i = 0; i < nb; i++) {
+    ierr = MatGetRow(B, i, &ncols_b[i], &cols_b[i], &row_b[i]); CHKERRQ(ierr);
+    num_b += ncols_b[i];
+  }
+  
+  PetscInt num_c = num_a*num_b;
+  PetscScalar *val;
+  PetscInt *row, *col;
+  val = (PetscScalar*)malloc(sizeof(PetscScalar)*num_c);
+  row = (PetscInt*)malloc(sizeof(PetscInt)*num_c);
+  col = (PetscInt*)malloc(sizeof(PetscInt)*num_c);
+
+  PetscInt idx = 0;
+  for(int i_a = 0; i_a < na; i_a++) {
+    for(int idx_a = 0; idx_a < ncols_a[i_a]; idx_a++) {
+      int j_a = cols_a[i_a][idx_a];
+      for(int i_b = 0; i_b < nb; i_b++) { 
+      	for(int idx_b = 0; idx_b < ncols_b[i_b]; idx_b++) {
+	  int j_b = cols_b[i_b][idx_b];
+	  row[idx] = i_a + i_b * na;
+	  col[idx] = j_a + j_b * ma;
+	  val[idx] = row_a[i_a][idx_a] * row_b[i_b][idx_b];
+	  idx++;
+	}
+      }
+    }
+  }
+  ierr = MatCreateSeqAIJFromTriple(comm, na*nb, ma*mb, row, col, val, C, num_c, 0);
+  CHKERRQ(ierr);
+  return 0;
+}
+
+PetscErrorCode MatSetSynthesize(Mat A, Mat B, PetscScalar c, 
+				MPI_Comm comm, Mat *C) {
+  return MatSetSynthesizeSlow(A, B, c, comm, C);
 }
 
 PetscErrorCode MatInitSynthesize3(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D) {
@@ -368,5 +432,82 @@ PetscErrorCode MatSetSynthesize3(Mat A, Mat B, Mat C, PetscScalar d, MPI_Comm co
   ierr = MatSynthesize3(A, B, C, d, D, INSERT_VALUES); CHKERRQ(ierr);
   MatAssemblyBegin(*D, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(*D, MAT_FINAL_ASSEMBLY);
+  return 0;
+}
+
+PetscErrorCode MatSetSynthesize3Fast(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D) {
+  Mat BC;
+  PetscErrorCode ierr;
+  ierr = MatSetSynthesizeFast(B, C, comm, &BC); CHKERRQ(ierr);
+  ierr = MatSetSynthesizeFast(A, BC, comm, D); CHKERRQ(ierr);
+  MatDestroy(&BC);
+  return 0;
+}
+
+
+PetscErrorCode PartialCoulomb(int q, double r1, double r2, double *y) {
+
+  if(q < 0) {
+    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_ARG_OUTOFRANGE, 
+	    "q must be non negative integer");
+  }
+
+  double g = r1>r2 ? r1 : r2;
+  double s = r1>r2 ? r2 : r1;
+  *y = pow(s/g, q)/g;
+  return 0;
+}
+
+PetscErrorCode LegGauss(int n, int i, PetscScalar* x, PetscScalar* w) {
+  PetscScalar xs[45] = {
+    0.0, -0.5773502691896257, 0.5773502691896257, -0.7745966692414834, 0.0, 0.7745966692414834, -0.8611363115940526, -0.33998104358485626, 0.33998104358485626, 0.8611363115940526, -0.906179845938664, -0.5384693101056831, 0.0, 0.5384693101056831, 0.906179845938664, -0.932469514203152, -0.6612093864662645, -0.23861918608319693, 0.23861918608319693, 0.6612093864662645, 0.932469514203152, -0.9491079123427585, -0.7415311855993945, -0.4058451513773972, 0.0, 0.4058451513773972, 0.7415311855993945, 0.9491079123427585, -0.9602898564975362, -0.7966664774136267, -0.525532409916329, -0.18343464249564984, 0.18343464249564984, 0.525532409916329, 0.7966664774136267, 0.9602898564975362, -0.9681602395076261, -0.8360311073266358, -0.6133714327005904, -0.3242534234038089, 0.0, 0.3242534234038089, 0.6133714327005904, 0.8360311073266358, 0.9681602395076261};
+  PetscScalar ws[45] = {
+    2.0, 1.0, 1.0, 0.5555555555555555, 0.888888888888889, 0.5555555555555555, 0.34785484513745396, 0.6521451548625462, 0.6521451548625462, 0.34785484513745396, 0.236926885056189, 0.4786286704993665, 0.5688888888888888, 0.4786286704993665, 0.236926885056189, 0.17132449237916944, 0.36076157304813883, 0.4679139345726918, 0.4679139345726918, 0.36076157304813883, 0.17132449237916944, 0.12948496616886826, 0.2797053914892774, 0.38183005050511937, 0.41795918367347007, 0.38183005050511937, 0.2797053914892774, 0.12948496616886826, 0.10122853629037527, 0.22238103445337512, 0.3137066458778874, 0.362683783378362, 0.362683783378362, 0.3137066458778874, 0.22238103445337512, 0.10122853629037527, 0.08127438836157427, 0.18064816069485748, 0.2606106964029357, 0.31234707704000275, 0.3302393550012596, 0.31234707704000275, 0.2606106964029357, 0.18064816069485748, 0.0812743883615742};
+
+  *x = xs[n * (n-1)/2 + i];
+  *w = ws[n * (n-1)/2 + i];
+  return 0;
+}
+
+PetscErrorCode LobGauss(int n, int i, PetscScalar* x, PetscScalar* w) {
+  PetscScalar xs[44] = {
+    -1.0, 1.0, 
+    -1.0, 0.0, 1.0, 
+    -1.0, -0.4472135954999579, 0.4472135954999579, 1.0, 
+    -1.0, -0.6546536707079772, 0.0, 0.6546536707079772, 1.0,
+    -1.0, -0.7650553239294647, -0.2852315164806451, 0.2852315164806451, 0.7650553239294647, 1.0, 
+    -1.0, -0.830223896278567, -0.46884879347071423, 0.0, 0.46884879347071423,
+ 0.830223896278567, 1.0, 
+    -1.0, -0.8717401485096066, -0.5917001814331423, -0.20929921790247888, 0.20929921790247888, 0.5917001814331423, 0.8717401485096066, 1.0,
+    -1.0, -0.8997579954114602, -0.6771862795107377, -0.36311746382617816, 0.0,
+ 0.36311746382617816, 0.6771862795107377, 0.8997579954114602, 1.0};
+
+  PetscScalar ws[44] = {
+    1.0, 1.0, 
+    0.3333333333333333, 1.3333333333333333, 0.3333333333333333, 
+    0.16666666666666666, 0.8333333333333333, 0.8333333333333333, 0.16666666666666666, 0.1, 0.5444444444444444, 0.7111111111111111, 0.5444444444444444, 0.1, 0.06666666666666667, 0.3784749562978472, 0.5548583770354865, 0.5548583770354865, 0.3784749562978472, 0.06666666666666667, 0.047619047619047616, 0.2768260473615648, 0.4317453812098626, 0.4876190476190476, 0.4317453812098626, 0.2768260473615648, 0.047619047619047616, 0.03571428571428571, 0.21070422714350345, 0.3411226924835027, 0.4124587946587037, 0.4124587946587037, 0.3411226924835027, 0.21070422714350345, 0.03571428571428571, 0.027777777777777776, 0.1654953615608063, 0.2745387125001616, 0.34642851097304617, 0.37151927437641724, 0.34642851097304617, 0.2745387125001616, 0.1654953615608063, 0.027777777777777776};
+  
+  int idx = n*(n-1)/2 + i - 1;
+  if(idx >= 44)
+    SETERRQ(PETSC_COMM_SELF, 1, "index over flow");
+
+  *x = xs[idx];
+  *w = ws[idx];
+  return 0;
+}
+
+PetscErrorCode CreateLinKnots(int num, double zmax, double *zs[]) {
+  double dz = zmax / (num-1);
+  *zs = (double*)malloc(sizeof(double)*num);
+  for(int i = 0; i < num; i++) 
+    (*zs)[i] = i * dz;
+  return 0;
+}
+
+PetscErrorCode CreateExpKnots(int num, double zmax, double gamma, double *zs[]){
+  *zs = (double*)malloc(sizeof(double)*num);
+  for(int n = 0; n < num; n++) {
+    (*zs)[n] = zmax * (exp(gamma*n/(num-1)) - 1.0) / (exp(gamma) - 1.0);
+  }
   return 0;
 }

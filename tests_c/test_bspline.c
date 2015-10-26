@@ -24,34 +24,6 @@ int testNumBSpline() {
   ASSERT_EQ(5, NumBSpline(3, 5));
   return 0;
 }
-int testLegGauss() {
-  PetscScalar x, w;
-  LegGauss(1, 0, &x, &w);
-  ASSERT_DOUBLE_EQ(0.0, x);
-  ASSERT_DOUBLE_EQ(2.0, w);
-
-  LegGauss(2, 0, &x, &w);
-  ASSERT_DOUBLE_EQ(-sqrt(1.0/3.0), x);
-  ASSERT_DOUBLE_EQ(1.0, w);
-
-  LegGauss(2, 1, &x, &w);
-  ASSERT_DOUBLE_EQ(sqrt(1.0/3.0), x);
-  ASSERT_DOUBLE_EQ(1.0, w);
-
-  LegGauss(3, 0, &x, &w);
-  ASSERT_DOUBLE_EQ(-sqrt(3.0/5.0), x);
-  ASSERT_DOUBLE_EQ(5.0/9.0, w);
-
-  LegGauss(3, 1, &x, &w);
-  ASSERT_DOUBLE_EQ(0.0, x);
-  ASSERT_DOUBLE_EQ(8.0/9.0, w);
-
-  LegGauss(3, 2, &x, &w);
-  ASSERT_DOUBLE_EQ(sqrt(3.0/5.0), x);
-  ASSERT_DOUBLE_EQ(5.0/9.0, w);
-
-  return 0;
-}
 int testCalcBSpline() {
   // see paper
   int order = 3;
@@ -83,42 +55,12 @@ int testCalcBSpline() {
 
   return 0;
 }
-int testCreateKnots() {
-
-  double *zs;
-  int num = 6;
-  double zmax = 5.0;
-  CreateLinKnots(num, zmax, &zs);
-  for(int i = 0; i < 6; i++)
-    ASSERT_DOUBLE_EQ(i*1.0, zs[i]);
-
-  free(zs);
-  return 0;
-}
-int testPartialCoulomb() {
-
-  double v; 
-  PartialCoulomb(0, 0.0, 1.1, &v);
-  ASSERT_DOUBLE_EQ(1.0/1.1, v);
-
-  PartialCoulomb(0, 1.1, 0.0, &v);
-  ASSERT_DOUBLE_EQ(1.0/1.1, v);
-
-  PartialCoulomb(1, 1.1, 0.0, &v);
-  ASSERT_DOUBLE_EQ(0.0, v);
-  PartialCoulomb(2, 1.1, 0.0, &v);
-  ASSERT_DOUBLE_EQ(0.0, v);
-  return 0;
-}
 int testBSplineSetBasic() {
-  
-  BSS bss;
+
+  MPI_Comm comm = PETSC_COMM_SELF;
+  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
   int order = 3;
-  double *zs;
-  int i;
-  CreateLinKnots(6, 5.0, &zs);
-  BSSCreate(&bss, order, zs, 6);
-  free(zs);
+  BSS bss; BSSCreate(&bss, order, bps, comm);
 
   ASSERT_EQ(order, bss->order);
   ASSERT_EQ(5, bss->num_ele);
@@ -128,8 +70,9 @@ int testBSplineSetBasic() {
   ASSERT_EQ(2, bss->b_idx_list[1]);
   ASSERT_EQ(4, bss->b_idx_list[3]);
 
-  for(i = 0; i < 6; i++)
-    ASSERT_DOUBLE_EQ(1.0*i, bss->zs[i]);
+  PetscScalar *zs; BPSGetZs(bps, &zs, NULL);
+  for(int i = 0; i < 6; i++)
+    ASSERT_DOUBLE_EQ(1.0*i, zs[i]);
   ASSERT_DOUBLE_EQ(0.0, bss->ts[0]);
   ASSERT_DOUBLE_EQ(0.0, bss->ts[1]);
   ASSERT_DOUBLE_EQ(0.0, bss->ts[2]);
@@ -166,18 +109,16 @@ int testBSplineSetBasic() {
   return 0;
 }
 int testBSplineSetSR1Mat() {
-  BSS bss;
+
+  MPI_Comm comm = PETSC_COMM_SELF;
+  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
   int order = 3;
-  double *zs;
-  PetscErrorCode ierr;
-  CreateLinKnots(6, 5.0, &zs);
-  BSSCreate(&bss, order, zs, 6);
-  free(zs);
+  BSS bss; BSSCreate(&bss, order, bps, comm);
 
   // compute S matrix
   Mat S;
-  
-  ierr = BSSInitR1Mat(bss, PETSC_COMM_WORLD, &S);
+  PetscErrorCode ierr;
+  ierr = BSSInitR1Mat(bss, &S);
   ierr = BSSCalcSR1Mat(bss, S, INSERT_VALUES);  CHKERRQ(ierr);
   //MatSetValue(S, 0, 0, 7.77, INSERT_VALUES);
   ierr = MatAssemblyBegin(S, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
@@ -221,19 +162,15 @@ int testBSplineSetSR1Mat() {
   return 0;
 }
 int testBSplineSetD2R1Mat() {
-  BSS bss;
+
+  MPI_Comm comm = PETSC_COMM_SELF;
+  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
   int order = 3;
-  double *zs;
-  PetscErrorCode ierr;
-  CreateLinKnots(6, 5.0, &zs);
-  BSSCreate(&bss, order, zs, 6);
-  free(zs);
-  
-  ierr = BSSCreate(&bss, order, zs, 6); CHKERRQ(ierr);
+  BSS bss; BSSCreate(&bss, order, bps, comm);
 
   // compute matrix
   Mat M;
-  BSSInitR1Mat(bss, PETSC_COMM_WORLD, &M);
+  BSSInitR1Mat(bss, &M);
   BSSCalcD2R1Mat(bss, M, INSERT_VALUES);
   MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
@@ -262,17 +199,15 @@ int testBSplineSetD2R1Mat() {
   return 0;
 }
 int testBSplineSetENMatR1Mat() {
-  BSS bss;
+ 
+  MPI_Comm comm = PETSC_COMM_SELF;
+  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
   int order = 3;
-
-  double *zs;
-  CreateLinKnots(6, 5.0, &zs);
-  BSSCreate(&bss, order, zs, 6);
-  free(zs);
+  BSS bss; BSSCreate(&bss, order, bps, comm);
 
   // compute matrix
   Mat M;
-  BSSInitR1Mat(bss, PETSC_COMM_WORLD, &M);
+  BSSInitR1Mat(bss, &M);
   BSSCalcENR1Mat(bss, 2, 0.7, M, INSERT_VALUES);
   MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
@@ -292,16 +227,15 @@ int testBSplineSetENMatR1Mat() {
   return 0;
 }
 int testBSplineSetEE() {
-  PetscErrorCode ierr;
-  BSS bss;
-  int order = 3;
 
-  double *zs;
-  CreateLinKnots(6, 5.0, &zs);
-  BSSCreate(&bss, order, zs, 6); free(zs);
+  PetscErrorCode ierr;
+  MPI_Comm comm = PETSC_COMM_SELF;
+  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
+  int order = 3;
+  BSS bss; BSSCreate(&bss, order, bps, comm);
   
   Mat ee;
-  ierr = BSSSetEER2Mat(bss, 0, MPI_COMM_WORLD, &ee); CHKERRQ(ierr);
+  ierr = BSSSetEER2Mat(bss, 0, &ee); CHKERRQ(ierr);
 
   // size check
   PetscInt n, m;
@@ -336,26 +270,23 @@ int testBSplineSetEE() {
   return 0;
 }
 int testBSplineSetEE_time() {
-  PetscErrorCode ierr;
-  BSS bss;
-  int order = 4;
-  int num = 11;
-  clock_t t0, t1, t2;
 
-  double *zs;
-  CreateLinKnots(num, 5.0, &zs);
-  BSSCreate(&bss, order, zs, num); free(zs);
-  
-  
+  time_t t0, t1, t2;
+  PetscErrorCode ierr;
+  MPI_Comm comm = PETSC_COMM_SELF;
+  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 11);
+  int order = 4;
+  BSS bss; BSSCreate(&bss, order, bps, comm);
+
   t0 = clock();
   Mat ee;
-  ierr = BSSInitR2Mat(bss, MPI_COMM_WORLD, &ee); CHKERRQ(ierr);
+  ierr = BSSInitR2Mat(bss, &ee); CHKERRQ(ierr);
   BSSCalcEER2Mat(bss, 0, ee, INSERT_VALUES); CHKERRQ(ierr);
   MatAssemblyBegin(ee, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(ee, MAT_FINAL_ASSEMBLY);
   t1 = clock();
   Mat ee2;
-  ierr = BSSInitR2Mat(bss, MPI_COMM_WORLD, &ee2); CHKERRQ(ierr);
+  ierr = BSSInitR2Mat(bss, &ee2); CHKERRQ(ierr);
   BSSCalcEER2Mat_ver1(bss, 0, ee2, INSERT_VALUES); CHKERRQ(ierr);
   MatAssemblyBegin(ee2, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(ee2, MAT_FINAL_ASSEMBLY);
@@ -371,27 +302,22 @@ int testBSplineSetEE_time() {
 }
 int testBSplineHAtom() {
 
-  BSS bss;
+  MPI_Comm comm = PETSC_COMM_SELF;
+  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 20.0, 20);
   int order = 5;
-
-  double rmax = 20.0;
-  double *zs;
-  int num_zs = 20;
-  CreateLinKnots(num_zs, rmax, &zs);
-  BSSCreate(&bss, order, zs, num_zs);
-  free(zs);
+  BSS bss; BSSCreate(&bss, order, bps, comm);
 
   Mat H, S, tmp;
-  BSSInitR1Mat(bss, PETSC_COMM_WORLD, &H);
-  BSSInitR1Mat(bss, PETSC_COMM_WORLD, &S);
+  BSSInitR1Mat(bss, &H);
+  BSSInitR1Mat(bss, &S);
 
-  BSSInitR1Mat(bss, PETSC_COMM_WORLD, &H);
+  BSSInitR1Mat(bss, &H);
   BSSCalcD2R1Mat(bss, H, INSERT_VALUES);
   MatAssemblyBegin(H, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(H, MAT_FINAL_ASSEMBLY);
   MatScale(H, -0.5);
     
-  BSSInitR1Mat(bss, PETSC_COMM_WORLD, &tmp);
+  BSSInitR1Mat(bss, &tmp);
   BSSCalcENR1Mat(bss, 0, 0.0, tmp, INSERT_VALUES);
   MatAssemblyBegin(tmp, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(tmp, MAT_FINAL_ASSEMBLY);
@@ -433,21 +359,18 @@ int main(int argc, char **args) {
 
   SlepcInitialize(&argc, &args, (char*)0, help);
 
-  /*
   testNumBSpline();
-  testLegGauss();
   testCalcBSpline();
-  testCreateKnots();
-  testPartialCoulomb();
 
   testBSplineSetBasic();
   testBSplineSetSR1Mat();
   testBSplineSetD2R1Mat();
   testBSplineSetENMatR1Mat();
-  */
+
   testBSplineSetEE();
   testBSplineSetEE_time();
-  //testBSplineHAtom();
+
+  testBSplineHAtom();
   
   SlepcFinalize();
   return 0;

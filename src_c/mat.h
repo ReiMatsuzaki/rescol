@@ -21,9 +21,18 @@ PetscErrorCode VecSetSynthesize(Vec A, Vec B, PetscScalar c, MPI_Comm comm, Vec 
 PetscErrorCode MatInitSynthesize(Mat A, Mat B, MPI_Comm comm, Mat *C);
 PetscErrorCode MatSynthesize(Mat A, Mat B, PetscScalar c, Mat *C, InsertMode mode);
 PetscErrorCode MatSetSynthesize(Mat A, Mat B, PetscScalar c, MPI_Comm comm, Mat *C);
+PetscErrorCode MatSetSynthesizeSlow(Mat A, Mat B, PetscScalar c, MPI_Comm comm, Mat *C);
+PetscErrorCode MatSetSynthesizeFast(Mat A, Mat B, MPI_Comm comm, Mat *C);
 
 PetscErrorCode MatInitSynthesize3(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D);
 PetscErrorCode MatSynthesize3(Mat A, Mat B, Mat C, PetscScalar d, Mat *D, InsertMode mode);
 PetscErrorCode MatSetSynthesize3(Mat A, Mat B, Mat C, PetscScalar d, MPI_Comm comm, Mat *D);
+PetscErrorCode MatSetSynthesize3Fast(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D);
+
+PetscErrorCode PartialCoulomb(int q, double r1, double r2, double *y);
+PetscErrorCode LegGauss(int n, int i, PetscScalar *x, PetscScalar *w);
+PetscErrorCode LobGauss(int n, int i, PetscScalar *x, PetscScalar *w);
+//PetscErrorCode CreateLinKnots(int num, double zmax, double *zs[]);
+//PetscErrorCode CreateExpKnots(int num, double zmax, double gamma, double *zs[]);
 
 #endif

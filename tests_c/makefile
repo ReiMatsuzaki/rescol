@@ -10,11 +10,20 @@ test_angmoment:test_angmoment.o
 	./test_angmoment.out
 
 test_bspline:test_bspline.o ../src_c/bspline.o
-	-${CLINKER} -o test_bspline.out test_bspline.o ../src_c/bspline.o ${SLEPC_EPS_LIB} -g
+	-${CLINKER} -o test_bspline.out test_bspline.o ../src_c/bspline.o ../src_c/bps.o ../src_c/mat.o ${SLEPC_EPS_LIB} -g
 	./test_bspline.out
 
+test_dvr:test_dvr.o ../src_c/dvr.o ../src_c/bps.o
+	-${CLINKER} -o test_dvr.out test_dvr.o ../src_c/dvr.o ../src_c/bps.o ../src_c/mat.o -llapack -lblas -lm ${SLEPC_EPS_LIB} -g
+	./test_dvr.out -eps_max_it 1000 -eps_type jd
 
+test_bps: test_bps.o ../src_c/bps.o 
+	-${CLINKER} -o test_bps.out test_bps.o ../src_c/bps.o ${SLEPC_EPS_LIB} -g
+	./test_bps.out -bps_type exp -bps_num_zs 6 -bps_zmax 2.0
 
+test_fem_inf: test_fem_inf.o ../src_c/fem_inf.o
+	-${CLINKER} -o test_fem_inf.out test_fem_inf.o ../src_c/fem_inf.o ../src_c/dvr.o ../src_c/bspline.o  ../src_c/bps.o ../src_c/mat.o ${SLEPC_EPS_LIB} -g
+	./test_fem_inf.out
 
 
 
