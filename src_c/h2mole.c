@@ -243,11 +243,14 @@ PetscErrorCode H2SetH_as_H0_plus_NE(H2 this) {
 
   PrintTimeStamp(this->comm, "NE", NULL);
   PetscPrintf(this->comm, "bond_length: %f\n", this->bondlength);
-
   
   PetscScalar a = this->bondlength/2.0;
-  // ierr = MatConvert(this->H0, MATSAME, MAT_INITIAL_MATRIX, &H);
-  ierr = MatDuplicate(this->H0, MAT_COPY_VALUES, &this->H);CHKERRQ(ierr);
+  if(this->H == NULL) {
+    // ierr = MatDuplicate(this->H0, MAT_COPY_VALUES, &this->H); CHKERRQ(ierr);
+    ierr = MatConvert(this->H0, MATSAME, MAT_INITIAL_MATRIX, &this->H);
+  } else {
+    ierr = MatCopy(this->H0, this->H, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
+  }
 
   for(int q = 0; q < this->qmax; q++) {
     char path1[100]; char path2[100]; 
