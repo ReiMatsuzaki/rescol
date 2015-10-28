@@ -12,5 +12,7 @@ python ../../../script/calc_y2mat.py -t ${WORK} -l1 ${LMAX} > y2mat.dat
 ../../../src_c/he_guess.out -in_dir ${WORK} -out_dir ${WORK} ${FEM} ${EPS} \
 			    -z 1.5  -guess_type calc | tee he_guess.dat && \
 ../../../src_c/h2mole.out -eri direct -guess_type read  -qmax 32 \
-			  -in_dir ${WORK} -out_dir ${WORK} ${FEM} ${EPS} ${BOND} \
-			   | tee h2mole.dat
+			  -in_dir ${WORK} -out_dir ${WORK} ${FEM} ${EPS} \
+			  ${BOND} | tee h2mole.dat
+	
+ 

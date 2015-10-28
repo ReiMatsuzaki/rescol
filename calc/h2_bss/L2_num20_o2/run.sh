@@ -7,7 +7,7 @@ BOND="-bondlength0 0.0 -num_bondlength 21 -d_bondlength 0.1"
 mkdir -p $WORK
 rm ${WORK}/*
 
-python ../../../script/calc_y2mat.py -t ${WORK} -l1 ${LMAX} > y2mat.dat
+python ../../../script/calc_y2mat.py -t ${WORK} -l1 ${LMAX} | tee y2mat.dat
 
 ../../../src_c/he_guess.out -in_dir ${WORK} -out_dir ${WORK} ${FEM} ${EPS} \
 			    -z 1.5  -guess_type calc | tee he_guess.dat && \

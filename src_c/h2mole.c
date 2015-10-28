@@ -99,6 +99,8 @@ PetscErrorCode H2CreateFromOptions(H2 *h2, MPI_Comm comm) {
   else
     _h2->max_num_guess = 1;
   ierr = PetscMalloc1(_h2->max_num_guess, &_h2->guess);
+  for(int i = 0; i < _h2->max_num_guess; i++)
+    _h2->guess[i] = NULL;
 
   *h2 = _h2;
   return 0;
@@ -294,7 +296,6 @@ PetscErrorCode H2Solve(H2 this) {
   EPS eps;
 
   ierr = EPSCreate(this->comm, &eps);  CHKERRQ(ierr);
-  //  ierr = EPSSetOperators(eps, this->H, this->S); CHKERRQ(ierr);
   ierr = EPSSetTarget(eps, -4.0);  CHKERRQ(ierr);
 
   PetscBool s_is_id; FEMInfGetOverlapIsId(this->fem, &s_is_id);
@@ -304,7 +305,7 @@ PetscErrorCode H2Solve(H2 this) {
     EPSSetProblemType(eps, EPS_GHEP); 
 
   if(this->guess[0] != NULL) {
-    ierr = EPSSetInitialSpace(eps, 1, this->guess); CHKERRQ(ierr);
+    ierr = EPSSetInitialSpace(eps, this->num_guess, this->guess); CHKERRQ(ierr);
   }
   
   EPSSetFromOptions(eps);
@@ -317,17 +318,16 @@ PetscErrorCode H2Solve(H2 this) {
   PetscPrintf(comm, "==== Results ====\n");
   int nconv;
   PetscScalar kr;
-  Vec xr;
-  ierr = MatCreateVecs(this->H, NULL, &xr); CHKERRQ(ierr);
   EPSGetConverged(eps, &nconv);
   for(int i = 0; i < nconv; i++) {
-    EPSGetEigenpair(eps, i, &kr, NULL, xr, NULL);
     PetscPrintf(comm, "eig%i: %f\n", i, kr);
-    VecDuplicate(xr, &this->guess[i]);
-  }  
-
+    if(this->guess[i] == NULL) {
+      ierr = MatCreateVecs(this->H, NULL, &this->guess[i]); CHKERRQ(ierr);
+    }
+    EPSGetEigenpair(eps, i, &kr, NULL, this->guess[i], NULL);
+  }
+  this->num_guess = nconv;
   EPSDestroy(&eps);
-  VecDestroy(&xr);
   return 0;
 }
 
