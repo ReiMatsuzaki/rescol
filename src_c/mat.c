@@ -237,10 +237,10 @@ PetscErrorCode VecSynthesize(Vec A, Vec B, PetscScalar c,
 
   PetscScalar *as, *bs, *cs;
   VecGetArray(A, &as); VecGetArray(B, &bs);
-  cs = (PetscScalar*)malloc(sizeof(PetscScalar)*na*nb);
+  PetscMalloc1(na*nb, &cs);
 
   PetscInt *idxs;
-  idxs = (PetscInt*)malloc(sizeof(PetscInt)*na*nb);
+  PetscMalloc1(na*nb, &idxs);
 
   PetscInt idx = 0;
   for(int j = 0; j < nb; j++) 
@@ -253,7 +253,8 @@ PetscErrorCode VecSynthesize(Vec A, Vec B, PetscScalar c,
   VecSetValues(*C, na*nb, idxs, cs, mode);
 
   VecRestoreArray(A, &as); VecRestoreArray(B, &bs); 
-  free(cs); free(idxs);
+  PetscFree(idxs);
+  PetscFree(cs);
 
   return 0;
 }

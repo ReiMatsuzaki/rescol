@@ -292,7 +292,8 @@ PetscErrorCode DVRPrepareD2R1LSMat(DVR this) {
   PetscScalar *ds_list;
   int nq = this->nq;
   int ne; BPSGetNumEle(this->bps, &ne);
-  ds_list = (PetscScalar*)malloc(sizeof(PetscScalar)*nq*ne*nq);
+  PetscMalloc1(nq*ne*nq, &ds_list);
+  //  ds_list = (PetscScalar*)malloc(sizeof(PetscScalar)*nq*ne*nq);
   for(int i = 0; i < ne; i++)
     for(int m = 0; m < nq; m++)
       for(int mp = 0; mp < nq; mp++) {
@@ -315,7 +316,7 @@ PetscErrorCode DVRPrepareD2R1LSMat(DVR this) {
 
   ierr = MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
   ierr = MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
-  free(ds_list);  
+  PetscFree(ds_list);
   this->D2_R1LSMat = M;
   return 0;  
 }
