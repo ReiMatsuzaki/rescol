@@ -1,7 +1,7 @@
 WORK=work
 LMAX=4
 FEM="-fem_type bss -bss_order 5 -bps_num_zs 51 -bps_type exp -bps_zmax 50.0"
-EPS="-eps_nev 5 -eps_max_it 1000 -eps_type krylovschur"
+EPS="-eps_nev 5 -eps_max_it 1000 -eps_type jd"
 BOND="-bondlength0 0.0 -num_bondlength 21 -d_bondlength 0.1"
 
 mkdir -p $WORK

@@ -4,7 +4,6 @@
 PetscErrorCode BPSCreate(BPS *bps, MPI_Comm comm) {
   //  PetscErrorCode ierr;
   BPS _bps;
-  // _bps = (BPS)malloc(sizeof(struct _p_BPS));
   PetscNew(&_bps);
   *bps = NULL;
 
@@ -25,7 +24,7 @@ PetscErrorCode BPSSetExp(BPS this, PetscScalar zmax, PetscInt num_zs, PetscScala
   PetscErrorCode ierr;
   strcpy(this->type, "exp");
   this->num_zs = num_zs;
-  ierr = PetscMalloc1(num_zs, &this->zs);
+  ierr = PetscMalloc1(num_zs, &this->zs); CHKERRQ(ierr);
   for(int i = 0; i < num_zs; i++)
     this->zs[i] = zmax * (exp(gamma*i/(num_zs-1)) - 1.0) / (exp(gamma) - 1.0);
 

@@ -90,7 +90,7 @@ PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, MPI_Comm comm) {
   int i, ib, ie, iq;
   BSS _bss;
 
-  _bss = (BSS)malloc(sizeof(struct _p_BSS));
+  PetscNew(&_bss);
   *bss = NULL;
 
   PetscScalar *zs; PetscInt num_zs;
@@ -106,7 +106,8 @@ PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, MPI_Comm comm) {
 
   // copy ts and zs
   
-  _bss->ts = (PetscScalar*)malloc(sizeof(PetscScalar)*(num_zs+2*order-2));
+  PetscMalloc1(num_zs+2*order-2, &_bss->ts);
+  //  _bss->ts = (PetscScalar*)malloc(sizeof(PetscScalar)*(num_zs+2*order-2));
 
   for(i = 0; i < order-1; i++) {
     _bss->ts[i] = zs[0];
@@ -117,12 +118,17 @@ PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, MPI_Comm comm) {
 
   // calculate appreciate quadrature points
   int n_xs = _bss->num_ele * _bss->order;
-  _bss->b_idx_list = (int*)malloc(sizeof(int)*(_bss->num_basis));
-  _bss->xs = (PetscScalar*)malloc(sizeof(PetscScalar)*n_xs);
-  _bss->ws = (PetscScalar*)malloc(sizeof(PetscScalar)*n_xs);
+  PetscMalloc1(_bss->num_basis, &_bss->b_idx_list);
+  PetscMalloc1(n_xs, &_bss->xs);
+  PetscMalloc1(n_xs, &_bss->ws);
+  //  _bss->b_idx_list = (int*)malloc(sizeof(int)*(_bss->num_basis));
+  // _bss->xs = (PetscScalar*)malloc(sizeof(PetscScalar)*n_xs);
+  // _bss->ws = (PetscScalar*)malloc(sizeof(PetscScalar)*n_xs);
   int num = sizeof(PetscScalar)*(n_xs)*(_bss->num_basis);
-  _bss->vals = (PetscScalar*)malloc(num);
-  _bss->derivs = (PetscScalar*)malloc(num);
+  PetscMalloc1(num, &_bss->vals);
+  PetscMalloc1(num, &_bss->derivs);
+  //_bss->vals = (PetscScalar*)malloc(num);
+  //_bss->derivs = (PetscScalar*)malloc(num);
 
   for(ib = 0; ib < _bss->num_basis; ib++)
     _bss->b_idx_list[ib] = ib + 1;
@@ -147,6 +153,7 @@ PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, MPI_Comm comm) {
     }
   }
 
+  PetscFree(zs);
   *bss = _bss;
   return 0;
 }
@@ -167,14 +174,17 @@ PetscErrorCode BSSCreateFromOptions(BSS *bss, MPI_Comm comm) {
  }
 
 PetscErrorCode BSSDestroy(BSS *bss) {
-   BSS this = *bss;
-   BPSDestroy(&this->bps);
-   free(this->ts); 
-   free(this->xs);
-   free(this->ws);
-   free(this->vals);
-   free(this->derivs);
-   return 0;
+  PetscErrorCode ierr;
+  BSS this = *bss;
+  ierr = BPSDestroy(&this->bps); CHKERRQ(ierr);
+  ierr = PetscFree(this->b_idx_list); CHKERRQ(ierr);
+  ierr = PetscFree(this->ts);  CHKERRQ(ierr);
+  ierr = PetscFree(this->xs); CHKERRQ(ierr);
+  ierr = PetscFree(this->ws); CHKERRQ(ierr);
+  ierr = PetscFree(this->vals); CHKERRQ(ierr);
+  ierr = PetscFree(this->derivs); CHKERRQ(ierr);
+  ierr = PetscFree(*bss); CHKERRQ(ierr);
+  return 0;
 }
 
 PetscErrorCode BSSFPrintf(BSS this, FILE* file, int lvl) {
