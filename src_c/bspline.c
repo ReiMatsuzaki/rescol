@@ -105,9 +105,7 @@ PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, MPI_Comm comm) {
   BPSGetZMax(bps, &_bss->rmax);
 
   // copy ts and zs
-  
   PetscMalloc1(num_zs+2*order-2, &_bss->ts);
-  //  _bss->ts = (PetscScalar*)malloc(sizeof(PetscScalar)*(num_zs+2*order-2));
 
   for(i = 0; i < order-1; i++) {
     _bss->ts[i] = zs[0];
@@ -121,14 +119,9 @@ PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, MPI_Comm comm) {
   PetscMalloc1(_bss->num_basis, &_bss->b_idx_list);
   PetscMalloc1(n_xs, &_bss->xs);
   PetscMalloc1(n_xs, &_bss->ws);
-  //  _bss->b_idx_list = (int*)malloc(sizeof(int)*(_bss->num_basis));
-  // _bss->xs = (PetscScalar*)malloc(sizeof(PetscScalar)*n_xs);
-  // _bss->ws = (PetscScalar*)malloc(sizeof(PetscScalar)*n_xs);
   int num = sizeof(PetscScalar)*(n_xs)*(_bss->num_basis);
   PetscMalloc1(num, &_bss->vals);
   PetscMalloc1(num, &_bss->derivs);
-  //_bss->vals = (PetscScalar*)malloc(num);
-  //_bss->derivs = (PetscScalar*)malloc(num);
 
   for(ib = 0; ib < _bss->num_basis; ib++)
     _bss->b_idx_list[ib] = ib + 1;

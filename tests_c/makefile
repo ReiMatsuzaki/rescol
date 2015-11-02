@@ -6,7 +6,7 @@ test_mat:test_mat.o
 	./$@.out
 
 test_angmoment:test_angmoment.o
-	-${CLINKER} -o test_angmoment.out test_angmoment.o ../src_c/angmoment.o -lpython ${SLEPC_EPS_LIB}
+	-${CLINKER} -o test_angmoment.out test_angmoment.o ../src_c/angmoment.o -lgtest -lgsl ${SLEPC_EPS_LIB}
 	./test_angmoment.out
 
 test_bspline:test_bspline.o ../src_c/bspline.o
@@ -24,7 +24,3 @@ test_bps: test_bps.o ../src_c/bps.o
 test_fem_inf: test_fem_inf.o ../src_c/fem_inf.o
 	-${CLINKER} -o test_fem_inf.out test_fem_inf.o ../src_c/fem_inf.o ../src_c/dvr.o ../src_c/bspline.o  ../src_c/bps.o ../src_c/mat.o ${SLEPC_EPS_LIB} -g
 	./test_fem_inf.out
-
-
-
-

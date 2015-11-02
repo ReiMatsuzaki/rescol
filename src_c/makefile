@@ -1,6 +1,7 @@
 CFLAGS=-std=gnu99
 include ${SLEPC_DIR}/lib/slepc/conf/slepc_common
-FEMOBJS = fem_inf.o fd.o bspline.o dvr.o bps.o mat.o
+FEMOBJS=fem_inf.o fd.o bspline.o dvr.o bps.o mat.o
+ANGOBJS=angmoment.o
 
 test_mat: mat.o test_mat.o
 	-${CLINKER} -o test_mat.out  test_mat.o mat.o ${SLEPC_EPS_LIB}
@@ -14,14 +15,14 @@ diag.out: diag.o mat.o chkopts
 h2plus.out: h2plus.o ${FEMOBJS} chkopts
 	-${CLINKER} -o $@ h2plus.o ${FEMOBJS} ${SLEPC_EPS_LIB}
 
-h2mole.out: h2mole.o ${FEMOBJS} chkopts
-	-${CLINKER} -o $@ h2mole.o ${FEMOBJS} ${SLEPC_EPS_LIB}
+h2mole.out: h2mole.o ${FEMOBJS} ${ANGOBJS} chkopts
+	-${CLINKER} -o $@ h2mole.o ${FEMOBJS} ${ANGOBJS} -lgsl ${SLEPC_EPS_LIB}
 
 h2mole2.out: h2mole2.o fem_inf.o dvr.o bspline.o fd.o bps.o mat.o chkopts
 	-${CLINKER} -o $@ h2mole2.o fem_inf.o dvr.o bspline.o fd.o bps.o mat.o ${SLEPC_EPS_LIB}
 
-he_guess.out: he_guess.o ${FEMOBJS} chkopts
-	-${CLINKER} -o $@ he_guess.o ${FEMOBJS} ${SLEPC_EPS_LIB}
+he_guess.out: he_guess.o ${FEMOBJS} angmoment.o chkopts
+	-${CLINKER} -o $@ he_guess.o ${FEMOBJS} angmoment.o -lgsl ${SLEPC_EPS_LIB}
 
 he_guess_dvr.out: he_guess_dvr.o mat.o dvr.o chkopts
 	-${CLINKER} -o $@ he_guess_dvr.o dvr.o mat.o ${SLEPC_EPS_LIB}
@@ -55,7 +56,7 @@ test_h2plus_h: h2plus.out chkopts
 
 test_he_guess: he_guess.out
 	rm tmp/*
-	python ../script/calc_y2mat.py -t tmp -l1 2 > tmp/y2mat.dat
+#	python ../script/calc_y2mat.py -t tmp -l1 2 > tmp/y2mat.dat
 	./he_guess.out -z 1.0 -in_dir tmp -out_dir tmp -guess_type eig -fem_type fd -fd_num 100 -fd_xmax 20.0
 
 
@@ -71,6 +72,17 @@ test_h2mole_fd: h2mole.out chkopts
 	-bondlength0 0.0 -num_bondlength 2 -d_bondlength 0.5
 
 test_h2mole_bss: h2mole.out chkopts
+	rm -f tmp/*
+	./he_guess.out -z 1.5 -in_dir tmp -out_dir tmp -guess_type calc \
+	-fem_type bss -bss_order 2 -bps_num_zs 21 -bps_type exp -bps_zmax 30.0
+	./h2mole.out -eri direct -guess_type read \
+	-in_dir tmp -out_dir tmp  \
+	-fem_type bss -bss_order 2 -bps_num_zs 21 -bps_type exp -bps_zmax 30.0 \
+	-y2s_rot sigma -y2s_parity gerade -y2s_mirror plus -y2s_lmax 2 \
+	-eps_nev 1 -eps_max_it 1000 -eps_type jd \
+	-bondlength 0.0 -num_bondlength 1 -d_bondlength 0.5
+
+test_h2mole_old_bss: h2mole.out chkopts
 	rm tmp/*
 	python ../script/calc_y2mat.py -t tmp -l1 2 > tmp/y2mat.dat
 	./he_guess.out -z 1.5 -in_dir tmp -out_dir tmp -guess_type calc \

@@ -1,5 +1,6 @@
 #include "mat.h"
 #include "fem_inf.h"
+#include "angmoment.h"
 
 static char help[] = "create initial guess for He atom from hydrogen eigen function";
 /*
@@ -76,6 +77,7 @@ int main(int argc, char **args) {
 
   PetscErrorCode ierr;
   FEMInf fem;
+  Y2s y2s;
   MPI_Comm comm = PETSC_COMM_SELF;
   PetscReal z = 2.0;
   PetscInt L1 = 0;
@@ -96,6 +98,7 @@ int main(int argc, char **args) {
   PetscOptionsGetString(NULL, "-out_dir", out_dir, 100, NULL);
   PetscOptionsGetString(NULL, "-guess_type", guess_type, 10, NULL);
   ierr = FEMInfCreateFromOptions(&fem, comm); CHKERRQ(ierr);
+  ierr = Y2sCreateFromOptions(&y2s, comm); CHKERRQ(ierr);
   PetscOptionsEnd();  
 
   // Calculate Hydrogen
@@ -117,8 +120,12 @@ int main(int argc, char **args) {
 
   // y2
   Vec y2;
+  PrintTimeStamp(comm, "Y2", NULL);
+  ierr = Y2sSetGuessY2Vec(y2s, L1, L2, &y2); CHKERRQ(ierr);
+  /*
   char path[100]; sprintf(path, "%s/guess_y2vec.dat", in_dir);
   ierr = VecCreateFromFile(path, comm, &y2);
+  */
 
   // r2y2
   Vec r2, r2y2;

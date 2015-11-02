@@ -1,13 +1,13 @@
 WORK=work
 LMAX=4
 FEM="-fem_type bss -bss_order 4 -bps_num_zs 41 -bps_type exp -bps_zmax 40.0"
-EPS="-eps_nev 5 -eps_max_it 1000 -eps_type jd"
+EPS="-eps_nev 10 -eps_max_it 1000 -eps_type jd"
 BOND="-bondlength0 0.0 -num_bondlength 21 -d_bondlength 0.1"
 
 mkdir -p $WORK
 rm ${WORK}/*
 
-python ../../../script/calc_y2mat.py -t ${WORK} -l1 ${LMAX} > y2mat.dat
+python ../../../script/calc_y2mat.py -t ${WORK} -l1 ${LMAX} -l1guess 0 -l2guess 0 > y2mat.dat
 
 ../../../src_c/he_guess.out -in_dir ${WORK} -out_dir ${WORK} ${FEM} ${EPS} \
 			    -z 1.5  -guess_type calc | tee he_guess.dat && \
