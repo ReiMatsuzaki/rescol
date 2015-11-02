@@ -1,6 +1,9 @@
 #ifndef BSPLINE_H
 #define BSPLINE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif 
 #include <stdio.h>
 #include <petscmat.h>
 #include "mat.h"
@@ -33,25 +36,28 @@ PetscErrorCode CalcDerivBSpline(int order, double* ts, int i, double x, double* 
 PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, MPI_Comm comm);
 PetscErrorCode BSSCreateFromOptions(BSS *bss, MPI_Comm comm);
 PetscErrorCode BSSDestroy(BSS *bss);
-PetscErrorCode BSSFPrintf(BSS this, FILE* file, int lvl);
-PetscErrorCode BSSBasisPsi(BSS this, int i, PetscScalar x, PetscScalar *y);
-PetscErrorCode BSSDerivBasisPsi(BSS this, int i, PetscScalar x, PetscScalar *y);
+PetscErrorCode BSSFPrintf(BSS self, FILE* file, int lvl);
+PetscErrorCode BSSBasisPsi(BSS self, int i, PetscScalar x, PetscScalar *y);
+PetscErrorCode BSSDerivBasisPsi(BSS self, int i, PetscScalar x, PetscScalar *y);
 
 // ---- Matrix ----
-PetscErrorCode BSSInitR1Mat(BSS this, Mat *M);
-PetscErrorCode BSSInitR2Mat(BSS this, Mat *M);
+PetscErrorCode BSSInitR1Mat(BSS self, Mat *M);
+PetscErrorCode BSSInitR2Mat(BSS self, Mat *M);
 
-PetscErrorCode BSSCalcSR1Mat(BSS this, Mat S, InsertMode mode);
-PetscErrorCode BSSCalcR2invR1Mat(BSS this, Mat M, InsertMode mode);
-PetscErrorCode BSSCalcD2R1Mat(BSS this, Mat D, InsertMode);  
-PetscErrorCode BSSCalcENR1Mat(BSS this, int q, PetscScalar  a, Mat V, InsertMode); 
-PetscErrorCode BSSCalcEER2Mat(BSS this, int q, Mat V, InsertMode);
-PetscErrorCode BSSCalcEER2Mat_ver1(BSS this, int q, Mat V, InsertMode);
+PetscErrorCode BSSCalcSR1Mat(BSS self, Mat S, InsertMode mode);
+PetscErrorCode BSSCalcR2invR1Mat(BSS self, Mat M, InsertMode mode);
+PetscErrorCode BSSCalcD2R1Mat(BSS self, Mat D, InsertMode);  
+PetscErrorCode BSSCalcENR1Mat(BSS self, int q, PetscScalar  a, Mat V, InsertMode); 
+PetscErrorCode BSSCalcEER2Mat(BSS self, int q, Mat V, InsertMode);
+PetscErrorCode BSSCalcEER2Mat_ver1(BSS self, int q, Mat V, InsertMode);
 
-PetscErrorCode BSSSetSR1Mat(BSS this, Mat *S);
-PetscErrorCode BSSSetR2invR1Mat(BSS this, Mat *M);
-PetscErrorCode BSSSetD2R1Mat(BSS this, Mat *D);
-PetscErrorCode BSSSetENR1Mat(BSS this, int q, PetscScalar a, Mat *D);
-PetscErrorCode BSSSetEER2Mat(BSS this, int q, Mat *V);
+PetscErrorCode BSSSetSR1Mat(BSS self, Mat *S);
+PetscErrorCode BSSSetR2invR1Mat(BSS self, Mat *M);
+PetscErrorCode BSSSetD2R1Mat(BSS self, Mat *D);
+PetscErrorCode BSSSetENR1Mat(BSS self, int q, PetscScalar a, Mat *D);
+PetscErrorCode BSSSetEER2Mat(BSS self, int q, Mat *V);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

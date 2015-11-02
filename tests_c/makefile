@@ -1,3 +1,6 @@
+FEMOBJS=../src_c/fem_inf.o ../src_c/fd.o ../src_c/bspline.o ../src_c/dvr.o ../src_c/bps.o ../src_c/mat.o
+ANGOBJS=../src_c/angmoment.o
+
 CFLAGS=-std=gnu99
 include ${SLEPC_DIR}/lib/slepc/conf/slepc_common
 
@@ -22,5 +25,9 @@ test_bps: test_bps.o ../src_c/bps.o
 	./test_bps.out -bps_type exp -bps_num_zs 6 -bps_zmax 2.0
 
 test_fem_inf: test_fem_inf.o ../src_c/fem_inf.o
-	-${CLINKER} -o test_fem_inf.out test_fem_inf.o ../src_c/fem_inf.o ../src_c/dvr.o ../src_c/bspline.o  ../src_c/bps.o ../src_c/mat.o ${SLEPC_EPS_LIB} -g
+	-${CLINKER} -o test_fem_inf.out test_fem_inf.o ${FEMOBJS} ${SLEPC_EPS_LIB} -g
 	./test_fem_inf.out
+
+test_oce2: test_oce2.o ../src_c/fem_inf.o ../src_c/oce2.o
+	-${CLINKER} -o test_oce2.out test_oce2.o ../src_c/oce2.o ${FEMOBJS} ${ANGOBJS} -lgtest -lgsl ${SLEPC_EPS_LIB} -g
+	./test_oce2.out -petsc_dump

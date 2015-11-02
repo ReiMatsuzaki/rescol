@@ -1,6 +1,10 @@
 #ifndef DVR_H
 #define DVR_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif 
+
 #include <stdio.h>
 #include <petscmat.h>
 #include "mat.h"
@@ -33,32 +37,35 @@ int NumDVR(int nq, int ne);
 PetscErrorCode DVRCreate(DVR *dvr, int nq, BPS bps, MPI_Comm comm);
 PetscErrorCode DVRCreateFromOptions(DVR *dvr, MPI_Comm comm);
 PetscErrorCode DVRDestroy(DVR *dvr);
-PetscErrorCode DVRFPrintf(DVR this, FILE *file, int lvl);
-PetscErrorCode DVRBasisPsi(DVR this, int i, PetscScalar x, PetscScalar *y);
+PetscErrorCode DVRFPrintf(DVR self, FILE *file, int lvl);
+PetscErrorCode DVRBasisPsi(DVR self, int i, PetscScalar x, PetscScalar *y);
 
 // ------- R1Mat ----------
-PetscErrorCode DVRInitR1Mat(DVR this, Mat *M);
-PetscErrorCode DVRSetSR1Mat(DVR this, Mat *M);
-PetscErrorCode DVRSetD2R1Mat(DVR this, Mat *M);
-PetscErrorCode DVRSetR2invR1Mat(DVR this, Mat *M);
-PetscErrorCode DVRSetENR1Mat(DVR this, int q, double a, Mat *M);
+PetscErrorCode DVRInitR1Mat(DVR self, Mat *M);
+PetscErrorCode DVRSetSR1Mat(DVR self, Mat *M);
+PetscErrorCode DVRSetD2R1Mat(DVR self, Mat *M);
+PetscErrorCode DVRSetR2invR1Mat(DVR self, Mat *M);
+PetscErrorCode DVRSetENR1Mat(DVR self, int q, double a, Mat *M);
 
 // ------ R2Mat ---------
-PetscErrorCode DVRSetEER2Mat(DVR this, int q, Mat *M);
+PetscErrorCode DVRSetEER2Mat(DVR self, int q, Mat *M);
 
 // -------- LSR1Mat --------
-PetscErrorCode DVRInitR1LSMat(DVR this, Mat *M);
-PetscErrorCode DVRSetSR1LSMat(DVR this, Mat *M);
-PetscErrorCode DVRSetD2R1LSMat(DVR this, Mat *M);
-PetscErrorCode DVRSetR2invR1LSMat(DVR this, Mat *M);
-PetscErrorCode DVRSetENR1LSMat(DVR this, int q, double a, Mat *M);
+PetscErrorCode DVRInitR1LSMat(DVR self, Mat *M);
+PetscErrorCode DVRSetSR1LSMat(DVR self, Mat *M);
+PetscErrorCode DVRSetD2R1LSMat(DVR self, Mat *M);
+PetscErrorCode DVRSetR2invR1LSMat(DVR self, Mat *M);
+PetscErrorCode DVRSetENR1LSMat(DVR self, int q, double a, Mat *M);
 
-PetscErrorCode DVRLSMatToMat(DVR this, Mat A, Mat *B);
+PetscErrorCode DVRLSMatToMat(DVR self, Mat A, Mat *B);
 
 // ------- R2LSMat -----------
-PetscErrorCode DVRInitR2LSMat(DVR this, Mat *M);
-PetscErrorCode DVRSetEER2LSMat(DVR this, int q, Mat *M);
+PetscErrorCode DVRInitR2LSMat(DVR self, Mat *M);
+PetscErrorCode DVRSetEER2LSMat(DVR self, int q, Mat *M);
 
-PetscErrorCode DVRR2LSMatToR2Mat(DVR this, Mat A, Mat *B);
+PetscErrorCode DVRR2LSMatToR2Mat(DVR self, Mat A, Mat *B);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

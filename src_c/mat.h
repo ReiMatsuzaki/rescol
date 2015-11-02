@@ -1,6 +1,8 @@
 #ifndef MAT_H
 #define MAT_H
-
+#ifdef __cplusplus
+extern "C" {
+#endif 
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -35,4 +37,7 @@ PetscErrorCode LobGauss(int n, int i, PetscScalar *x, PetscScalar *w);
 //PetscErrorCode CreateLinKnots(int num, double zmax, double *zs[]);
 //PetscErrorCode CreateExpKnots(int num, double zmax, double gamma, double *zs[]);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

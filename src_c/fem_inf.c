@@ -127,6 +127,10 @@ PetscErrorCode FEMInfFPrintf(FEMInf this, FILE *file, int lvl) {
   return 0;
 
 }
+PetscErrorCode FEMInfView(FEMInf this) {
+  FEMInfFPrintf(this, stdout, 0);
+  return 0;
+}
 PetscErrorCode FEMInfBasisPsi(FEMInf this, int i, PetscScalar x, PetscScalar *y) {
 
   if(this.sc->BasisPsi == NULL)

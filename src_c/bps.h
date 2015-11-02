@@ -1,5 +1,8 @@
 #ifndef BPS_H
 #define BPS_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <petscmat.h>
 
@@ -18,16 +21,19 @@ typedef struct _p_BPS* BPS;
 
 // ------- Basic ----------
 PetscErrorCode BPSCreate(BPS *bps, MPI_Comm comm);
-PetscErrorCode BPSSetExp(BPS this, PetscScalar zmax, PetscInt num_zs, PetscScalar gamma);
-PetscErrorCode BPSSetLine(BPS this, PetscScalar zmax, PetscInt num_zs);
-PetscErrorCode BPSSetFromOptions(BPS this);
+PetscErrorCode BPSSetExp(BPS self, PetscScalar zmax, PetscInt num_zs, PetscScalar gamma);
+PetscErrorCode BPSSetLine(BPS self, PetscScalar zmax, PetscInt num_zs);
+PetscErrorCode BPSSetFromOptions(BPS self);
 PetscErrorCode BPSDestroy(BPS *bpd);
-PetscErrorCode BPSCheckPreallocated(BPS this);
-PetscErrorCode BPSFPrintf(BPS this, FILE *file, int lvl);
+PetscErrorCode BPSCheckPreallocated(BPS self);
+PetscErrorCode BPSFPrintf(BPS self, FILE *file, int lvl);
 
 // ------ Getter ---------
-PetscErrorCode BPSGetZs(BPS this, PetscScalar **zs, PetscInt *num_zs);
-PetscErrorCode BPSGetNumEle(BPS this, PetscInt *num_ele);
-PetscErrorCode BPSGetZMax(BPS this, PetscScalar *zmax);
+PetscErrorCode BPSGetZs(BPS self, PetscScalar **zs, PetscInt *num_zs);
+PetscErrorCode BPSGetNumEle(BPS self, PetscInt *num_ele);
+PetscErrorCode BPSGetZMax(BPS self, PetscScalar *zmax);
 
+#ifdef __cplusplus
+}
+#endif
 #endif
