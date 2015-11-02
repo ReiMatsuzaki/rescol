@@ -19,7 +19,8 @@ PetscErrorCode FEMInfCreateFD(FEMInf *inf, FD this) {
     FD_Sc.SetEER2Mat = FDSetEER2Mat;        
     FD_Sc.BasisPsi = NULL;
     FD_Sc.GuessHEig = FDGuessHEig;
-    FD_Sc.overlap_is_id = PETSC_TRUE;
+    FD_Sc.GetSize = FDGetSize;
+    FD_Sc.overlap_is_id = PETSC_TRUE;    
     init = 1;
   }
 
@@ -45,6 +46,7 @@ PetscErrorCode FEMInfCreateBSS(FEMInf *inf, BSS this) {
     BSS_Sc.SetEER2Mat = BSSSetEER2Mat;
     BSS_Sc.BasisPsi = BSSBasisPsi;
     BSS_Sc.GuessHEig = NULL;
+    BSS_Sc.GetSize = BSSGetSize;
     BSS_Sc.overlap_is_id = PETSC_FALSE;
     init = 1;
   }
@@ -70,6 +72,7 @@ PetscErrorCode FEMInfCreateDVR(FEMInf *inf, DVR this) {
     DVR_Sc.SetENR1Mat = DVRSetENR1Mat;    
     DVR_Sc.SetEER2Mat = DVRSetEER2Mat;        
     DVR_Sc.BasisPsi = DVRBasisPsi;
+    DVR_Sc.GetSize = DVRGetSize;
     DVR_Sc.GuessHEig = NULL;
     DVR_Sc.overlap_is_id = PETSC_TRUE;
     init = 1;
@@ -81,8 +84,7 @@ PetscErrorCode FEMInfCreateDVR(FEMInf *inf, DVR this) {
   return 0;
 }
 
-
-// ---- method ------
+// ---- Basic Method ------
 PetscErrorCode FEMInfCreateFromOptions(FEMInf *inf, MPI_Comm comm) {
 
   char type[10];
@@ -131,19 +133,22 @@ PetscErrorCode FEMInfView(FEMInf this) {
   FEMInfFPrintf(this, stdout, 0);
   return 0;
 }
-PetscErrorCode FEMInfBasisPsi(FEMInf this, int i, PetscScalar x, PetscScalar *y) {
 
-  if(this.sc->BasisPsi == NULL)
-    SETERRQ(PETSC_COMM_SELF, 1, "method is null");
-
-  this.sc->BasisPsi(this.obj, i, x, y);
-  return 0;
-}
+// ---- Accessor ----
 PetscErrorCode FEMInfGetOverlapIsId(FEMInf this, PetscBool *is_id) {
   *is_id = this.sc->overlap_is_id;  
   return 0;
 }
+PetscErrorCode FEMInfGetSize(FEMInf this, int *n) {
+  
+  if(this.sc->GetSize == NULL)
+    SETERRQ(PETSC_COMM_SELF, 1, "method is null");
 
+  this.sc->GetSize(this.obj, n);
+  return 0;
+}
+
+// ---- Calculation ----
 PetscErrorCode FEMInfSetSR1Mat(FEMInf this, Mat *M) {
 
   if(this.sc->SetSR1Mat == NULL)
@@ -187,6 +192,14 @@ PetscErrorCode FEMInfSetEER2Mat(FEMInf this, int q, Mat *M) {
   return 0;
 
 }
+PetscErrorCode FEMInfBasisPsi(FEMInf this, int i, PetscScalar x, PetscScalar *y) {
+
+  if(this.sc->BasisPsi == NULL)
+    SETERRQ(PETSC_COMM_SELF, 1, "method is null");
+
+  this.sc->BasisPsi(this.obj, i, x, y);
+  return 0;
+}
 
 PetscErrorCode FEMInfGuessHEig(FEMInf this, int n, int l, PetscScalar z, Vec *v) {
 
@@ -196,5 +209,4 @@ PetscErrorCode FEMInfGuessHEig(FEMInf this, int n, int l, PetscScalar z, Vec *v)
   this.sc->GuessHEig(this.obj, n, l, z, v);
   return 0;
 }
-
 

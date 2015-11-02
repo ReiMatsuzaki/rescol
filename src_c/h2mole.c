@@ -1,6 +1,4 @@
-#include "fem_inf.h"
-#include "angmoment.h"
-
+#include "oce2.h"
 
 static char help[] = "solve H2 mole eigen value problem";
 /*
@@ -35,11 +33,8 @@ struct _p_H2 {
   char guess_type[10];
   char eri_option[10];
 
-  FEMInf fem;
-  Y2s y2s;
+  OCE2 oce2;
 
-  Mat s_r1;
-  Mat s_y2;
   Mat H0;
   Mat S;
   
@@ -82,16 +77,13 @@ PetscErrorCode H2CreateFromOptions(H2 *h2, MPI_Comm comm) {
   PetscOptionsGetReal(NULL, "-d_bondlength", &_h2->d_bondlength, NULL);
   PetscOptionsGetInt(NULL, "-num_bondlength", &_h2->num_bondlength, NULL);
 
-  ierr = FEMInfCreateFromOptions(&_h2->fem, comm); CHKERRQ(ierr);
-  ierr = Y2sCreateFromOptions(&_h2->y2s, comm); CHKERRQ(ierr);
+  ierr = OCE2CreateFromOptions(&_h2->oce2, comm); CHKERRQ(ierr);
 
   if(_h2->d_bondlength <= 0.0)
     SETERRQ(comm, 1, "d_bondlength > 0");
   if(_h2->num_bondlength < 1)
     SETERRQ(comm, 1, "num_bondlength > 0");
 
-  _h2->s_r1 = NULL;
-  _h2->s_y2 = NULL;
   _h2->H0 = NULL;
   _h2->S = NULL;
 
@@ -114,11 +106,7 @@ PetscErrorCode H2Destroy(H2 *h2) {
   PetscErrorCode ierr;
   H2 this = *h2;
 
-  ierr = FEMInfDestroy(&this->fem);
-  ierr = Y2sDestroy(&this->y2s);
-
-  ierr = MatDestroy(&this->s_r1); CHKERRQ(ierr);
-  ierr = MatDestroy(&this->s_y2); CHKERRQ(ierr);
+  ierr = OCE2Destroy(&this->oce2);
 
   ierr = MatDestroy(&this->H0); CHKERRQ(ierr);
   if(this->S != NULL) {
@@ -140,104 +128,41 @@ PetscErrorCode H2SetBasic(H2 this) {
 
   PrintTimeStamp(this->comm, "Mat0", NULL);
   PetscErrorCode ierr;
-
-  // overlap matrix
-  ierr = FEMInfSetSR1Mat(this->fem, &this->s_r1); CHKERRQ(ierr); 
-  ierr = Y2sSetSY2Mat(this->y2s, &this->s_y2); CHKERRQ(ierr);
  
-  // guess
-  if(strcmp(this->guess_type, "read") == 0) {
-    PrintTimeStamp(this->comm, "read guess", NULL);
-    VecCreate(this->comm, &this->guess[0]);
+   // guess
+   if(strcmp(this->guess_type, "read") == 0) {
+     PrintTimeStamp(this->comm, "read guess", NULL);
+     VecCreate(this->comm, &this->guess[0]);
 
-    PetscViewer viewer;
-    char path[100]; sprintf(path, "%s/guess.vec.dat", this->in_dir);
-    ierr = PetscViewerBinaryOpen(this->comm, path, FILE_MODE_READ, &viewer); CHKERRQ(ierr);
-    ierr = VecLoad(this->guess[0], viewer); CHKERRQ(ierr);        
-    ierr = PetscViewerDestroy(&viewer); CHKERRQ(ierr);
+     PetscViewer viewer;
+     char path[100]; sprintf(path, "%s/guess.vec.dat", this->in_dir);
+     ierr = PetscViewerBinaryOpen(this->comm, path, FILE_MODE_READ, &viewer); CHKERRQ(ierr);
+     ierr = VecLoad(this->guess[0], viewer); CHKERRQ(ierr);        
+     ierr = PetscViewerDestroy(&viewer); CHKERRQ(ierr);
 
-  } else
-    SETERRQ(this->comm, 1, "guess_type<-{read}");
+   } else
+     SETERRQ(this->comm, 1, "guess_type<-{read}");
 
-  return 0;
-}
-PetscErrorCode H2SetSMat(H2 this) {
-
-  PrintTimeStamp(this->comm, "SMat", NULL);
+   return 0;
+ }
+PetscErrorCode H2SetH0_and_S(H2 this) {
   PetscErrorCode ierr;
-  ierr = MatSetSynthesize3Fast(this->s_r1, this->s_r1, this->s_y2, 
-			       this->comm, &this->S);
-  return 0;
-}
-PetscErrorCode H2SetD2(H2 this) {
 
-  PrintTimeStamp(this->comm, "D2Mat", NULL);
+  PrintTimeStamp(this->comm, "TMat", NULL);
+  ierr = OCE2SetTMat(this->oce2, &this->H0); CHKERRQ(ierr);
+
   
-  // D2 
-  Mat d2_r1;
-  PetscErrorCode ierr;
-  ierr = FEMInfSetD2R1Mat(this->fem, &d2_r1); CHKERRQ(ierr);
-  ierr = MatScale(d2_r1, -0.5); CHKERRQ(ierr);
-
-  Mat D;
-  ierr = MatSetSynthesize3Fast(this->s_r1, d2_r1, this->s_y2, 
-			       this->comm, &this->H0); 
-  CHKERRQ(ierr);
-  ierr = MatSetSynthesize3Fast(d2_r1, this->s_r1, this->s_y2, 
-			       this->comm, &D); CHKERRQ(ierr);
-
-  ierr = MatAXPY(this->H0, 1.0, D, DIFFERENT_NONZERO_PATTERN);  CHKERRQ(ierr);
-
-  MatDestroy(&d2_r1); MatDestroy(&D);
-  return 0;
-}
-PetscErrorCode H2AddL(H2 this) {
-
-  PrintTimeStamp(this->comm, "LMat", NULL);
-
-  Mat l_r1; 
-  PetscErrorCode ierr;
-  ierr = FEMInfSetR2invR1Mat(this->fem, &l_r1); CHKERRQ(ierr);
-
-  Mat l_1_y2, L1;
-  ierr = Y2sSetLambda1Y2Mat(this->y2s, &l_1_y2); CHKERRQ(ierr);
-  ierr = MatSetSynthesize3Fast(l_r1, this->s_r1, l_1_y2, this->comm, &L1); 
-  CHKERRQ(ierr);
-  MatAXPY(this->H0, 0.5, L1, SUBSET_NONZERO_PATTERN);
-  MatDestroy(&L1); MatDestroy(&l_1_y2);
-
-  Mat l_2_y2, L2;
-  ierr = Y2sSetLambda2Y2Mat(this->y2s, &l_2_y2); CHKERRQ(ierr);
-  ierr = MatSetSynthesize3Fast(this->s_r1, l_r1, l_2_y2, this->comm, &L2);
-  CHKERRQ(ierr);
-  MatAXPY(this->H0, 0.5, L2, SUBSET_NONZERO_PATTERN);
-  MatDestroy(&L2); MatDestroy(&l_2_y2);
-  
-  MatDestroy(&l_r1);
-  return 0;
-}
-PetscErrorCode H2AddVee(H2 this) {
-
-  PrintTimeStamp(this->comm, "EE", NULL);
-  PetscPrintf(this->comm, "q = ");
-
-  PetscErrorCode ierr;
-  int lmax; Y2sGetMaxL(this->y2s, &lmax);
-  int qmax = 2*lmax;
-  for(int q = 0; q < qmax; q++) {
-    Mat pq;
-    Y2sSetPq12Y2Mat(this->y2s, q, &pq);
-
-    if(pq != NULL) {
-      Mat r2, V;
-      PetscPrintf(this->comm, "%d ", q);
-      ierr = FEMInfSetEER2Mat(this->fem, q, &r2); CHKERRQ(ierr);
-      ierr = MatSetSynthesizeFast(r2, pq, this->comm, &V); CHKERRQ(ierr);
-      ierr = MatAXPY(this->H0, 1.0, V, DIFFERENT_NONZERO_PATTERN);
-      MatDestroy(&pq); MatDestroy(&V); MatDestroy(&r2); 
-    }
+  if(strcmp(this->eri_option, "direct") == 0) {
+    PrintTimeStamp(this->comm, "Vee", NULL);
+    ierr = OCE2PlusVeeMat(this->oce2, &this->H0); CHKERRQ(ierr);
   }
-  PetscPrintf(this->comm, "\n");
+  
+  PetscBool s_is_id; FEMInfGetOverlapIsId(this->oce2->fem, &s_is_id);
+  if(!s_is_id) {
+    PrintTimeStamp(this->comm, "S", NULL);
+    ierr = OCE2SetSMat(this->oce2, &this->S); CHKERRQ(ierr);
+  }
+
   return 0;
 }
 PetscErrorCode H2SetH_as_H0_plus_NE(H2 this) {
@@ -254,60 +179,30 @@ PetscErrorCode H2SetH_as_H0_plus_NE(H2 this) {
     ierr = MatCopy(this->H0, this->H, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
   }
 
-  int lmax; Y2sGetMaxL(this->y2s, &lmax);
-  int qmax = 2*lmax;
-  PetscPrintf(this->comm, "q = ");
-  for(int q = 0; q < qmax; q++) {
-    Mat pq1A_y2, pq2A_y2;
-    ierr = Y2sSetPq1AY2Mat(this->y2s, q, &pq1A_y2);
-    ierr = Y2sSetPq2AY2Mat(this->y2s, q, &pq2A_y2);
-    
-    if(pq1A_y2 != NULL && pq2A_y2 != NULL) {
-      PetscPrintf(this->comm, "%d ", q);
-
-      Mat q_r1;
-      ierr = FEMInfSetENR1Mat(this->fem, q, a, &q_r1); CHKERRQ(ierr);
-
-      Mat V1;
-      ierr = MatSetSynthesize3Fast(q_r1, this->s_r1, pq1A_y2, this->comm, &V1);
-      CHKERRQ(ierr);
-      ierr = MatAXPY(this->H, -2.0, V1, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
-      MatDestroy(&V1);
-
-      Mat V2;
-      ierr = MatSetSynthesize3Fast(this->s_r1, q_r1, pq2A_y2, this->comm, &V2);
-      CHKERRQ(ierr);      
-      ierr = MatAXPY(this->H, -2.0, V2, DIFFERENT_NONZERO_PATTERN);
-      MatDestroy(&V2);
-
-      MatDestroy(&q_r1); MatDestroy(&pq1A_y2); MatDestroy(&pq2A_y2);
-    }
-    MatDestroy(&pq1A_y2); MatDestroy(&pq2A_y2);
-  }
-  PetscPrintf(this->comm, "\n");
+  ierr = OCE2PlusVneMat(this->oce2, a, 1.0, &this->H); CHKERRQ(ierr);
   return 0;
+
 }
 PetscErrorCode CheckSymmetry(H2 this, Vec cs, PetscBool *is_sym) {
   // assuming size of cs is equal to (n_r1)(n_r1)(n_y2)
 
-  PetscInt m_r1, n_r1, m_y2, n_y2, size_cs;
-  MatGetSize(this->s_r1, &m_r1, &n_r1);
-  MatGetSize(this->s_y2, &m_y2, &n_y2);
+  PetscInt n_r1, n_y2, size_cs;
+  OCE2GetSizes(this->oce2, &n_r1, &n_y2);
   VecGetSize(cs, &size_cs);
 
   PetscPrintf(this->comm, "Vec size: %d\n", size_cs);
-  PetscPrintf(this->comm, "r1: %d, %d\n", m_r1, n_r1);
-  PetscPrintf(this->comm, "y2: %d, %d\n", m_y2, n_y2);
+  PetscPrintf(this->comm, "r1: %d\n", n_r1);
+  PetscPrintf(this->comm, "y2: %d\n", n_y2);
   
   PetscScalar *vs;
   PetscScalar eps = 0.000001;
   PetscMalloc(2, &vs);
   for(int y = 0; y < n_y2; y++)
-    for(int i = 0; i < m_r1; i++) {
+    for(int i = 0; i < n_r1; i++) {
       for(int j = 0; j < i; j++) {
 	PetscInt idx[2]; 
-	idx[0] = i + j*m_r1 + y*m_r1*m_r1; 
-	idx[1] = j + i*m_r1 + y*m_r1*m_r1;
+	idx[0] = i + j*n_r1 + y*n_r1*n_r1; 
+	idx[1] = j + i*n_r1 + y*n_r1*n_r1;
 	VecGetValues(cs, 2, idx, vs);
 	if(fabs(vs[0]) > eps && fabs(vs[1]) > eps)
 	  goto end;
@@ -335,7 +230,7 @@ PetscErrorCode H2Solve(H2 this) {
   ierr = EPSCreate(this->comm, &eps);  CHKERRQ(ierr);
   ierr = EPSSetTarget(eps, -4.0);  CHKERRQ(ierr);
 
-  PetscBool s_is_id; FEMInfGetOverlapIsId(this->fem, &s_is_id);
+  PetscBool s_is_id; FEMInfGetOverlapIsId(this->oce2->fem, &s_is_id);
   if(s_is_id) 
     EPSSetProblemType(eps, EPS_HEP); 
   else
@@ -385,16 +280,10 @@ int main(int argc, char **args) {
   ierr = H2CreateFromOptions(&h2, comm); CHKERRQ(ierr);
   PetscOptionsEnd();
 
-  PetscBool s_is_id; FEMInfGetOverlapIsId(h2->fem, &s_is_id);
-  FEMInfFPrintf(h2->fem, stdout, 0);
+  OCE2View(h2->oce2);
   
   ierr = H2SetBasic(h2); CHKERRQ(ierr);
-  if(!s_is_id)
-    ierr = H2SetSMat(h2); CHKERRQ(ierr);
-  ierr = H2SetD2(h2); CHKERRQ(ierr);
-  ierr = H2AddL(h2); CHKERRQ(ierr);
-  if(strcmp(h2->eri_option, "direct") == 0) 
-    ierr = H2AddVee(h2); CHKERRQ(ierr);
+  ierr = H2SetH0_and_S(h2); CHKERRQ(ierr);
 
   for(int i = 0; i < h2->num_bondlength; i++) {
     PetscPrintf(comm, "\n");

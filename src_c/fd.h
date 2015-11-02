@@ -23,6 +23,9 @@ PetscErrorCode FDCreateFromOptions(FD *fd, MPI_Comm comm);
 PetscErrorCode FDDestroy(FD *fd);
 PetscErrorCode FDFPrintf(FD self, FILE *file, int lvl);
 
+// ---- Accessor ----
+PetscErrorCode FDGetSize(FD self, int *n);
+
 // ---- Matrix ----
 PetscErrorCode FDSetSR1Mat(FD self, Mat *M);
 PetscErrorCode FDSetD2R1Mat(FD self, Mat *M);

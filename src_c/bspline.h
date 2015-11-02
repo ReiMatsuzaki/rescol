@@ -40,6 +40,9 @@ PetscErrorCode BSSFPrintf(BSS self, FILE* file, int lvl);
 PetscErrorCode BSSBasisPsi(BSS self, int i, PetscScalar x, PetscScalar *y);
 PetscErrorCode BSSDerivBasisPsi(BSS self, int i, PetscScalar x, PetscScalar *y);
 
+// ---- Accessor ----
+PetscErrorCode BSSGetSize(BSS self, int *n);
+
 // ---- Matrix ----
 PetscErrorCode BSSInitR1Mat(BSS self, Mat *M);
 PetscErrorCode BSSInitR2Mat(BSS self, Mat *M);

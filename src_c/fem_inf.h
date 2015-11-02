@@ -9,7 +9,7 @@ extern "C" {
 #include "bspline.h"
 #include "dvr.h"
 
-
+// vtbl for FEM interface
 typedef struct {
   PetscErrorCode (*Create)();
   PetscErrorCode (*CreateFromOptions)();
@@ -22,6 +22,7 @@ typedef struct {
   PetscErrorCode (*SetEER2Mat)();
   PetscErrorCode (*BasisPsi)();
   PetscErrorCode (*GuessHEig)();
+  PetscErrorCode (*GetSize)();
   PetscBool overlap_is_id;
   
 } FEMSc;
@@ -36,18 +37,24 @@ PetscErrorCode FEMInfCreateFD(FEMInf *inf, FD self);
 PetscErrorCode FEMInfCreateBSS(FEMInf *inf, BSS self);
 PetscErrorCode FEMInfCreateDVR(FEMInf *inf, DVR self);
 
-// ---- method ------
+// ---- Basic Method ------
 PetscErrorCode FEMInfCreateFromOptions(FEMInf *self, MPI_Comm comm);
 PetscErrorCode FEMInfDestroy(FEMInf *inf);
 PetscErrorCode FEMInfFPrintf(FEMInf self, FILE *file, int lvl);
 PetscErrorCode FEMInfView(FEMInf self);
+
+// ----- Accessor ----
+PetscErrorCode FEMInfGetSize(FEMInf self, int *n);
+PetscErrorCode FEMInfGetOverlapIsId(FEMInf self, PetscBool *is_id);
+
+// ---- calculation -----
 PetscErrorCode FEMInfSetSR1Mat(FEMInf self, Mat *M);
 PetscErrorCode FEMInfSetD2R1Mat(FEMInf self, Mat *M);
 PetscErrorCode FEMInfSetR2invR1Mat(FEMInf self, Mat *M);
 PetscErrorCode FEMInfSetENR1Mat(FEMInf self, int q, double a, Mat *M); 
 PetscErrorCode FEMInfSetEER2Mat(FEMInf self, int q, Mat *M); 
 PetscErrorCode FEMInfBasisPsi(FEMInf self, int i, PetscScalar x, PetscScalar *y);
-PetscErrorCode FEMInfGetOverlapIsId(FEMInf self, PetscBool *is_id);
+
 PetscErrorCode FEMInfGuessHEig(FEMInf self, int n, int l, PetscScalar z, Vec *v);
 
 #ifdef __cplusplus

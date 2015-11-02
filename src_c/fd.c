@@ -50,11 +50,17 @@ PetscErrorCode FDFPrintf(FD this, FILE *file, int lvl) {
 
 }
 
+// ---- Accessor ----
+PetscErrorCode FDGetSize(FD self, int *n) {
+  *n = self->num;
+  return 0;
+}
+
 // ---- Matrix (private) ----
 PetscErrorCode FDInitR1Mat(FD this, Mat *M) {
 
   PetscErrorCode ierr;
-  PetscInt n = this->num;
+  PetscInt n; FDGetSize(this, &n);
   ierr = MatCreate(this->comm, M); CHKERRQ(ierr);
   ierr = MatSetSizes(*M, PETSC_DECIDE, PETSC_DECIDE, n, n); CHKERRQ(ierr);
   ierr = MatSetFromOptions(*M); CHKERRQ(ierr);

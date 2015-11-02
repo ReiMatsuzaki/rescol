@@ -2,6 +2,7 @@ CFLAGS=-std=gnu99
 include ${SLEPC_DIR}/lib/slepc/conf/slepc_common
 FEMOBJS=fem_inf.o fd.o bspline.o dvr.o bps.o mat.o
 ANGOBJS=angmoment.o
+OCEOBJS=oce2.o ${ANGOBJS} ${FEMOBJS}
 
 test_mat: mat.o test_mat.o
 	-${CLINKER} -o test_mat.out  test_mat.o mat.o ${SLEPC_EPS_LIB}
@@ -15,8 +16,8 @@ diag.out: diag.o mat.o chkopts
 h2plus.out: h2plus.o ${FEMOBJS} chkopts
 	-${CLINKER} -o $@ h2plus.o ${FEMOBJS} ${SLEPC_EPS_LIB}
 
-h2mole.out: h2mole.o ${FEMOBJS} ${ANGOBJS} chkopts
-	-${CLINKER} -o $@ h2mole.o ${FEMOBJS} ${ANGOBJS} -lgsl ${SLEPC_EPS_LIB}
+h2mole.out: h2mole.o ${OCEOBJS} chkopts
+	-${CLINKER} -o $@ h2mole.o ${OCEOBJS} -lgsl ${SLEPC_EPS_LIB}
 
 h2mole2.out: h2mole2.o fem_inf.o dvr.o bspline.o fd.o bps.o mat.o chkopts
 	-${CLINKER} -o $@ h2mole2.o fem_inf.o dvr.o bspline.o fd.o bps.o mat.o ${SLEPC_EPS_LIB}

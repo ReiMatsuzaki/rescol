@@ -40,6 +40,9 @@ PetscErrorCode DVRDestroy(DVR *dvr);
 PetscErrorCode DVRFPrintf(DVR self, FILE *file, int lvl);
 PetscErrorCode DVRBasisPsi(DVR self, int i, PetscScalar x, PetscScalar *y);
 
+// ---- Accessor ----
+PetscErrorCode DVRGetSize(DVR self, int *n);
+
 // ------- R1Mat ----------
 PetscErrorCode DVRInitR1Mat(DVR self, Mat *M);
 PetscErrorCode DVRSetSR1Mat(DVR self, Mat *M);

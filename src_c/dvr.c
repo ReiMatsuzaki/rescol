@@ -184,6 +184,12 @@ PetscErrorCode DVRBasisPsi(DVR this, int i, PetscScalar x, PetscScalar *y) {
   return 0;
 }
 
+// ---- Accessor ----
+PetscErrorCode DVRGetSize(DVR this, int *n) {
+  *n = this->num_basis;
+  return 0;
+}
+
 // ------- inner ----------
 PetscErrorCode DVRPrepareT2(DVR this) {
   PetscErrorCode ierr;

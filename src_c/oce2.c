@@ -45,7 +45,21 @@ PetscErrorCode OCE2Set(OCE2 this, FEMInf fem, Y2s y2s) {
   this->y2s = y2s;
   return 0;
 }
-PetscErrorCode OCE2CreateFromOptions(OCE2 *oce2, MPI_Comm comm);
+PetscErrorCode OCE2CreateFromOptions(OCE2 *oce2, MPI_Comm comm) {
+
+  PetscErrorCode ierr;
+  ierr = OCE2Create(oce2, comm); CHKERRQ(ierr);
+  
+  FEMInf fem; 
+  ierr = FEMInfCreateFromOptions(&fem, comm); CHKERRQ(ierr);
+
+  Y2s y2s;
+  ierr = Y2sCreateFromOptions(&y2s, comm); CHKERRQ(ierr);
+
+  ierr = OCE2Set(*oce2, fem, y2s); CHKERRQ(ierr);
+
+  return 0;
+}
 PetscErrorCode OCE2View(OCE2 this) {
 
   PetscErrorCode ierr;
@@ -53,6 +67,12 @@ PetscErrorCode OCE2View(OCE2 this) {
   ierr = Y2sView(this->y2s); CHKERRQ(ierr);
   return 0;
 
+}
+
+PetscErrorCode OCE2GetSizes(OCE2 this, int *n_r1, int *n_y2) {
+  FEMInfGetSize(this->fem, n_r1);
+  Y2sGetSize(this->y2s, n_y2);
+  return 0;
 }
 
 PetscErrorCode OCE2SetSr1(OCE2 this) {
