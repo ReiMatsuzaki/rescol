@@ -27,10 +27,13 @@ typedef struct {
   
 } FEMSc;
 
-typedef struct {
+struct _p_FEMInf{
+  MPI_Comm comm;
   FEMSc* sc; // scheme for polymorphism
   void* obj;  // address of object
-} FEMInf;
+} ;
+
+typedef struct _p_FEMInf* FEMInf;
 
 // ----- getter of interface -----
 PetscErrorCode FEMInfCreateFD(FEMInf *inf, FD self);

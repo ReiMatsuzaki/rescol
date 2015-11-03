@@ -45,7 +45,6 @@ PetscErrorCode Y1sCreate(Y1s *y1s, MPI_Comm comm) {
   PetscErrorCode ierr;
   Y1s _y1s;
   ierr = PetscNew(&_y1s); CHKERRQ(ierr);
-  *y1s = NULL;
 
   _y1s->comm = comm;
   *y1s = _y1s;
@@ -78,6 +77,45 @@ PetscErrorCode Y1sSet(Y1s y1s, int m, int g_or_u, int lmax) {
 
   return 0;
 }
+PetscErrorCode Y1sCreateFromOptions(Y1s *y1s, MPI_Comm comm) {
+
+  char rot[10] = "sigma";
+  char parity[10] = "gerade";
+  int lmax = 2;
+  PetscErrorCode ierr;
+  ierr = PetscOptionsGetString(NULL, "-y1s_rot", rot, 10, NULL); CHKERRQ(ierr);
+  ierr = PetscOptionsGetString(NULL, "-y1s_parity", parity, 10, NULL); 
+  CHKERRQ(ierr);
+  ierr = PetscOptionsGetInt(NULL, "-y1s_lmax", &lmax, NULL); CHKERRQ(ierr);
+  
+  int m = SIGMA;
+  if(strcmp(rot, "sigma") == 0)
+    m = SIGMA;
+  else if(strcmp(rot, "pi") == 0)
+    m = PI;
+  else if(strcmp(rot, "delta") == 0)
+    m = DELTA;
+  else if(strcmp(rot, "phi") == 0)
+    m = PHI;
+  else
+    SETERRQ(comm, 1, "options -rot <- {sigma, pi, delta, phi}");
+
+  int g_or_u = GERADE;
+  if(strcmp(parity, "gerade") == 0)
+    g_or_u = GERADE;
+  else if(strcmp(parity, "ungerade") == 0)
+    g_or_u = UNGERADE;
+  else
+    SETERRQ(comm, 1, "options -parity <- {gerade, ungerade}");
+
+  if(lmax < 0)
+    SETERRQ(comm, 1, "options lmax must non negative integer");
+
+  ierr = Y1sCreate(y1s, comm); CHKERRQ(ierr);
+  ierr = Y1sSet(*y1s, m, g_or_u, lmax); CHKERRQ(ierr);
+  
+  return 0;
+}
 PetscErrorCode Y1sView(Y1s ys1) {
 
   PetscPrintf(ys1->comm, "num: %d\n", ys1->num);
@@ -94,6 +132,13 @@ PetscErrorCode Y1sGetSize(Y1s y1s, int *n) {
   *n = y1s->num;
   return 0;
 }
+PetscErrorCode Y1sGetMaxL(Y1s self, int *lmax) {
+  *lmax = 0;
+  for(int i = 0; i < self->num; i++) 
+    if(self->ls[i] > *lmax)
+      *lmax = self->ls[i];
+  return 0;
+}
 PetscErrorCode Y1sCreateY1Mat(Y1s self, Mat *M) {
   
   int n = self->num;
@@ -101,6 +146,18 @@ PetscErrorCode Y1sCreateY1Mat(Y1s self, Mat *M) {
   MatSetSizes(*M, n, n, n, n);
   MatSetFromOptions(*M);
   MatSetUp(*M);
+  return 0;
+
+}
+PetscErrorCode Y1sSetSY1Mat(Y1s self, Mat *M) {
+  
+  Y1sCreateY1Mat(self, M);
+  int n = self->num;
+  for (int i = 0; i < n; i++) {
+      MatSetValue(*M, i, i, 1.0, INSERT_VALUES);
+  }
+  MatAssemblyBegin(*M, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(*M, MAT_FINAL_ASSEMBLY);
   return 0;
 
 }

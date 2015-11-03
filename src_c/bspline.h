@@ -15,13 +15,13 @@ struct _p_BSS {
   BPS bps;
   int num_ele;  // number of finite elements
   int num_basis; 
-  PetscScalar rmax;
+  PetscReal rmax;
   int* b_idx_list; // basis index list;
-  PetscScalar* ts; // overlapped knots points
-  PetscScalar* xs; // quadrature points
-  PetscScalar* ws; // weight
-  PetscScalar* vals; // bspline values on quadrature points
-  PetscScalar* derivs; // derivative values
+  PetscReal* ts; // overlapped knots points
+  PetscReal* xs; // quadrature points
+  PetscReal* ws; // weight
+  PetscReal* vals; // bspline values on quadrature points
+  PetscReal* derivs; // derivative values
 };
 
 typedef struct _p_BSS* BSS;
@@ -37,8 +37,8 @@ PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, MPI_Comm comm);
 PetscErrorCode BSSCreateFromOptions(BSS *bss, MPI_Comm comm);
 PetscErrorCode BSSDestroy(BSS *bss);
 PetscErrorCode BSSFPrintf(BSS self, FILE* file, int lvl);
-PetscErrorCode BSSBasisPsi(BSS self, int i, PetscScalar x, PetscScalar *y);
-PetscErrorCode BSSDerivBasisPsi(BSS self, int i, PetscScalar x, PetscScalar *y);
+PetscErrorCode BSSBasisPsi(BSS self, int i, PetscReal x, PetscReal *y);
+PetscErrorCode BSSDerivBasisPsi(BSS self, int i, PetscReal x, PetscReal *y);
 
 // ---- Accessor ----
 PetscErrorCode BSSGetSize(BSS self, int *n);
@@ -50,7 +50,7 @@ PetscErrorCode BSSInitR2Mat(BSS self, Mat *M);
 PetscErrorCode BSSCalcSR1Mat(BSS self, Mat S, InsertMode mode);
 PetscErrorCode BSSCalcR2invR1Mat(BSS self, Mat M, InsertMode mode);
 PetscErrorCode BSSCalcD2R1Mat(BSS self, Mat D, InsertMode);  
-PetscErrorCode BSSCalcENR1Mat(BSS self, int q, PetscScalar  a, Mat V, InsertMode); 
+PetscErrorCode BSSCalcENR1Mat(BSS self, int q, PetscReal  a, Mat V, InsertMode); 
 PetscErrorCode BSSCalcEER2Mat(BSS self, int q, Mat V, InsertMode);
 PetscErrorCode BSSCalcEER2Mat_ver1(BSS self, int q, Mat V, InsertMode);
 

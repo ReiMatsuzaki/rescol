@@ -3,8 +3,21 @@
 #include "bspline.h"
 
 // ----- Interface -----
+PetscErrorCode FEMInfCreate(FEMInf *inf, MPI_Comm comm) {
+  FEMInf _inf;
+  PetscNew(&_inf);
+  
+  _inf->comm = comm;
+  _inf->sc = NULL;
+  _inf->obj = NULL;
+
+  *inf = _inf;
+  return 0;
+}
 FEMSc FD_Sc;
 PetscErrorCode FEMInfCreateFD(FEMInf *inf, FD this) {
+
+  FEMInfCreate(inf, this->comm);
 
   static int init = 0;
   if(init == 0) {
@@ -24,16 +37,17 @@ PetscErrorCode FEMInfCreateFD(FEMInf *inf, FD this) {
     init = 1;
   }
 
-  inf->sc = &FD_Sc;
-  inf->obj = this;
+  (*inf)->sc = &FD_Sc;
+  (*inf)->obj = this;
 
   return 0;
 }
 FEMSc BSS_Sc;
 PetscErrorCode FEMInfCreateBSS(FEMInf *inf, BSS this) {
 
+  FEMInfCreate(inf, this->comm);
+
   static int init = 0;
-  
   if(init == 0) {
     BSS_Sc.Create = BSSCreate;
     BSS_Sc.CreateFromOptions = BSSCreateFromOptions;
@@ -51,16 +65,17 @@ PetscErrorCode FEMInfCreateBSS(FEMInf *inf, BSS this) {
     init = 1;
   }
   
-  inf->sc = &BSS_Sc;
-  inf->obj = this;
+  (*inf)->sc = &BSS_Sc;
+  (*inf)->obj = this;
   
   return 0;
 }
 FEMSc DVR_Sc;
 PetscErrorCode FEMInfCreateDVR(FEMInf *inf, DVR this) {
 
+  FEMInfCreate(inf, this->comm);
+
   static int init = 0;
-  
   if(init == 0) {
     DVR_Sc.Create = DVRCreate;
     DVR_Sc.CreateFromOptions = DVRCreateFromOptions;
@@ -78,8 +93,8 @@ PetscErrorCode FEMInfCreateDVR(FEMInf *inf, DVR this) {
     init = 1;
   }
   
-  inf->sc = &DVR_Sc;
-  inf->obj = this;
+  (*inf)->sc = &DVR_Sc;
+  (*inf)->obj = this;
   
   return 0;
 }
@@ -110,22 +125,23 @@ PetscErrorCode FEMInfCreateFromOptions(FEMInf *inf, MPI_Comm comm) {
   
   return 0;
 }
-PetscErrorCode FEMInfDestroy(FEMInf *fem) {
-  //  SETERRQ(PETSC_COMM_SELF, 1, "not implemented yet");
+PetscErrorCode FEMInfDestroy(FEMInf *inf) {
 
-  if(fem->sc->Destory == NULL)
+  if((*inf)->sc->Destory == NULL)
     SETERRQ(PETSC_COMM_SELF, 1, "method is null");
   
-  fem->sc->Destory(&(fem->obj));
+  (*inf)->sc->Destory(&((*inf)->obj));
+
+  PetscFree(*inf);
 
   return 0;
 }
 PetscErrorCode FEMInfFPrintf(FEMInf this, FILE *file, int lvl) {
 
-  if(this.sc->FPrintf == NULL)
+  if(this->sc->FPrintf == NULL)
     SETERRQ(PETSC_COMM_SELF, 1, "method is null");
 
-  this.sc->FPrintf(this.obj, file, lvl);
+  this->sc->FPrintf(this->obj, file, lvl);
   return 0;
 
 }
@@ -136,77 +152,77 @@ PetscErrorCode FEMInfView(FEMInf this) {
 
 // ---- Accessor ----
 PetscErrorCode FEMInfGetOverlapIsId(FEMInf this, PetscBool *is_id) {
-  *is_id = this.sc->overlap_is_id;  
+  *is_id = this->sc->overlap_is_id;  
   return 0;
 }
 PetscErrorCode FEMInfGetSize(FEMInf this, int *n) {
   
-  if(this.sc->GetSize == NULL)
+  if(this->sc->GetSize == NULL)
     SETERRQ(PETSC_COMM_SELF, 1, "method is null");
 
-  this.sc->GetSize(this.obj, n);
+  this->sc->GetSize(this->obj, n);
   return 0;
 }
 
 // ---- Calculation ----
 PetscErrorCode FEMInfSetSR1Mat(FEMInf this, Mat *M) {
 
-  if(this.sc->SetSR1Mat == NULL)
+  if(this->sc->SetSR1Mat == NULL)
     SETERRQ(PETSC_COMM_SELF, 1, "method is null");
 
-  this.sc->SetSR1Mat(this.obj, M);
+  this->sc->SetSR1Mat(this->obj, M);
   return 0;
 }
 PetscErrorCode FEMInfSetD2R1Mat(FEMInf this, Mat *M) {
 
-  if(this.sc->SetD2R1Mat == NULL)
+  if(this->sc->SetD2R1Mat == NULL)
     SETERRQ(PETSC_COMM_SELF, 1, "method is null");
 
-  this.sc->SetD2R1Mat(this.obj, M);
+  this->sc->SetD2R1Mat(this->obj, M);
   return 0;
 
 }
 PetscErrorCode FEMInfSetR2invR1Mat(FEMInf this, Mat *M) {
 
-  if(this.sc->SetR2invR1Mat == NULL)
+  if(this->sc->SetR2invR1Mat == NULL)
     SETERRQ(PETSC_COMM_SELF, 1, "method is null");
 
-  this.sc->SetR2invR1Mat(this.obj, M);
+  this->sc->SetR2invR1Mat(this->obj, M);
   return 0;
 }
 PetscErrorCode FEMInfSetENR1Mat(FEMInf this, int q, double a, Mat *M) {
 
-  if(this.sc->SetENR1Mat == NULL)
+  if(this->sc->SetENR1Mat == NULL)
     SETERRQ(PETSC_COMM_SELF, 1, "method is null");
 
-  this.sc->SetENR1Mat(this.obj, q, a, M);
+  this->sc->SetENR1Mat(this->obj, q, a, M);
   return 0;
 
 }
 PetscErrorCode FEMInfSetEER2Mat(FEMInf this, int q, Mat *M) {
 
-  if(this.sc->SetEER2Mat == NULL)
+  if(this->sc->SetEER2Mat == NULL)
     SETERRQ(PETSC_COMM_SELF, 1, "method is null");
 
-  this.sc->SetEER2Mat(this.obj, q, M);
+  this->sc->SetEER2Mat(this->obj, q, M);
   return 0;
 
 }
 PetscErrorCode FEMInfBasisPsi(FEMInf this, int i, PetscScalar x, PetscScalar *y) {
 
-  if(this.sc->BasisPsi == NULL)
+  if(this->sc->BasisPsi == NULL)
     SETERRQ(PETSC_COMM_SELF, 1, "method is null");
 
-  this.sc->BasisPsi(this.obj, i, x, y);
+  this->sc->BasisPsi(this->obj, i, x, y);
   return 0;
 }
 
 PetscErrorCode FEMInfGuessHEig(FEMInf this, int n, int l, PetscScalar z, Vec *v) {
 
-  if(this.sc->GuessHEig == NULL)
+  if(this->sc->GuessHEig == NULL)
     SETERRQ(PETSC_COMM_SELF, 1, "method is null");
 
-  this.sc->GuessHEig(this.obj, n, l, z, v);
+  this->sc->GuessHEig(this->obj, n, l, z, v);
   return 0;
 }
 

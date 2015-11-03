@@ -8,7 +8,7 @@ PetscErrorCode OCE2Create(OCE2 *oce2, MPI_Comm comm) {
 
   _oce2->comm = comm;
 
-  //  _oce2->fem = NULL;
+  _oce2->fem = NULL;
   _oce2->y2s = NULL;
 
   _oce2->s_r1 = NULL;
@@ -21,7 +21,9 @@ PetscErrorCode OCE2Destroy(OCE2 *oce2) {
 
   PetscErrorCode ierr;
   
-  ierr = FEMInfDestroy(&(*oce2)->fem); CHKERRQ(ierr);
+  if((*oce2)->fem) {
+    ierr = FEMInfDestroy(&(*oce2)->fem); CHKERRQ(ierr);
+  }
 
   if((*oce2)->y2s) {
     ierr = Y2sDestroy(&(*oce2)->y2s); CHKERRQ(ierr);

@@ -31,3 +31,9 @@ test_fem_inf: test_fem_inf.o ../src_c/fem_inf.o
 test_oce2: test_oce2.o ../src_c/fem_inf.o ../src_c/oce2.o
 	-${CLINKER} -o test_oce2.out test_oce2.o ../src_c/oce2.o ${FEMOBJS} ${ANGOBJS} -lgtest -lgsl ${SLEPC_EPS_LIB} -g
 	./test_oce2.out -petsc_dump
+
+test_scale.out: test_scale.o ../src_c/scale.o
+	-${CLINKER} -o $@ test_scale.o ../src_c/scale.o -lgtest ${SLEPC_EPS_LIB} -g
+
+test_scale: test_scale.out
+	./test_scale.out -petsc_dump

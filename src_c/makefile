@@ -1,8 +1,10 @@
 CFLAGS=-std=gnu99
 include ${SLEPC_DIR}/lib/slepc/conf/slepc_common
+LIBGSL=-lgsl
 FEMOBJS=fem_inf.o fd.o bspline.o dvr.o bps.o mat.o
 ANGOBJS=angmoment.o
-OCEOBJS=oce2.o ${ANGOBJS} ${FEMOBJS}
+OCE1OBJS=oce1.o ${ANGOBJS} ${FEMOBJS}
+OCE2OBJS=oce2.o ${ANGOBJS} ${FEMOBJS}
 
 test_mat: mat.o test_mat.o
 	-${CLINKER} -o test_mat.out  test_mat.o mat.o ${SLEPC_EPS_LIB}
@@ -13,11 +15,11 @@ hatom.out: hatom.o fem_inf.o bspline.o dvr.o mat.o chkopts
 diag.out: diag.o mat.o chkopts
 	-${CLINKER} -I/usr/local/Cellar/petsc/3.6.1_3/real/include/petsc/mpiuni/ -o $@ diag.o mat.o ${SLEPC_EPS_LIB}
 
-h2plus.out: h2plus.o ${FEMOBJS} chkopts
-	-${CLINKER} -o $@ h2plus.o ${FEMOBJS} ${SLEPC_EPS_LIB}
+h2plus.out: h2plus.o ${OCE1OBJS} chkopts
+	-${CLINKER} -o $@ h2plus.o ${OCE1OBJS} ${LIBGSL} ${SLEPC_EPS_LIB}
 
-h2mole.out: h2mole.o ${OCEOBJS} chkopts
-	-${CLINKER} -o $@ h2mole.o ${OCEOBJS} -lgsl ${SLEPC_EPS_LIB}
+h2mole.out: h2mole.o ${OCE2OBJS} chkopts
+	-${CLINKER} -o $@ h2mole.o ${OCE2OBJS} ${LIBGSL} ${SLEPC_EPS_LIB}
 
 h2mole2.out: h2mole2.o fem_inf.o dvr.o bspline.o fd.o bps.o mat.o chkopts
 	-${CLINKER} -o $@ h2mole2.o fem_inf.o dvr.o bspline.o fd.o bps.o mat.o ${SLEPC_EPS_LIB}
@@ -41,8 +43,9 @@ test_diag: diag.out chkopts
 	python test_diag.py
 
 test_h2plus: h2plus.out chkopts
-	./h2plus.out -target_dir h2plus -qmax 32  \
-	-fem_type bss -bss_order 4 -bps_num_zs 21 -bps_type exp -bps_zmax 30.0 \
+	./h2plus.out \
+	-y1s_rot sigma -y1s_parity gerade -y1s_lmax 14 \
+	-fem_type bss -bss_order 8 -bps_num_zs 41 -bps_type exp -bps_zmax 30.0 \
 	-bond_length 2.0 -eps_nev 1 -eps_max_it 1000 -eps_type jd
 	echo Reference: 1.102 634 214 494 9
 

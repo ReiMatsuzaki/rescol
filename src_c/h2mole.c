@@ -280,6 +280,13 @@ int main(int argc, char **args) {
   ierr = H2CreateFromOptions(&h2, comm); CHKERRQ(ierr);
   PetscOptionsEnd();
 
+  /*
+  if(2 > 1) {
+    PetscComplex a = 2.0 + 1.0*PETSC_i;
+    PetscPrintf(comm, "complex: %f\n", a);
+  }
+  */
+
   OCE2View(h2->oce2);
   
   ierr = H2SetBasic(h2); CHKERRQ(ierr);

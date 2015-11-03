@@ -39,9 +39,12 @@ typedef struct _p_Y1s* Y1s;
 PetscErrorCode Y1sCreate(Y1s *y1s, MPI_Comm comm);
 PetscErrorCode Y1sDestroy(Y1s *y1s);
 PetscErrorCode Y1sSet(Y1s y1s, int m, int g_or_u, int lmax);
+PetscErrorCode Y1sCreateFromOptions(Y1s *y1s, MPI_Comm comm);
 PetscErrorCode Y1sView(Y1s y1s);
 PetscErrorCode Y1sGetSize(Y1s y1s, int *n);
+PetscErrorCode Y1sGetMaxL(Y1s ys, int *lmax);
 PetscErrorCode Y1sCreateY1Mat(Y1s ys, Mat *M);
+PetscErrorCode Y1sSetSY1Mat(Y1s self, Mat *M);
 PetscErrorCode Y1sSetLambdaY1Mat(Y1s ys, Mat *M);
 PetscErrorCode Y1sSetPqY1Mat(Y1s ys, int q, Mat *M);
 
