@@ -1,4 +1,4 @@
-FEMOBJS=../src_c/fem_inf.o ../src_c/fd.o ../src_c/bspline.o ../src_c/dvr.o ../src_c/bps.o ../src_c/mat.o
+FEMOBJS=../src_c/fem_inf.o ../src_c/fd.o ../src_c/bspline.o ../src_c/dvr.o ../src_c/bps.o ../src_c/mat.o ../src_c/scale.o ../src_c/pot.o
 ANGOBJS=../src_c/angmoment.o
 
 CFLAGS=-std=gnu99
@@ -12,8 +12,8 @@ test_angmoment:test_angmoment.o
 	-${CLINKER} -o test_angmoment.out test_angmoment.o ../src_c/angmoment.o -lgtest -lgsl ${SLEPC_EPS_LIB}
 	./test_angmoment.out
 
-test_bspline:test_bspline.o ../src_c/bspline.o
-	-${CLINKER} -o test_bspline.out test_bspline.o ../src_c/bspline.o ../src_c/bps.o ../src_c/mat.o ${SLEPC_EPS_LIB} -g
+test_bspline:test_bspline.o ../src_c/bspline.o ../src_c/scale.o
+	-${CLINKER} -o test_bspline.out test_bspline.o ../src_c/bspline.o ../src_c/bps.o ../src_c/scale.o ../src_c/mat.o  ../src_c/pot.o ${SLEPC_EPS_LIB} -g
 	./test_bspline.out
 
 test_dvr:test_dvr.o ../src_c/dvr.o ../src_c/bps.o
@@ -37,3 +37,7 @@ test_scale.out: test_scale.o ../src_c/scale.o
 
 test_scale: test_scale.out
 	./test_scale.out -petsc_dump
+
+test_pot: test_pot.o
+	-${CLINKER} -o test_pot.out test_pot.o ../src_c/pot.o -lgtest ${SLEPC_EPS_LIB} -g
+	./test_pot.out

@@ -7,11 +7,9 @@ static char help[] = "Unit test for scale.c";
 TEST(TestScaling, Uniform) {
 
   MPI_Comm comm = MPI_COMM_SELF;
-  ScalerUniform uniform_scaler;
   PetscReal theta = M_PI*10.0/18.0;
-  ScalerUniformCreate(&uniform_scaler, comm, theta);
   Scaler scaler;
-  ScalerCreateUniform(&scaler, uniform_scaler);
+  ScalerCreateUniform(&scaler, comm, theta);
 
   PetscReal xs[10];
   PetscScalar Rr[10];
@@ -39,12 +37,10 @@ TEST(TestScaling, Uniform) {
 TEST(TestScaling, SharpECS) {
   
   MPI_Comm comm = MPI_COMM_SELF;
-  ScalerSharpECS ecs;
   PetscReal theta = M_PI*10.0/180.0;
   PetscReal r0 = 4.0;
-  ScalerSharpECSCreate(&ecs, comm, r0, theta);
   Scaler scaler;
-  ScalerCreateSharpECS(&scaler, ecs);
+  ScalerCreateSharpECS(&scaler, comm, r0, theta);
 
   PetscReal xs[10];
   PetscScalar Rr[10];

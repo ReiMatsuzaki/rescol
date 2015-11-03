@@ -27,7 +27,7 @@ int test1() {
 int testH_BSS() {
 
   BPS bps; BPSCreate(&bps, PETSC_COMM_SELF); BPSSetExp(bps, 20.0, 21, 5.0);
-  BSS bss; BSSCreate(&bss, 5, bps, PETSC_COMM_SELF);
+  BSS bss; BSSCreate(&bss, 5, bps, NULL, PETSC_COMM_SELF);
   FEMInf fem; FEMInfCreateBSS(&fem, bss);
 
   printf("\n");

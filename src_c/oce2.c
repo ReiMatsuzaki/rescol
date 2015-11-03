@@ -131,24 +131,32 @@ PetscErrorCode OCE2SetTMat(OCE2 this, Mat *M) {
   MatDestroy(&D); MatDestroy(&d2_r1);
 
   
+  /*
   Mat l_r1;
   ierr = FEMInfSetR2invR1Mat(this->fem, &l_r1); CHKERRQ(ierr);
   
-  Mat l1_y2, L1;
+  Mat l1_y2;
   ierr = Y2sSetLambda1Y2Mat(this->y2s, &l1_y2); CHKERRQ(ierr);
-  ierr = MatSetSynthesize3Fast(l_r1, this->s_r1, l1_y2, 
-			       this->comm, &L1);
-  ierr = MatAXPY(*M, 0.5, L1, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
-  MatDestroy(&l1_y2); MatDestroy(&L1);
+  if(l1_y2) {
+    Mat  L1;
+    ierr = MatSetSynthesize3Fast(l_r1, this->s_r1, l1_y2, 
+				 this->comm, &L1);
+    ierr = MatAXPY(*M, 0.5, L1, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
+    MatDestroy(&l1_y2); MatDestroy(&L1);
+  }
 
-  Mat l2_y2, L2;
+  Mat l2_y2;
   ierr = Y2sSetLambda2Y2Mat(this->y2s, &l2_y2); CHKERRQ(ierr);
-  ierr = MatSetSynthesize3Fast(this->s_r1, l_r1, l2_y2, 
-			       this->comm, &L2); CHKERRQ(ierr);
-  ierr = MatAXPY(*M, 0.5, L2, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
-  MatDestroy(&l2_y2); MatDestroy(&L2);
+  if(l2_y2) {
+    Mat  L2;
+    ierr = MatSetSynthesize3Fast(this->s_r1, l_r1, l2_y2, 
+				 this->comm, &L2); CHKERRQ(ierr);
+    ierr = MatAXPY(*M, 0.5, L2, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
+    MatDestroy(&l2_y2); MatDestroy(&L2);
+  }
 
   MatDestroy(&l_r1);
+  */
   return 0;
 
 }
@@ -163,7 +171,7 @@ PetscErrorCode OCE2PlusVneMat(OCE2 this, PetscReal a, PetscReal z, Mat *M) {
   int qmax = 2*lmax;
 
   PetscScalar zz = -2.0*z;
-  for(int q = 0; q < qmax; q++) {
+  for(int q = 0; q <= qmax; q++) {
     Mat pq1A_y2, pq2A_y2;
     ierr = Y2sSetPq1AY2Mat(this->y2s, q, &pq1A_y2); CHKERRQ(ierr);
     ierr = Y2sSetPq2AY2Mat(this->y2s, q, &pq2A_y2); CHKERRQ(ierr);
@@ -175,13 +183,13 @@ PetscErrorCode OCE2PlusVneMat(OCE2 this, PetscReal a, PetscReal z, Mat *M) {
       Mat V1;
       ierr = MatSetSynthesize3Fast(q_r1, this->s_r1, pq1A_y2,
 				   this->comm, &V1); CHKERRQ(ierr);
-      ierr = MatAXPY(*M, zz, V1, DIFFERENT_NONZERO_PATTERN);
+      ierr = MatAXPY(*M, zz, V1, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
       MatDestroy(&V1);
 
       Mat V2;
       ierr = MatSetSynthesize3Fast(this->s_r1, q_r1, pq2A_y2,
 				   this->comm, &V2); CHKERRQ(ierr);
-      ierr = MatAXPY(*M, zz, V2, DIFFERENT_NONZERO_PATTERN);
+      ierr = MatAXPY(*M, zz, V2, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
       MatDestroy(&V2);
       
       MatDestroy(&q_r1); MatDestroy(&pq1A_y2); MatDestroy(&pq2A_y2);

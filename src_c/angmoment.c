@@ -267,7 +267,7 @@ PetscErrorCode Y2sSet(Y2s self, int m, int g_or_u, int p_or_m, int lmax) {
     SETERRQ(self->comm, 1, "illegal g_or_u");
 
   int idx = 0;
-  PetscMalloc1(lmax*lmax*lmax, &self->y2_list);
+  PetscMalloc1((lmax+1)*(lmax+1)*(lmax+1), &self->y2_list);
   for(int L = m; L <= lmax; L++)
     for(int L1 = m; L1 <= lmax; L1++) 
       for(int L2 = m; L2 <= lmax; L2++) {

@@ -53,8 +53,9 @@ struct _p_Scaler {
 };
 typedef struct _p_Scaler* Scaler;
 PetscErrorCode ScalerCreateNone(Scaler *scaler, MPI_Comm comm);
-PetscErrorCode ScalerCreateUniform(Scaler *scaler, ScalerUniform uniform);
-PetscErrorCode ScalerCreateSharpECS(Scaler *scaler, ScalerSharpECS uniform);
+PetscErrorCode ScalerCreateUniform(Scaler *scaler, MPI_Comm comm, PetscReal theta);
+PetscErrorCode ScalerCreateSharpECS(Scaler *scaler, MPI_Comm comm, PetscReal r0, PetscReal theta);
+PetscErrorCode ScalerCreateFromOptions(Scaler *scaler, MPI_Comm);
 PetscErrorCode ScalerDestroy(Scaler *scaler);
 PetscErrorCode ScalerView(Scaler self);
 PetscErrorCode ScalerSetRr(Scaler self, PetscReal xs[], int n, PetscScalar ys[]);

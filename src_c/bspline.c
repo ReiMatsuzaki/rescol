@@ -1,8 +1,6 @@
 #include "bspline.h"
 
-
 // ---- External functions ----
-
 int NumBSpline(int order, int num_ele) {
   return num_ele + 2*(order-1) - 2 - (order-1);
 }
@@ -81,7 +79,9 @@ PetscErrorCode Non0QuadIndex(int a, int c, int k, int nq, int* i0, int* i1) {
 }
 
 // ---- Basic Methods ----
-PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, MPI_Comm comm) {
+PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, Scaler scaler, 
+			 MPI_Comm comm) {
+  PetscErrorCode ierr;
   int i, ib, ie, iq;
   BSS _bss;
 
@@ -95,9 +95,16 @@ PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, MPI_Comm comm) {
   _bss->comm = comm;
   _bss->order = order;
   _bss->bps = bps;
+  if(scaler == NULL) {
+    Scaler scaler_none;
+    ScalerCreateNone(&scaler_none, comm);
+    _bss->scaler = scaler_none;
+  } else
+    _bss->scaler = scaler;
+
   BPSGetNumEle(bps, &_bss->num_ele);
   _bss->num_basis = NumBSpline(order, num_zs-1);
-  BPSGetZMax(bps, &_bss->rmax);
+  //  BPSGetZMax(bps, &_bss->rmax);
 
   // copy ts and zs
   PetscMalloc1(num_zs+2*order-2, &_bss->ts);
@@ -114,6 +121,8 @@ PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, MPI_Comm comm) {
   PetscMalloc1(_bss->num_basis, &_bss->b_idx_list);
   PetscMalloc1(n_xs, &_bss->xs);
   PetscMalloc1(n_xs, &_bss->ws);
+  PetscMalloc1(n_xs, &_bss->qrs);
+  PetscMalloc1(n_xs, &_bss->Rrs);
   int num = sizeof(PetscScalar)*(n_xs)*(_bss->num_basis);
   PetscMalloc1(num, &_bss->vals);
   PetscMalloc1(num, &_bss->derivs);
@@ -136,10 +145,14 @@ PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, MPI_Comm comm) {
 	CalcBSpline(     order, _bss->ts, _bss->b_idx_list[ib], x, &y);
 	CalcDerivBSpline(order, _bss->ts, _bss->b_idx_list[ib], x, &dy);
 	int iy = ib*(_bss->num_ele*order) + ie*order + iq;
-	_bss->vals[iy] = y; _bss->derivs[iy] = dy;
+	_bss->vals[iy] = y;  
+	_bss->derivs[iy] = dy;
       }
     }
   }
+  
+  ierr = ScalerSetQr(_bss->scaler, _bss->xs, n_xs, _bss->qrs); CHKERRQ(ierr);
+  ierr = ScalerSetRr(_bss->scaler, _bss->xs, n_xs, _bss->Rrs); CHKERRQ(ierr);
 
   PetscFree(zs);
   *bss = _bss;
@@ -149,13 +162,14 @@ PetscErrorCode BSSCreateFromOptions(BSS *bss, MPI_Comm comm) {
   PetscBool find;
   PetscInt order;
   BPS bps;
+  Scaler scaler;
   PetscErrorCode ierr;
 
   order = 2;
   ierr = PetscOptionsGetInt(NULL, "-bss_order", &order, &find); CHKERRQ(ierr);
-  ierr = BPSCreate(&bps, comm); CHKERRQ(ierr);
-  ierr = BPSSetFromOptions(bps); CHKERRQ(ierr);
-  ierr = BSSCreate(bss, order, bps, comm);  CHKERRQ(ierr);
+  ierr = BPSCreate(&bps, comm); BPSSetFromOptions(bps); CHKERRQ(ierr);
+  ierr = ScalerCreateFromOptions(&scaler, comm); CHKERRQ(ierr);
+  ierr = BSSCreate(bss, order, bps, scaler, comm);  CHKERRQ(ierr);
 
   return 0;
  }
@@ -163,6 +177,7 @@ PetscErrorCode BSSDestroy(BSS *bss) {
   PetscErrorCode ierr;
   BSS this = *bss;
   ierr = BPSDestroy(&this->bps); CHKERRQ(ierr);
+  ierr = ScalerDestroy(&this->scaler); CHKERRQ(ierr);
   ierr = PetscFree(this->b_idx_list); CHKERRQ(ierr);
   ierr = PetscFree(this->ts);  CHKERRQ(ierr);
   ierr = PetscFree(this->xs); CHKERRQ(ierr);
@@ -246,7 +261,7 @@ PetscErrorCode BSSCalcSR1Mat(BSS this, Mat S, InsertMode mode) {
       if(HasNon0Value(this->order, this->b_idx_list[i], this->b_idx_list[j])) {
 	PetscScalar v = 0.0;
 	for(k = 0; k < ne*nq; k++) 
-	  v += this->vals[k+i*(ne*nq)] * this->vals[k+j*(ne*nq)] * this->ws[k];
+	  v += this->vals[k+i*(ne*nq)] * this->vals[k+j*(ne*nq)] * this->ws[k] * this->qrs[k];
 	ierr = MatSetValue(S, i, j, v, mode); CHKERRQ(ierr);
       }
     }
@@ -265,11 +280,13 @@ PetscErrorCode BSSCalcR2invR1Mat(BSS this, Mat M, InsertMode mode) {
       if(HasNon0Value(this->order, this->b_idx_list[i], this->b_idx_list[j])) {
 	PetscScalar v = 0.0;
 	for(k = 0; k < ne*nq; k++) {
-	  PetscScalar x = this->xs[k];
+	  //	  PetscScalar x = this->xs[k];
+	  PetscScalar rx = this->Rrs[k];
 	  PetscScalar w = this->ws[k];
+	  PetscScalar q = this->qrs[k];
 	  PetscScalar fi = this->vals[k+i*ne*nq];
 	  PetscScalar fj = this->vals[k+j*ne*nq];
-	  v += fi*fj*w/(x*x);
+	  v += fi*fj*w*q/(rx*rx);
 	}
 	ierr = MatSetValue(M, i, j, v, mode); CHKERRQ(ierr);
       }
@@ -287,42 +304,52 @@ PetscErrorCode BSSCalcD2R1Mat(BSS this, Mat D, InsertMode mode) {
     for(j = 0; j < nb; j++) {
       if(HasNon0Value(this->order, this->b_idx_list[i], this->b_idx_list[j])) {
 	PetscScalar v = 0.0;
-	for(k = 0; k < ne*nq; k++) 
-	  v += this->derivs[k+i*(ne*nq)] * this->derivs[k+j*(ne*nq)] * this->ws[k];
+	for(k = 0; k < ne*nq; k++) {
+	  PetscScalar q = this->qrs[k];
+	  PetscReal w = this->ws[k];
+	  PetscReal fi = this->derivs[k+i*ne*nq];
+	  PetscReal fj = this->derivs[k+j*ne*nq];
+	  v += fi*fj*w/q;
+	}
 	ierr = MatSetValue(D, i, j, -v, mode); CHKERRQ(ierr);
       }
     }
   return 0;
 }
 PetscErrorCode BSSCalcENR1Mat(BSS this, int q, PetscScalar a, Mat V, InsertMode mode) {
+  int k = this->order;
   int nb = this->num_basis;
   int ne = this->num_ele;
-  int nq = this->order;
+  int nq = k*ne;
   PetscErrorCode ierr;
 
   PetscScalar *vs; 
   PetscMalloc1(ne*nq, &vs);
-  for(int k = 0; k < ne*nq; k++) {
-    PetscScalar v;
-    PartialCoulomb(q, a, this->xs[k], &v);
-    vs[k] = v;
+  for(int k = 0; k < nq; k++) {
+    double v; PartialCoulomb(q, this->xs[k], a, &v);
+    vs[k] = v * this->ws[k] * this->qrs[k];
+    /*
+    PetscScalar g = this->xs[k]>a ? this->Rrs[k] : a;
+    PetscScalar s = this->xs[k]>a ? a : this->Rrs[k];    
+    vs[k] = pow(s/g, q)/g * this->ws[k] * this->qrs[k];
+    */
   }
 
-  for(int i = 0; i < nb; i++)
-    for(int j = 0; j <= i; j++) {
-      if(HasNon0Value(this->order, this->b_idx_list[i], this->b_idx_list[j])) {
-	PetscScalar v = 0.0;
-	for(int k = 0; k < ne*nq; k++) {
-	  double w = this->ws[k];
-	  double v1 = vs[k];
-	  v += this->vals[k+i*(ne*nq)] * this->vals[k+j*(ne*nq)] 
-	    * w * v1;
-	}
-	ierr = MatSetValue(V, i, j, v, mode); CHKERRQ(ierr);
-	if(i!=j)
-	  ierr = MatSetValue(V, j, i, v, mode); CHKERRQ(ierr);
-      }
+  for(int i = 0; i < nb; i++) {
+    PetscScalar *fi = &this->vals[i*nq];
+    int j0 = i-k+1; j0 = j0<0?0:j0;
+    for(int j = j0; j <= i; j++) {
+      PetscScalar *fj = &this->vals[j*nq];
+      int k0, k1;
+      Non0QuadIndex(i, j, this->order, nq, &k0, &k1);
+      PetscScalar v = 0.0;	
+      for(int k = k0; k < k1; k++) 
+	v += fi[k] * fj[k] * vs[k];
+      ierr = MatSetValue(V, i, j, v, mode); CHKERRQ(ierr);
+      if(i!=j)
+	ierr = MatSetValue(V, j, i, v, mode); CHKERRQ(ierr);
     }
+  }
 
   PetscFree(vs);
   return 0;
@@ -334,15 +361,20 @@ PetscErrorCode BSSCalcEER2Mat(BSS this, int q, Mat V, InsertMode mode) {
   int nq = this->order * this->num_ele;
   PetscErrorCode ierr;
 
-  double *sg_ij; 
+  PetscScalar *sg_ij; 
   ierr = PetscMalloc1(nq*nq, &sg_ij); CHKERRQ(ierr);
   for(int i = 0; i < nq; i++)
     for(int j = 0; j < nq; j++) {
+      /*
+      PetscScalar g = this->xs[i]>this->xs[j] ? this->Rrs[i] : this->Rrs[j];
+      PetscScalar s = this->xs[i]>this->xs[j] ? this->Rrs[j] : this->Rrs[i];
+      sg_ij[j+nq*i] = pow(s/g, q)/g;
+      */
       double v; PartialCoulomb(q, this->xs[i], this->xs[j], &v);
       sg_ij[j+nq*i] = v;
     }
 
-  double *wvv; ierr = PetscMalloc1(nb*nb*nq, &wvv); CHKERRQ(ierr);
+  PetscReal *wvv; ierr = PetscMalloc1(nb*nb*nq, &wvv); CHKERRQ(ierr);
   int *i0s; ierr = PetscMalloc1(nb*nb, &i0s); CHKERRQ(ierr);
   int *i1s; ierr = PetscMalloc1(nb*nb, &i1s); CHKERRQ(ierr);
   for(int a = 0; a < nb; a++){
@@ -366,6 +398,7 @@ PetscErrorCode BSSCalcEER2Mat(BSS this, int q, Mat V, InsertMode mode) {
 	int d1 = b+k;   d1 = d1>nb?nb:d1;
 	for(int d = d0; d < d1; d++) {
 
+/*
 	  if(a >= c && b >= d) {
 	    double v = 0.0;
 	    for(int i = i0s[a*nb+c]; i < i1s[a*nb+c]; i++) {
@@ -389,14 +422,14 @@ PetscErrorCode BSSCalcEER2Mat(BSS this, int q, Mat V, InsertMode mode) {
 	      ierr = MatSetValue(V, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
 	    }
 	  }
+*/
 
-	  /*
 	  double v = 0.0;
 	  for(int n = i0s[a*nb+c]; n < i1s[a*nb+c]; n++) 
 	    for(int m = i0s[b*nb+d]; m < i1s[b*nb+d]; m++)
 	      v += wvv[a*nb*nq+c*nq+m] * wvv[b*nb*nq+d*nq+n]* sg_ij[n*nq+m];
-	      ierr = MatSetValue(V, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
-	  */
+	  ierr = MatSetValue(V, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
+
 	}
       }
     }
@@ -475,6 +508,37 @@ PetscErrorCode BSSSetENR1Mat(BSS this, int q, PetscScalar a, Mat *D) {
   MatAssemblyBegin(*D, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(*D, MAT_FINAL_ASSEMBLY);
   return 0;  
+}
+PetscErrorCode BSSSetPotR1Mat(BSS this, POT pot, Mat *M) {
+  PetscErrorCode ierr;
+  int nb = this->num_basis;
+  int ne = this->num_ele;
+  int nq = this->order;
+  BSSInitR1Mat(this, M);
+
+  PetscScalar *vs;
+  PetscMalloc1(ne*nq, &vs);
+
+  for(int k = 0; k < ne*nq; k++) 
+    vs[k] = POTCalc(pot, this->xs[k]);
+
+  for(int i = 0; i < nb; i++)
+    for(int j = 0; j < nb; j++) {
+      if(HasNon0Value(this->order, this->b_idx_list[i], this->b_idx_list[j])) {
+	PetscScalar v = 0.0;
+	for(int k = 0; k < ne*nq; k++) {
+	  PetscReal w = this->ws[k];
+	  PetscScalar v1 = vs[k];
+	  v += this->vals[k+i*(ne*nq)] * this->vals[k+j*(ne*nq)] 
+	    * w * v1;
+	}
+	ierr = MatSetValue(*M, i, j, v, INSERT_VALUES); CHKERRQ(ierr);
+      }
+    }
+  PetscFree(vs);
+  MatAssemblyBegin(*M, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(*M, MAT_FINAL_ASSEMBLY);
+  return 0;
 }
 PetscErrorCode BSSSetEER2Mat(BSS this, int q, Mat *V) {
   PetscErrorCode ierr;

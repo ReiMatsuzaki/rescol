@@ -95,7 +95,6 @@ PetscErrorCode ScalerSharpECSView(ScalerSharpECS self) {
 }
 PetscErrorCode ScalerSharpECSSetRr(ScalerSharpECS self, PetscReal xs[], int n, PetscScalar ys[]) {
 
-  printf("1\n");
   PetscReal r0 = self->r0;
   PetscReal t = self->theta;
   for(int i = 0; i < n; i++) {
@@ -138,9 +137,9 @@ PetscErrorCode ScalerCreate(Scaler *scaler, MPI_Comm comm) {
 ScalerVtbl ScalerNone_vtbl;
 PetscErrorCode ScalerCreateNone(Scaler *scaler, MPI_Comm comm) {
 
-  ScalerNone none; ScalerNoneCreate(&none, comm);
   ScalerCreate(scaler, comm);
-  
+  ScalerNone none; ScalerNoneCreate(&none, comm);
+    
   static int init = 0;
   if(init == 0) {
     ScalerNone_vtbl.Destroy =ScalerNoneDestroy;
@@ -155,9 +154,10 @@ PetscErrorCode ScalerCreateNone(Scaler *scaler, MPI_Comm comm) {
   return 0;
 }
 ScalerVtbl ScalerUniform_vtbl;
-PetscErrorCode ScalerCreateUniform(Scaler *scaler, ScalerUniform uniform) {
+PetscErrorCode ScalerCreateUniform(Scaler *scaler, MPI_Comm comm, PetscReal theta) {
   
-  ScalerCreate(scaler, uniform->comm);
+  ScalerCreate(scaler, comm);
+  ScalerUniform uni; ScalerUniformCreate(&uni, comm, theta);
   
   static int init = 0;
   if(init == 0) {
@@ -169,14 +169,16 @@ PetscErrorCode ScalerCreateUniform(Scaler *scaler, ScalerUniform uniform) {
   }
 
   (*scaler)->vtbl = &ScalerUniform_vtbl;
-  (*scaler)->obj = uniform;
+  (*scaler)->obj = uni;
 
   return 0;
 }
 ScalerVtbl ScalerSharpECS_vtbl;
-PetscErrorCode ScalerCreateSharpECS(Scaler *scaler, ScalerSharpECS ecs) {
+PetscErrorCode ScalerCreateSharpECS(Scaler *scaler, MPI_Comm comm, PetscReal r0, PetscReal theta) {
   
-  ScalerCreate(scaler, ecs->comm);
+  ScalerCreate(scaler, comm);
+  ScalerSharpECS ecs; 
+  ScalerSharpECSCreate(&ecs, comm, r0, theta);
   
   static int init = 0;
   if(init == 0) {
@@ -190,6 +192,28 @@ PetscErrorCode ScalerCreateSharpECS(Scaler *scaler, ScalerSharpECS ecs) {
   (*scaler)->vtbl = &ScalerSharpECS_vtbl;
   (*scaler)->obj = ecs;
 
+  return 0;
+}
+PetscErrorCode ScalerCreateFromOptions(Scaler *scaler, MPI_Comm comm) {
+
+  PetscErrorCode ierr;
+  char type[10] = "none";
+  PetscReal r0 = 0.0;
+  PetscReal theta = 0.0;
+
+  ierr = PetscOptionsGetString(NULL, "-scaler_type", type, 10, NULL); CHKERRQ(ierr);
+  ierr = PetscOptionsGetReal(NULL, "-scaler_r0", &r0, NULL); CHKERRQ(ierr);
+  ierr = PetscOptionsGetReal(NULL, "-scaler_theta", &theta, NULL); CHKERRQ(ierr);
+
+  if(strcmp(type, "none") == 0) {
+    ScalerCreateNone(scaler, comm);
+  } else if(strcmp(type, "uni") == 0) {
+    ScalerCreateUniform(scaler, comm, theta*M_PI/180.0);
+  } else if(strcmp(type, "secs") == 0) {
+    ScalerCreateSharpECS(scaler, comm, r0, theta);
+  } else
+    SETERRQ(comm, 1, "scaler_type<-{none, uni, secs}");
+  
   return 0;
 }
 PetscErrorCode ScalerDestroy(Scaler *scaler) {
