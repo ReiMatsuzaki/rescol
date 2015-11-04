@@ -1,6 +1,6 @@
 #include <slepceps.h>
 #include <gtest/gtest.h>
-#include "../src_c/oce2.h"
+#include "../src/lib/oce2.h"
 
 static char help[] = "Unit test for oce_two.c";
 

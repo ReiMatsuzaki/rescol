@@ -1,8 +1,8 @@
 #include <slepceps.h>
 #include <time.h>
 #include "unittest.h"
-#include "../src_c/mat.h"
-#include "../src_c/dvr.h"
+#include "../src/lib/mat.h"
+#include "../src/lib/dvr.h"
 
 int dgetrf_(long*, long*, double*, long*, long*, long*);
 int dgetri_(long*, double*, long*, long*, double*, long*, long*);
@@ -32,7 +32,6 @@ int testXS() {
 
   return 0;
 }
-
 int testSR1LSMat() {
   PetscErrorCode ierr;
   DVR dvr;
@@ -67,7 +66,6 @@ int testSR1LSMat() {
   return 0;
 
 }
-
 int testD2R1LSMat() {
   /*
     1: 2.66666667 -5.33333333  2.66666667
@@ -104,7 +102,6 @@ int testD2R1LSMat() {
   MatDestroy(&D);
   return 0;
 }
-
 int testENR1LSMat() {
 
   /*
@@ -142,7 +139,6 @@ int testENR1LSMat() {
 
   return 0;
 }
-
 int testENR1Mat() {
 
   /*
@@ -165,7 +161,6 @@ int testENR1Mat() {
 
   return 0;
 }
-
 int testLSMat_to_Mat() {
   PetscErrorCode ierr;
 
@@ -206,7 +201,6 @@ int testLSMat_to_Mat() {
 
   return 0;
 }
-
 int testHAtom() {
 
   DVR dvr;
@@ -232,6 +226,7 @@ int testHAtom() {
   EPSCreate(PETSC_COMM_SELF, &eps);
   EPSSetOperators(eps, HH, NULL);
   EPSSetProblemType(eps, EPS_HEP);
+  EPSSetType(eps, EPSJD);
   EPSSetFromOptions(eps);
   EPSSetWhichEigenpairs(eps, EPS_TARGET_MAGNITUDE);
   EPSSetTarget(eps, -0.6);
@@ -248,7 +243,6 @@ int testHAtom() {
 
   return 0;
 }
-
 int testHAtom2() {
 
   DVR dvr;
@@ -273,6 +267,7 @@ int testHAtom2() {
   EPSCreate(PETSC_COMM_SELF, &eps);
   EPSSetOperators(eps, H, NULL);
   EPSSetProblemType(eps, EPS_HEP);
+  EPSSetType(eps, EPSJD);
   EPSSetFromOptions(eps);
   EPSSetWhichEigenpairs(eps, EPS_TARGET_MAGNITUDE);
   EPSSetTarget(eps, -0.6);
@@ -282,13 +277,13 @@ int testHAtom2() {
   PetscScalar kr;
   EPSGetConverged(eps, &nconv);
   ASSERT_TRUE(nconv > 0);
+  
   EPSGetEigenpair(eps, 0, &kr, NULL, NULL, NULL);
   ASSERT_DOUBLE_NEAR(-1.0/8.0, kr, pow(10.0, -5.0));
 
   return 0;  
 
 }
-
 int testHeAtom() {
 
   PetscErrorCode ierr;
@@ -354,7 +349,6 @@ int testHeAtom() {
 
   return 0;  
 }
-
 int testLapack() {
   long m = 2;
   long n = m;

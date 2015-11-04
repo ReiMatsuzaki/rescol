@@ -1,7 +1,7 @@
 #include <slepceps.h>
 #include <time.h>
 #include "unittest.h"
-#include "../src_c/bspline.h"
+#include "../src/lib/bspline.h"
 
 static char help[] = "Unit test for bspline.c \n\n";
 

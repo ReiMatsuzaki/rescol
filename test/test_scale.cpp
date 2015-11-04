@@ -1,6 +1,6 @@
 #include <slepceps.h>
 #include <gtest/gtest.h>
-#include "../src_c/scale.h"
+#include "../src/lib/scale.h"
 
 static char help[] = "Unit test for scale.c";
 

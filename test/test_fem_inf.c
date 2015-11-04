@@ -1,8 +1,8 @@
 #include <slepceps.h>
 #include <time.h>
 #include "unittest.h"
-#include "../src_c/mat.h"
-#include "../src_c/fem_inf.h"
+#include "../src/lib/mat.h"
+#include "../src/lib/fem_inf.h"
 
 static char help[] = "Unit test for fem_inf.c \n";
 

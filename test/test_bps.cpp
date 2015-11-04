@@ -1,6 +1,6 @@
 #include <slepceps.h>
 #include "unittest.h"
-#include "../src_c/bps.h"
+#include "../src/lib/bps.h"
 
 static char help[] = "Unit test for dvr.c \n\n";
 
@@ -31,7 +31,7 @@ PetscErrorCode testExp() {
   PetscErrorCode ierr;
   BPS bps;
   ierr = BPSCreate(&bps, PETSC_COMM_SELF); CHKERRQ(ierr);
-  ierr = BPSSetFromOptions(bps); CHKERRQ(ierr);
+  ierr = BPSSetExp(bps, 3.3, 6, 5.0); CHKERRQ(ierr);
 
   double *zs;
   int num;
