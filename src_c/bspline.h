@@ -28,7 +28,6 @@ struct _p_BSS {
   PetscReal* derivs; // derivative values
   PetscScalar *qrs; // coordinate transform
   PetscScalar *Rrs; // integral of qrs
-  
 };
 
 typedef struct _p_BSS* BSS;
@@ -38,10 +37,11 @@ int NumBSpline(int order, int num_ele);
 int HasNon0Value(int order, int i, int j);
 PetscErrorCode CalcBSpline(int order, double* ts, int i, double x, double* y);
 PetscErrorCode CalcDerivBSpline(int order, double* ts, int i, double x, double* y);
+PetscErrorCode Non0QuadIndex(int a, int c, int k, int nq, int* i0, int* i1);
 
 // ---- Basic Methods ----
 PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, Scaler scaler, 
-			   MPI_Comm comm);
+			 MPI_Comm comm);
 PetscErrorCode BSSCreateFromOptions(BSS *bss, MPI_Comm comm);
 PetscErrorCode BSSDestroy(BSS *bss);
 PetscErrorCode BSSFPrintf(BSS self, FILE* file, int lvl);

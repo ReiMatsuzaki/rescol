@@ -18,7 +18,7 @@ public:
     BPSCreate(&bps, comm); BPSSetExp(bps, 30.0, 21, 5.0);
     BSSCreate(&bss, 2, bps, NULL, comm);
     FEMInfCreateBSS(&fem, bss);
-    Y2sCreate(&y2s, comm); Y2sSet(y2s, SIGMA, GERADE, PLUS, 0);
+    Y2sCreate(&y2s, comm); Y2sSet(y2s, SIGMA, GERADE, PLUS, 2);
 
     OCE2Create(&oce2, MPI_COMM_SELF); 
     OCE2Set(oce2, fem, y2s); 
@@ -35,8 +35,8 @@ TEST_F(TestOCE2, He) {
   Mat H, S;
   
   OCE2SetTMat(oce2, &H);
-  OCE2PlusVneMat(oce2, 0.0, 0.5, &H);
-  /* OCE2PlusVeeMat(oce2, &H); */
+  OCE2PlusVneMat(oce2, 0.0, 1.0, &H);
+  OCE2PlusVeeMat(oce2, &H);
   OCE2SetSMat(oce2, &S);
 
   EPS eps;
