@@ -1,4 +1,4 @@
-#include "pot.h"
+#include <rescol/pot.h>
 
 // ---- Potential Object ----
 PetscErrorCode POTCreate(POT *pot) {

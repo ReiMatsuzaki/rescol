@@ -1,4 +1,4 @@
-#include "oce2.h"
+#include <rescol/oce2.h>
 
 static char help[] = "solve H2 mole eigen value problem";
 /*
@@ -49,7 +49,7 @@ struct _p_H2 {
   int max_num_guess; // size of array "guess"
 };
 
-typedef struct _p_H2* H2; 
+typedef struct _p_H2* H2;
 
 PetscErrorCode H2CreateFromOptions(H2 *h2, MPI_Comm comm) {
 

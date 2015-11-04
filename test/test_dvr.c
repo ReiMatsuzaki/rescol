@@ -1,8 +1,8 @@
 #include <slepceps.h>
 #include <time.h>
 #include "unittest.h"
-#include "../src/lib/mat.h"
-#include "../src/lib/dvr.h"
+#include <rescol/mat.h>
+#include <rescol/dvr.h>
 
 int dgetrf_(long*, long*, double*, long*, long*, long*);
 int dgetri_(long*, double*, long*, long*, double*, long*, long*);

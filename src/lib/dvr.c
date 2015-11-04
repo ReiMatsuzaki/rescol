@@ -1,5 +1,5 @@
-#include "mat.h"
-#include "dvr.h"
+#include <rescol/mat.h>
+#include <rescol/dvr.h>
 
 // ------- Lapack -------
 int dgetrf_(long*, long*, double*, long*, long*, long*);

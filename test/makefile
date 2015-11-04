@@ -1,23 +1,21 @@
-include ../common/common.mk
-include ${SLEPC_DIR}/lib/slepc/conf/slepc_common
+TESTS=angmoment bps bspline dvr fem_inf mat oce2 pot scale
+GO_TESTS=$(addprefix go_test_, ${TESTS})
 
-TEST_BIN_DIR=${BIN_DIR}/test
-TEST_NAMES=angmoment bps bspline dvr fem_inf mat oce2 pot scale
-TESTS=$(addprefix utest_, ${TEST_NAMES})
-LIBGTEST=-lgtest
+${TEST_BIN_DIR}/test_%.out: ${OBJ_DIR}/test_%.o ${LIB_OBJS}	
+	@echo link $(notdir $<)
+	@-${CLINKER} -o $@ $^ ${LIBGSL} ${LIBGTEST} ${SLEPC_EPS_LIB}
 
-${OBJ_DIR}/%.o : ./%.c
-	${PCC} -c ${PCC_FLAGS} ${CFLAGS} ${CCPPFLAGS} -o $@ $< 
+#.PHONY: go_test_bspline
+#go_test_bspline: ${TEST_BIN_DIR}/test_bspline.out
+#	@echo 
+#	@echo //////$@////////
+#	@-./$<
 
-${OBJ_DIR}/%.o : ./%.cpp
-	${CXX} -c ${PCC_FLAGS} ${CCPPFLAGS} -o $@ $< 
-
-utest_%: ${OBJ_DIR}/test_%.o ${LIB_OBJS}	
+.PHONY: go_test_%
+go_test_%: ${TEST_BIN_DIR}/test_%.out
 	@echo 
 	@echo //////$@////////
-	@-${CLINKER} -o ${TEST_BIN_DIR}/$@.out $^ \
-	${LIBGSL} ${LIBGTEST} ${SLEPC_EPS_LIB}
-	${TEST_BIN_DIR}/$@.out
+	@-./$<
 
-all_test: ${TESTS}
-	@echo ${TESTS}
+.PHONY: all_test
+all_test: ${GO_TESTS}

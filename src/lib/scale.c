@@ -1,4 +1,4 @@
-#include "scale.h"
+#include <rescol/scale.h>
 
 PetscErrorCode ScalerNoneCreate(ScalerNone *scaler, MPI_Comm comm) {
 

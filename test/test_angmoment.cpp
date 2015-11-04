@@ -1,7 +1,7 @@
 #include <slepceps.h>
 #include <gsl/gsl_sf_coupling.h>
 #include <gtest/gtest.h>
-#include "../src/lib/angmoment.h"
+#include <rescol/angmoment.h>
 
 static char help[] = "Unit test for angmoment.c \n\n";
 

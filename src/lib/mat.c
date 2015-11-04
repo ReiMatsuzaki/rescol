@@ -1,4 +1,4 @@
-#include "mat.h"
+#include <rescol/mat.h>
 
 PetscErrorCode MatCreateFromCOOFormatFileOld(char* path, Mat* mat) {
   FILE* fp;

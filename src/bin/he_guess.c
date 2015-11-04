@@ -1,6 +1,6 @@
-#include "mat.h"
-#include "fem_inf.h"
-#include "angmoment.h"
+#include <rescol/mat.h>
+#include <rescol/fem_inf.h>
+#include <rescol/angmoment.h>
 
 static char help[] = "create initial guess for He atom from hydrogen eigen function";
 /*

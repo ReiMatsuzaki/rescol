@@ -1,6 +1,6 @@
-#include "fem_inf.h"
-#include "dvr.h"
-#include "bspline.h"
+#include <rescol/fem_inf.h>
+#include <rescol/dvr.h>
+#include <rescol/bspline.h>
 
 // ----- Interface -----
 PetscErrorCode FEMInfCreate(FEMInf *inf, MPI_Comm comm) {

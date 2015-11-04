@@ -1,5 +1,5 @@
 #include <float.h>
-#include "angmoment.h"
+#include <rescol/angmoment.h>
 
 
 // --- Utils ---

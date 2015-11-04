@@ -1,4 +1,4 @@
-#include "bps.h"
+#include <rescol/bps.h>
 
 // ------- Basic ----------
 PetscErrorCode BPSCreate(BPS *bps, MPI_Comm comm) {

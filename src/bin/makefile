@@ -1,16 +1,26 @@
-include ../common/common.mk
-include ${SLEPC_DIR}/lib/slepc/conf/slepc_common
+${BIN_DIR}/hatom.out: ${OBJ_DIR}/hatom.o ${LIB_OBJS}
+	${CLINKER} -o $@ $^ ${LIBGSL} ${SLEPC_EPS_LIB}
+${BIN_DIR}/h2plus.out: ${OBJ_DIR}/h2plus.o ${LIB_OBJS}
+	${CLINKER} -o $@ $^ ${LIBGSL} ${SLEPC_EPS_LIB}
+${BIN_DIR}/h2mole.out: ${OBJ_DIR}/h2mole.o ${LIB_OBJS}
+	${CLINKER} -o $@ $^ ${LIBGSL} ${SLEPC_EPS_LIB}
+${BIN_DIR}/he_guess.out: ${OBJ_DIR}/he_guess.o ${LIB_OBJS}
+	${CLINKER} -o $@ $^ ${LIBGSL} ${SLEPC_EPS_LIB}
 
-hatom.out: ${OBJ_DIR}/hatom.o ${LIB_OBJS}
-	-${CLINKER} -o ${BIN_DIR}/$@ $^ ${LIBGSL} ${SLEPC_EPS_LIB}
-h2plus.out: ${OBJ_DIR}/h2plus.o ${LIB_OBJS}
-	-${CLINKER} -o ${BIN_DIR}/$@ $^ ${LIBGSL} ${SLEPC_EPS_LIB}
-h2mole.out: ${OBJ_DIR}/h2mole.o ${LIB_OBJS}
-	-${CLINKER} -o ${BIN_DIR}/$@ $^ ${LIBGSL} ${SLEPC_EPS_LIB}
-he_guess.out: ${OBJ_DIR}/he_guess.o ${LIB_OBJS}
-	-${CLINKER} -o ${BIN_DIR}/$@ $^ ${LIBGSL} ${SLEPC_EPS_LIB}
+.PHONY: run_h2mole_bss
+run_h2mole_bss: ${BIN_DIR}/he_guess.out ${BIN_DIR}/h2mole.out
+	rm -f tmp/*
+	${BIN_DIR}/he_guess.out -z 1.5 -in_dir tmp -out_dir tmp -guess_type calc \
+	-fem_type bss -bss_order 2 -bps_num_zs 21 -bps_type exp -bps_zmax 30.0
+	${BIN_DIR}/h2mole.out -eri direct -guess_type read \
+	-in_dir tmp -out_dir tmp  \
+	-fem_type bss -bss_order 2 -bps_num_zs 21 -bps_type exp -bps_zmax 30.0 \
+	-y2s_rot sigma -y2s_parity gerade -y2s_mirror plus -y2s_lmax 2 \
+	-eps_nev 1 -eps_max_it 1000 -eps_type jd \
+	-bondlength 0.0 -num_bondlength 1 -d_bondlength 0.5
 
-test_hatom: hatom.o fem_inf.o fd.o dvr.o bspline.o mat.o
+
+run_hatom: hatom.o fem_inf.o fd.o dvr.o bspline.o mat.o
 	-${CLINKER} -o hatom.out  hatom.o fem_inf.o fd.o dvr.o bspline.o bps.o mat.o ${SLEPC_EPS_LIB}
 	./hatom.out -fem_type fd -fd_num 1000 -fd_xmax 100.0 -eps_nev 5	 \
 	-bps_num_zs 31 -bps_type exp -bps_zmax 30.0 -guess_type heig
@@ -19,17 +29,17 @@ test_hatom: hatom.o fem_inf.o fd.o dvr.o bspline.o mat.o
 	./hatom.out -fem_type dvr -dvr_nq 5 -eps_nev 5 -eps_type jd \
 	-bps_num_zs 31 -bps_type exp -bps_zmax 30.0 
 
-test_diag: diag.out chkopts
+run_diag: diag.out chkopts
 	python test_diag.py
 
-test_h2plus: h2plus.out chkopts
+run_h2plus: h2plus.out chkopts
 	./h2plus.out \
 	-y1s_rot sigma -y1s_parity gerade -y1s_lmax 14 \
 	-fem_type bss -bss_order 8 -bps_num_zs 41 -bps_type exp -bps_zmax 30.0 \
 	-bond_length 2.0 -eps_nev 1 -eps_max_it 1000 -eps_type jd
 	echo Reference: 1.102 634 214 494 9
 
-test_h2plus_h_L0: h2plus.out chkopts
+run_h2plus_h_L0: h2plus.out chkopts
 	./h2plus.out -target_dir h2plus_L0 -bss_order 6 -bss_knots_num 61 -bss_rmax 30.0 -qmax 32 -bond_length 0.0 -eps_target -4.0 -eps_nev 10 -eps_max_it 1000
 
 test_h2plus_h_L1: h2plus.out chkopts
@@ -54,17 +64,6 @@ test_h2mole_fd: h2mole.out chkopts
 	-fem_type fd -fd_xmax 30.0 -fd_num 300 \
 	-eps_nev 1 -eps_max_it 1000 -eps_type jd \
 	-bondlength0 0.0 -num_bondlength 2 -d_bondlength 0.5
-
-test_h2mole_bss: h2mole.out chkopts
-	rm -f tmp/*
-	./he_guess.out -z 1.5 -in_dir tmp -out_dir tmp -guess_type calc \
-	-fem_type bss -bss_order 2 -bps_num_zs 21 -bps_type exp -bps_zmax 30.0
-	./h2mole.out -eri direct -guess_type read \
-	-in_dir tmp -out_dir tmp  \
-	-fem_type bss -bss_order 2 -bps_num_zs 21 -bps_type exp -bps_zmax 30.0 \
-	-y2s_rot sigma -y2s_parity gerade -y2s_mirror plus -y2s_lmax 2 \
-	-eps_nev 1 -eps_max_it 1000 -eps_type jd \
-	-bondlength 0.0 -num_bondlength 1 -d_bondlength 0.5
 
 test_h2mole_old_bss: h2mole.out chkopts
 	rm tmp/*

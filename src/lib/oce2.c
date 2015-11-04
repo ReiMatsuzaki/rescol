@@ -1,4 +1,4 @@
-#include "oce2.h"
+#include <rescol/oce2.h>
 
 PetscErrorCode OCE2Create(OCE2 *oce2, MPI_Comm comm) {
 

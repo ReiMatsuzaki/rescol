@@ -1,4 +1,4 @@
-#include "bspline.h"
+#include <rescol/bspline.h>
 
 // ---- External functions ----
 int NumBSpline(int order, int num_ele) {

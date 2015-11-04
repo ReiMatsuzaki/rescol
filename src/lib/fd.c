@@ -1,4 +1,4 @@
-#include "fd.h"
+#include <rescol/fd.h>
 
 // ---- Basic Methods ----
 PetscErrorCode FDCreate(FD *fd, int num_xs, double xmax, MPI_Comm comm) {

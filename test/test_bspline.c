@@ -1,7 +1,7 @@
 #include <slepceps.h>
 #include <time.h>
 #include "unittest.h"
-#include "../src/lib/bspline.h"
+#include <rescol/bspline.h>
 
 static char help[] = "Unit test for bspline.c \n\n";
 
@@ -406,7 +406,6 @@ int testBSplineSetEE_time() {
 int testBSplineSetNE_time() {
 
   time_t t0, t1;
-  PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 100.0, 200);
   int order = 10;

@@ -1,4 +1,4 @@
-#include "oce1.h"
+#include <rescol/oce1.h>
 
 PetscErrorCode OCE1Create(OCE1 *oce1, MPI_Comm comm) {
 

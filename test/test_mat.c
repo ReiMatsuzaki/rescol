@@ -1,6 +1,6 @@
 #include <slepceps.h>
 #include "unittest.h"
-#include "../src/lib/mat.h"
+#include <rescol/mat.h>
 
 
 static char help[] = "Unit test for angmoment.c \n\n";
