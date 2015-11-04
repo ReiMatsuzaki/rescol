@@ -13,7 +13,7 @@ test_angmoment:test_angmoment.o
 	./test_angmoment.out
 
 test_bspline:test_bspline.o ../src_c/bspline.o
-	-${CLINKER} -o test_bspline.out test_bspline.o ../src_c/bspline.o ../src_c/bps.o ../src_c/mat.o ${SLEPC_EPS_LIB} -g
+	-${CLINKER} -o test_bspline.out test_bspline.o ${FEMOBJS} ${SLEPC_EPS_LIB} -g
 	./test_bspline.out
 
 test_dvr:test_dvr.o ../src_c/dvr.o ../src_c/bps.o

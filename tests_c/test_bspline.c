@@ -5,23 +5,70 @@
 
 static char help[] = "Unit test for bspline.c \n\n";
 
-int testNumBSpline() {
+PetscErrorCode BSSSetSR1Mat2(BSS self, Mat *S) {
+  int i, j, k;
+  int nb = self->num_basis;
+  int ne = self->num_ele;
+  int nq = self->order;
+  PetscErrorCode ierr;
+
+  BSSInitR1Mat(self, S);
+
+  for(i = 0; i < nb; i++)
+    for(j = 0; j < nb; j++) {
+      if(HasNon0Value(self->order, self->b_idx_list[i], self->b_idx_list[j])) {
+	PetscScalar v = 0.0;
+	int k0, k1;
+	Non0QuadIndex(j, i, nq, nq*ne, &k0, &k1);
+	for(k = k0; k < k1; k++) 
+	  v += self->vals[k+i*(ne*nq)] * self->vals[k+j*(ne*nq)] * self->ws[k] * self->qrs[k];
+	ierr = MatSetValue(*S, i, j, v, INSERT_VALUES); CHKERRQ(ierr);
+      }
+    }
+
+  MatAssemblyBegin(*S, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(*S, MAT_FINAL_ASSEMBLY);
+  return 0;
+}
+
+int testNumBSpline() { 
   /*
+    order = 4
+----|. . . . . |   0 (not used)
+ ---|- . . . . |   1 (not used)
+  --|- - . . . |   2 
+   -|- - - . .|    3 
+    |- - - - .|    4
+    |. - - - -|    5
+    |. . - - -|-    6
+    |. . . - -|--    7    
+    |. . . . -|---    8   
+    
     order = 3
     num_ele = 5 case
-    --...
-    ---..
-    .---.
-    ..---
-    ...--
+ ---|. . . . . |   0 (not used)
+  --|- . . . . |   1 (not used)
+   -|- - . . .|    2 
+    |- - - . .|    3
+    |. - - - .|    4
+    |. . - - -|    5
+    |. . . - -|-    6
+
+    order = 2
+    num_ele = 5 case
+ --|. . . . .|    0 (not used)
+  -|- . . . .|    1 (not used)
+   |- - . . .|    2 (0)
+   |. - - . .|    3 (1)
+   |. . - - .|    4 (2)
+   |. . . - -|    5 (3)
+   |. . . . -|-   6 (not used)
+   |. . . . .|--  7 (not used)
+
     where (-) means non zero (.) means zero
-
-
-
-    ..|.....|..
-    
    */
   ASSERT_EQ(5, NumBSpline(3, 5));
+  ASSERT_EQ(4, NumBSpline(2, 5));
   return 0;
 }
 int testCalcBSpline() {
@@ -52,6 +99,52 @@ int testCalcBSpline() {
   x = 3.44;
   CalcBSpline(order, ts, 2, x, &y); ASSERT_DOUBLE_EQ(0.0, y);
   CalcDerivBSpline(order, ts, 2, x, &y); ASSERT_DOUBLE_EQ(0.0, y);
+
+  return 0;
+}
+int testNon0QuadIndex() {
+  int i0, i1;
+  Non0QuadIndex(0, 0, 3, 3*5, &i0, &i1);
+  ASSERT_EQ(0, i0); ASSERT_EQ(6, i1);
+
+  Non0QuadIndex(0, 1, 3, 3*5, &i0, &i1);
+  ASSERT_EQ(0, i0); ASSERT_EQ(6, i1);
+
+  Non0QuadIndex(1, 0, 3, 3*5, &i0, &i1);
+  ASSERT_EQ(0, i0); ASSERT_EQ(6, i1);
+
+  Non0QuadIndex(2, 0, 3, 3*5, &i0, &i1);
+  ASSERT_EQ(3, i0); ASSERT_EQ(6, i1);
+
+  Non0QuadIndex(4, 2, 3, 3*5, &i0, &i1);
+  ASSERT_EQ(3*3, i0); ASSERT_EQ(3*4, i1);
+
+  Non0QuadIndex(3, 4, 3, 3*5, &i0, &i1);
+  ASSERT_EQ(3*3, i0); ASSERT_EQ(3*5, i1);
+
+  Non0QuadIndex(4, 4, 3, 3*5, &i0, &i1);
+  ASSERT_EQ(3*3, i0); ASSERT_EQ(3*5, i1);
+    
+  return 0;
+}
+int testNon0QuadIndex2() {
+
+  int i0, i1;
+  int k  = 2;
+  Non0QuadIndex(0, 0, k, k*5, &i0, &i1);
+  ASSERT_EQ(0, i0); ASSERT_EQ(2*k, i1);
+
+  Non0QuadIndex(0, 1, k, k*5, &i0, &i1);
+  ASSERT_EQ(k, i0); ASSERT_EQ(4, i1);
+
+  Non0QuadIndex(1, 0, k, k*5, &i0, &i1);
+  ASSERT_EQ(2, i0); ASSERT_EQ(4, i1);
+
+  Non0QuadIndex(2, 3, k, k*5, &i0, &i1);
+  ASSERT_EQ(6, i0); ASSERT_EQ(8, i1);
+
+  Non0QuadIndex(3, 3, k, k*5, &i0, &i1);
+  ASSERT_EQ(2*3, i0); ASSERT_EQ(10, i1);
 
   return 0;
 }
@@ -160,6 +253,23 @@ int testBSplineSetSR1Mat() {
   MatDestroy(&S);
   BSSDestroy(&bss);
 
+  return 0;
+}
+int testBSplineSetSR1MatWithQuad() {
+
+  MPI_Comm comm = PETSC_COMM_SELF;
+  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
+  int order = 2;
+  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
+
+  // compute S matrix
+  Mat S0, S1;  
+  BSSSetSR1Mat(bss, &S0);
+  BSSSetSR1Mat2(bss, &S1);
+  MatAXPY(S0, -1.0, S1, DIFFERENT_NONZERO_PATTERN);
+  PetscReal d;
+  MatNorm(S0, NORM_1, &d);
+  ASSERT_DOUBLE_EQ(0.0, d);
   return 0;
 }
 int testBSplineSetD2R1Mat() {
@@ -404,7 +514,11 @@ int main(int argc, char **args) {
 
   testNumBSpline();
   testCalcBSpline();
+  testNon0QuadIndex();
+  testNon0QuadIndex2();
 
+  testBSplineSetSR1MatWithQuad();
+  
   testBSplineSetBasic();
   testBSplineSetSR1Mat();
   testBSplineSetD2R1Mat();

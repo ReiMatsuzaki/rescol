@@ -9,6 +9,7 @@ extern "C" {
 #include "mat.h"
 #include "bps.h"
 #include "scale.h"
+#include "pot.h"
 
 struct _p_BSS {
   MPI_Comm comm;
@@ -35,6 +36,7 @@ int NumBSpline(int order, int num_ele);
 int HasNon0Value(int order, int i, int j);
 PetscErrorCode CalcBSpline(int order, double* ts, int i, double x, double* y);
 PetscErrorCode CalcDerivBSpline(int order, double* ts, int i, double x, double* y);
+PetscErrorCode Non0QuadIndex(int a, int c, int k, int nq, int* i0, int* i1);
 
 // ---- Basic Methods ----
 PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, Scaler scaler, 
@@ -63,6 +65,7 @@ PetscErrorCode BSSSetSR1Mat(BSS self, Mat *S);
 PetscErrorCode BSSSetR2invR1Mat(BSS self, Mat *M);
 PetscErrorCode BSSSetD2R1Mat(BSS self, Mat *D);
 PetscErrorCode BSSSetENR1Mat(BSS self, int q, PetscScalar a, Mat *D);
+PetscErrorCode BSSSetPotR1Mat(BSS self, POT pot, Mat *M);
 PetscErrorCode BSSSetEER2Mat(BSS self, int q, Mat *V);
 
 #ifdef __cplusplus
