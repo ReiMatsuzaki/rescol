@@ -382,10 +382,10 @@ int testBSplineSetEE() {
 }
 int testBSplineSetEE_time() {
 
-  time_t t0, t1, t2;
+  time_t t0, t1;
   PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
-  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 11);
+  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 10.0, 31);
   int order = 4;
   BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
 
@@ -396,19 +396,30 @@ int testBSplineSetEE_time() {
   MatAssemblyBegin(ee, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(ee, MAT_FINAL_ASSEMBLY);
   t1 = clock();
-  Mat ee2;
-  ierr = BSSInitR2Mat(bss, &ee2); CHKERRQ(ierr);
-  BSSCalcEER2Mat_ver1(bss, 0, ee2, INSERT_VALUES); CHKERRQ(ierr);
-  MatAssemblyBegin(ee2, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(ee2, MAT_FINAL_ASSEMBLY);
-  t2 = clock();
 
   PetscPrintf(PETSC_COMM_SELF, "t_new = %f\n", ((double)(t1-t0)/CLOCKS_PER_SEC));
-  PetscPrintf(PETSC_COMM_SELF, "t_ver1 = %f\n", ((double)(t2-t1)/CLOCKS_PER_SEC));
 
   MatDestroy(&ee);
-  MatDestroy(&ee2);
   BSSDestroy(&bss);
+  return 0;
+}
+int testBSplineSetNE_time() {
+
+  time_t t0, t1;
+  PetscErrorCode ierr;
+  MPI_Comm comm = PETSC_COMM_SELF;
+  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 100.0, 200);
+  int order = 10;
+  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
+
+  t0 = clock();
+  Mat M;
+  BSSSetENR1Mat(bss, 3, 1.3, &M);
+  MatDestroy(&M);
+  t1 = clock();
+
+  PetscPrintf(comm, "t(n-e) = %f\n", ((double)(t1-t0)/CLOCKS_PER_SEC));
+  
   return 0;
 }
 int testBSplineHAtom() {
@@ -526,6 +537,7 @@ int main(int argc, char **args) {
 
   testBSplineSetEE();
   testBSplineSetEE_time();
+  testBSplineSetNE_time();
   
   testBSplineHAtom();
 

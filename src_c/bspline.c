@@ -336,11 +336,6 @@ PetscErrorCode BSSCalcENR1Mat(BSS this, int q, PetscScalar a, Mat V, InsertMode 
     PetscScalar g = this->xs[k] > a ? this->Rrs[k] : a;
     PetscScalar s = this->xs[k] < a ? this->Rrs[k] : a;
     vs[k] = pow(s/g, q)/g * this->ws[k] * this->qrs[k];
-    /*
-    vs[k] = 1.0/g * this->ws[k] * this->qrs[k];
-    for(int qq = 0; qq < q; qq++)
-      vs[k] *= s/g;
-      */
   }
 
   for(int i = 0; i < nb; i++) {
@@ -371,13 +366,9 @@ PetscErrorCode BSSCalcEER2Mat(BSS this, int q, Mat V, InsertMode mode) {
   ierr = PetscMalloc1(nq*nq, &sg_ij); CHKERRQ(ierr);
   for(int i = 0; i < nq; i++)
     for(int j = 0; j < nq; j++) {
-      /*
       PetscScalar g = this->xs[i]>this->xs[j] ? this->Rrs[i] : this->Rrs[j];
       PetscScalar s = this->xs[i]>this->xs[j] ? this->Rrs[j] : this->Rrs[i];
-      sg_ij[j+nq*i] = pow(s/g, q)/g;
-      */
-      double v; PartialCoulomb(q, this->xs[i], this->xs[j], &v);
-      sg_ij[j+nq*i] = v;
+      sg_ij[j+nq*i] = pow(s/g, q)/g;      
     }
 
   PetscReal *wvv; ierr = PetscMalloc1(nb*nb*nq, &wvv); CHKERRQ(ierr);
@@ -387,9 +378,8 @@ PetscErrorCode BSSCalcEER2Mat(BSS this, int q, Mat V, InsertMode mode) {
     int c0 = a-k+1; c0 = c0<0?0:c0;
     int c1 = a+k  ; c1 = c1>nb?nb:c1;
     for(int c = c0; c < c1; c++) {
-      /* int i0, i1; Non0QuadIndex(a, c, k, nq, &i0, &1);
-      i0s[a*nb+c] = i0; i1s[a*nb+c] = i1; */
-      i0s[a*nb+c] = 0; i1s[a*nb+c] = nq;
+      int i0, i1; Non0QuadIndex(a, c, k, nq, &i0, &i1);
+      i0s[a*nb+c] = i0; i1s[a*nb+c] = i1;
       for(int n = 0; n < nq; n++) 
 	wvv[a*nb*nq+c*nq+n]= this->ws[n] * this->vals[a*nq+n] * this->vals[c*nq+n];
     }
@@ -397,45 +387,31 @@ PetscErrorCode BSSCalcEER2Mat(BSS this, int q, Mat V, InsertMode mode) {
 
   for(int a = 0; a < nb; a++) {
     int c0 = a-k+1; c0 = c0<0?0:c0;
-    int c1 = a+k  ; c1 = c1>nb?nb:c1;
-    for(int c = c0; c < c1; c++) {
+    for(int c = c0; c <= a; c++) {
       for(int b = 0; b < nb; b++) {
 	int d0 = b-k+1; d0 = d0<0?0:d0;
-	int d1 = b+k;   d1 = d1>nb?nb:d1;
-	for(int d = d0; d < d1; d++) {
-
-/*
-	  if(a >= c && b >= d) {
-	    double v = 0.0;
-	    for(int i = i0s[a*nb+c]; i < i1s[a*nb+c]; i++) {
-	      double aci = wvv[a*nb*nq + c*nq + i];
-	      for(int j = i0s[b*nb+d]; j < i1s[b*nb+d]; j++)
-		v += aci * sg_ij[i*nq+j] * wvv[b*nb*nq + d*nq + j];
-	    }
-	    
-	    if(a > c && b > d) {
-	      ierr = MatSetValue(V, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
-	      ierr = MatSetValue(V, a*nb+d, c*nb+b, v, mode); CHKERRQ(ierr);
-	      ierr = MatSetValue(V, c*nb+b, a*nb+d, v, mode); CHKERRQ(ierr);
-	      ierr = MatSetValue(V, c*nb+d, a*nb+b, v, mode); CHKERRQ(ierr);
-	    } else if(a > c && b == d) {
-	      ierr = MatSetValue(V, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
-	      ierr = MatSetValue(V, c*nb+b, a*nb+d, v, mode); CHKERRQ(ierr);
-	    } else if(a == c && b > d) {
-	      ierr = MatSetValue(V, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
-	      ierr = MatSetValue(V, a*nb+d, c*nb+b, v, mode); CHKERRQ(ierr);   
-	    } else if(a == c && b == d) {
-	      ierr = MatSetValue(V, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
-	    }
-	  }
-*/
-
+	for(int d = d0; d <= b; d++) {
 	  double v = 0.0;
-	  for(int n = i0s[a*nb+c]; n < i1s[a*nb+c]; n++) 
-	    for(int m = i0s[b*nb+d]; m < i1s[b*nb+d]; m++)
-	      v += wvv[a*nb*nq+c*nq+m] * wvv[b*nb*nq+d*nq+n]* sg_ij[n*nq+m];
-	  ierr = MatSetValue(V, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
-
+	  for(int i = i0s[a*nb+c]; i < i1s[a*nb+c]; i++) {
+	    double aci = wvv[a*nb*nq + c*nq + i];
+	    for(int j = i0s[b*nb+d]; j < i1s[b*nb+d]; j++)
+	      v += aci * sg_ij[i*nq+j] * wvv[b*nb*nq + d*nq + j];
+	  }
+	  
+	  if(a > c && b > d) {
+	    ierr = MatSetValue(V, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
+	    ierr = MatSetValue(V, a*nb+d, c*nb+b, v, mode); CHKERRQ(ierr);
+	    ierr = MatSetValue(V, c*nb+b, a*nb+d, v, mode); CHKERRQ(ierr);
+	    ierr = MatSetValue(V, c*nb+d, a*nb+b, v, mode); CHKERRQ(ierr);
+	  } else if(a > c && b == d) {
+	    ierr = MatSetValue(V, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
+	    ierr = MatSetValue(V, c*nb+b, a*nb+d, v, mode); CHKERRQ(ierr);
+	  } else if(a == c && b > d) {
+	    ierr = MatSetValue(V, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
+	    ierr = MatSetValue(V, a*nb+d, c*nb+b, v, mode); CHKERRQ(ierr);   
+	  } else if(a == c && b == d) {
+	    ierr = MatSetValue(V, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
+	  }
 	}
       }
     }

@@ -38,7 +38,6 @@ PetscErrorCode MatCreateFromCOOFormatFileOld(char* path, Mat* mat) {
   fclose(fp);
   return ierr;
 }
-
 PetscErrorCode MatCreateFromCOOFormatFileHandler(FILE* fp, Mat* mat) {
 
   PetscInt col, row;
@@ -76,7 +75,6 @@ PetscErrorCode MatCreateFromCOOFormatFileHandler(FILE* fp, Mat* mat) {
   MatAssemblyEnd(*mat, MAT_FINAL_ASSEMBLY);
   return 0;
 }
-
 PetscErrorCode MatCreateFromCOOFormatFile(char* path, Mat* mat) {
 
   PetscErrorCode ierr;
@@ -93,7 +91,6 @@ PetscErrorCode MatCreateFromCOOFormatFile(char* path, Mat* mat) {
   fclose(fp);
   return 0;
 }
-
 PetscErrorCode VecCreateFromFile(const char* path, MPI_Comm comm, Vec *v ) {
 
   PetscErrorCode ierr;
@@ -126,7 +123,6 @@ PetscErrorCode VecCreateFromFile(const char* path, MPI_Comm comm, Vec *v ) {
 
   return 0;
 }
-
 PetscErrorCode MatSetDirFile(const char* dn, const char* fn, Mat *M) {
   PetscErrorCode ierr;
   char path[100];
@@ -228,7 +224,6 @@ PetscErrorCode VecInitSynthesize(Vec A, Vec B, MPI_Comm comm, Vec *C) {
   
   return 0;
 }
-
 PetscErrorCode VecSynthesize(Vec A, Vec B, PetscScalar c, 
 			     Vec *C, InsertMode mode) {
   
@@ -258,7 +253,6 @@ PetscErrorCode VecSynthesize(Vec A, Vec B, PetscScalar c,
 
   return 0;
 }
-
 PetscErrorCode VecSetSynthesize(Vec A, Vec B, PetscScalar c, 
 				MPI_Comm comm, Vec *C){
   PetscErrorCode ierr;
@@ -268,7 +262,6 @@ PetscErrorCode VecSetSynthesize(Vec A, Vec B, PetscScalar c,
   ierr = VecAssemblyEnd(*C); CHKERRQ(ierr);
   return 0;
 }
-
 PetscErrorCode MatInitSynthesize(Mat A, Mat B, MPI_Comm comm, Mat *C) {
 
   PetscInt na, nb, ma, mb;
@@ -282,7 +275,6 @@ PetscErrorCode MatInitSynthesize(Mat A, Mat B, MPI_Comm comm, Mat *C) {
   ierr = MatSetUp(*C); CHKERRQ(ierr);
   return 0;
 }
-
 PetscErrorCode MatSynthesize(Mat A, Mat B, PetscScalar c,
 			     Mat *C, InsertMode mode) {
   PetscErrorCode ierr;
@@ -327,7 +319,6 @@ PetscErrorCode MatSynthesize(Mat A, Mat B, PetscScalar c,
     ierr = MatRestoreRow(B, i, &ncols_b[i], &cols_b[i], &row_b[i]); CHKERRQ(ierr);
   return 0;
 }
-
 PetscErrorCode MatSetSynthesizeSlow(Mat A, Mat B, PetscScalar c, 
 				MPI_Comm comm, Mat *C) {
   PetscErrorCode ierr;
@@ -337,7 +328,6 @@ PetscErrorCode MatSetSynthesizeSlow(Mat A, Mat B, PetscScalar c,
   MatAssemblyEnd(*C, MAT_FINAL_ASSEMBLY);
   return 0;
 }
-
 PetscErrorCode MatSetSynthesizeFast(Mat A, Mat B, MPI_Comm comm, Mat *C) {
  
   PetscErrorCode ierr;
@@ -393,12 +383,10 @@ PetscErrorCode MatSetSynthesizeFast(Mat A, Mat B, MPI_Comm comm, Mat *C) {
   CHKERRQ(ierr);
   return 0;
 }
-
 PetscErrorCode MatSetSynthesize(Mat A, Mat B, PetscScalar c, 
 				MPI_Comm comm, Mat *C) {
   return MatSetSynthesizeSlow(A, B, c, comm, C);
 }
-
 PetscErrorCode MatInitSynthesize3(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D) {
   PetscInt na, nb, nc, ma, mb, mc;
   PetscErrorCode ierr;
@@ -413,7 +401,6 @@ PetscErrorCode MatInitSynthesize3(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D) {
   ierr = MatSetUp(*D); CHKERRQ(ierr);
   return 0;
 }
-
 PetscErrorCode MatSynthesize3(Mat A, Mat B, Mat C, PetscScalar d, 
 			      Mat *D, InsertMode mode) {
   PetscErrorCode ierr;
@@ -426,7 +413,6 @@ PetscErrorCode MatSynthesize3(Mat A, Mat B, Mat C, PetscScalar d,
 
   return 0;
 }
-
 PetscErrorCode MatSetSynthesize3(Mat A, Mat B, Mat C, PetscScalar d, MPI_Comm comm, Mat *D) {
   PetscErrorCode ierr;
   ierr = MatInitSynthesize3(A, B, C, comm, D); CHKERRQ(ierr);
@@ -435,7 +421,6 @@ PetscErrorCode MatSetSynthesize3(Mat A, Mat B, Mat C, PetscScalar d, MPI_Comm co
   MatAssemblyEnd(*D, MAT_FINAL_ASSEMBLY);
   return 0;
 }
-
 PetscErrorCode MatSetSynthesize3Fast(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D) {
   Mat BC;
   PetscErrorCode ierr;
@@ -444,7 +429,6 @@ PetscErrorCode MatSetSynthesize3Fast(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D)
   MatDestroy(&BC);
   return 0;
 }
-
 
 PetscErrorCode PartialCoulomb(int q, double r1, double r2, double *y) {
 
@@ -469,7 +453,6 @@ PetscErrorCode LegGauss(int n, int i, PetscScalar* x, PetscScalar* w) {
   *w = ws[n * (n-1)/2 + i];
   return 0;
 }
-
 PetscErrorCode LobGauss(int n, int i, PetscScalar* x, PetscScalar* w) {
   PetscScalar xs[44] = {
     -1.0, 1.0, 
@@ -504,7 +487,6 @@ PetscErrorCode CreateLinKnots(int num, double zmax, double *zs[]) {
     (*zs)[i] = i * dz;
   return 0;
 }
-
 PetscErrorCode CreateExpKnots(int num, double zmax, double gamma, double *zs[]){
   *zs = (double*)malloc(sizeof(double)*num);
   for(int n = 0; n < num; n++) {

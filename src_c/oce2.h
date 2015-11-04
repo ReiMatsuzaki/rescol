@@ -23,7 +23,7 @@ struct _p_OCE2 {
 
   // buffer
   Mat s_r1;
-  Mat s_y2;  
+  Mat s_y2;
 };
 typedef struct _p_OCE2* OCE2;
 
