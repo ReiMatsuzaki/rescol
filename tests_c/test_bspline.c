@@ -59,8 +59,9 @@ int testBSplineSetBasic() {
 
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
+  
   int order = 3;
-  BSS bss; BSSCreate(&bss, order, bps, comm);
+  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
 
   ASSERT_EQ(order, bss->order);
   ASSERT_EQ(5, bss->num_ele);
@@ -113,7 +114,7 @@ int testBSplineSetSR1Mat() {
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
   int order = 3;
-  BSS bss; BSSCreate(&bss, order, bps, comm);
+  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
 
   // compute S matrix
   Mat S;
@@ -166,7 +167,7 @@ int testBSplineSetD2R1Mat() {
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
   int order = 3;
-  BSS bss; BSSCreate(&bss, order, bps, comm);
+  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
 
   // compute matrix
   Mat M;
@@ -203,7 +204,7 @@ int testBSplineSetENMatR1Mat() {
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
   int order = 3;
-  BSS bss; BSSCreate(&bss, order, bps, comm);
+  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
 
   // compute matrix
   Mat M;
@@ -232,7 +233,7 @@ int testBSplineSetEE() {
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
   int order = 3;
-  BSS bss; BSSCreate(&bss, order, bps, comm);
+  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
   
   Mat ee;
   ierr = BSSSetEER2Mat(bss, 0, &ee); CHKERRQ(ierr);
@@ -276,7 +277,7 @@ int testBSplineSetEE_time() {
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 11);
   int order = 4;
-  BSS bss; BSSCreate(&bss, order, bps, comm);
+  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
 
   t0 = clock();
   Mat ee;
@@ -305,7 +306,7 @@ int testBSplineHAtom() {
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 20.0, 20);
   int order = 5;
-  BSS bss; BSSCreate(&bss, order, bps, comm);
+  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
 
   Mat H, S, tmp;
   BSSInitR1Mat(bss, &H);
@@ -355,6 +356,48 @@ int testBSplineHAtom() {
 
   return 0;
 }
+int testBSplinePot() {
+
+  MPI_Comm comm = PETSC_COMM_SELF;
+  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
+  int order = 3;
+  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
+  POT pot; POTPowerCreate(&pot, 1.0, -2.0);
+
+  Mat V;
+  Mat U;
+  BSSSetR2invR1Mat(bss, &V);
+  BSSSetPotR1Mat(bss, pot, &U);
+  
+  MatAXPY(V, -1.0, U, SAME_NONZERO_PATTERN);
+  PetscReal v;
+  MatNorm(V, NORM_1, &v);
+  ASSERT_DOUBLE_EQ(0.0, v);
+  
+  return 0;
+}
+int testBSplinePot2() {
+
+  MPI_Comm comm = PETSC_COMM_SELF;
+  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 8);
+  int order = 3;
+  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
+  POT pot; POTCoulombCreate(&pot, 2.0, 1.5);
+
+  POTView(pot);
+
+  Mat V;
+  Mat U;
+  BSSSetENR1Mat(bss, 2, 1.5, &V);
+  BSSSetPotR1Mat(bss, pot, &U);
+  
+  MatAXPY(V, -1.0, U, SAME_NONZERO_PATTERN);
+  PetscReal v;
+  MatNorm(V, NORM_1, &v);
+  ASSERT_DOUBLE_EQ(0.0, v);
+  
+  return 0;
+}
 int main(int argc, char **args) {
 
   SlepcInitialize(&argc, &args, (char*)0, help);
@@ -369,8 +412,11 @@ int main(int argc, char **args) {
 
   testBSplineSetEE();
   testBSplineSetEE_time();
-
+  
   testBSplineHAtom();
+
+  testBSplinePot();
+  testBSplinePot2();
   
   SlepcFinalize();
   return 0;
