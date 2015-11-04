@@ -62,7 +62,7 @@ int main(int argc, char **args) {
   if(strcmp(guess_type, "heig") == 0) {
     PrintTimeStamp(comm, "guess", NULL);
     Vec guess[1]; 
-    ierr = FEMInfGuessHEig(fem, 1, 0, &guess[0]); CHKERRQ(ierr);
+    ierr = FEMInfGuessHEig(fem, 1, 0, 1.0, &guess[0]); CHKERRQ(ierr);
     ierr = EPSSetInitialSpace(eps, 1, guess); CHKERRQ(ierr);
   }
   EPSSetFromOptions(eps);

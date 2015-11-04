@@ -1,3 +1,11 @@
+BUILD_DIR=../obj/${PETSC_ARCH}
+BIN_DIR=../bin/${PETSC_ARCH}
+LIB_SRCS=angmoment.c fd.c oce1.c scale.c bps.c fem_inf.c oce2.c bspline.c dvr.c mat.c pot.c
+HEGUSS_SRCS=he_guess.c ${LIBSRCS}
+H2MOLE_SRCS=h2mole.c ${LIB_SRCS}
+HEGUESS_OBJS=${addprefix ${BUILD_DIR}/, ${patsubst %.c,%.o,${HEGUESS_SRCS}}}
+H2MOLE_OBJS=${addprefix ${BUILD_DIR}/, ${patsubst %.c,%.o,${H2MOLE_SRCS}}}
+
 CFLAGS=-std=gnu99
 include ${SLEPC_DIR}/lib/slepc/conf/slepc_common
 LIBGSL=-lgsl
@@ -6,20 +14,23 @@ ANGOBJS=angmoment.o
 OCE1OBJS=oce1.o ${ANGOBJS} ${FEMOBJS}
 OCE2OBJS=oce2.o ${ANGOBJS} ${FEMOBJS}
 
+${BUILD_DIR}:
+	mkdir -p ${BUILD_DIR}
+
+${BUILD_DIR}/%.o : %.c
+	${PCC} -c ${PCC_FLAGS} ${CFLAGS} ${CCPPFLAGS} -o $@ $< 
+
 test_mat: mat.o test_mat.o
 	-${CLINKER} -o test_mat.out  test_mat.o mat.o ${SLEPC_EPS_LIB}
 	./test_mat.out -h-mat hmat.dat
 
 hatom.out: hatom.o fem_inf.o bspline.o dvr.o mat.o chkopts
 
-diag.out: diag.o mat.o chkopts
-	-${CLINKER} -I/usr/local/Cellar/petsc/3.6.1_3/real/include/petsc/mpiuni/ -o $@ diag.o mat.o ${SLEPC_EPS_LIB}
-
-h2plus.out: h2plus.o ${OCE1OBJS} chkopts
+h2plus.out:  chkopts
 	-${CLINKER} -o $@ h2plus.o ${OCE1OBJS} ${LIBGSL} ${SLEPC_EPS_LIB}
 
-h2mole.out: h2mole.o ${OCE2OBJS} chkopts
-	-${CLINKER} -o $@ h2mole.o ${OCE2OBJS} ${LIBGSL} ${SLEPC_EPS_LIB}
+h2mole.out: ${H2MOLE_OBJS}
+	-${CLINKER} -o ${BIN_DIR}/$@ $^ ${LIBGSL} ${SLEPC_EPS_LIB}
 
 h2mole2.out: h2mole2.o fem_inf.o dvr.o bspline.o fd.o bps.o mat.o chkopts
 	-${CLINKER} -o $@ h2mole2.o fem_inf.o dvr.o bspline.o fd.o bps.o mat.o ${SLEPC_EPS_LIB}
@@ -119,3 +130,6 @@ test_h2mole2: h2mole2.out
 	python ../script/calc_y2mat.py -t tmp -l1 2 > tmp/y2mat.dat
 	./h2mole2.out -in_dir tmp -out_dir tmp -bond_length 0.0 -eps_target -3.0  -bss_order 4 -bss_knots_num 31 -bss_rmax 30.0 -bss_knots_type exp -qmax 10 -eps_max_it 1000 -eps_target -5.0 -eps_nev 1 -eps_type krylovschur
 
+my_clean: 
+	rm ${BUILD_DIR}/*.o
+	rm ${BUILD_DIR}*.out
