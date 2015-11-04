@@ -1,7 +1,7 @@
 CFLAGS=-std=gnu99
 include ${SLEPC_DIR}/lib/slepc/conf/slepc_common
 LIBGSL=-lgsl
-FEMOBJS=fem_inf.o fd.o bspline.o dvr.o bps.o mat.o
+FEMOBJS=fem_inf.o fd.o bspline.o dvr.o bps.o mat.o scale.o pot.o
 ANGOBJS=angmoment.o
 OCE1OBJS=oce1.o ${ANGOBJS} ${FEMOBJS}
 OCE2OBJS=oce2.o ${ANGOBJS} ${FEMOBJS}
