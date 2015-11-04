@@ -8,20 +8,24 @@ extern "C" {
 #include <petscmat.h>
 #include "mat.h"
 #include "bps.h"
+#include "scale.h"
 
 struct _p_BSS {
   MPI_Comm comm;
   int order;    // equal to number of quadrature in each ele
   BPS bps;
+  Scaler scaler; 
   int num_ele;  // number of finite elements
   int num_basis; 
-  PetscReal rmax;
+  //  PetscReal rmax;
   int* b_idx_list; // basis index list;
   PetscReal* ts; // overlapped knots points
   PetscReal* xs; // quadrature points
   PetscReal* ws; // weight
   PetscReal* vals; // bspline values on quadrature points
   PetscReal* derivs; // derivative values
+  PetscScalar *qrs; // for scaler
+  PetscScalar *Rrs; // for scaler 
 };
 
 typedef struct _p_BSS* BSS;
@@ -33,7 +37,8 @@ PetscErrorCode CalcBSpline(int order, double* ts, int i, double x, double* y);
 PetscErrorCode CalcDerivBSpline(int order, double* ts, int i, double x, double* y);
 
 // ---- Basic Methods ----
-PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, MPI_Comm comm);
+PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, Scaler scaler, 
+			 MPI_Comm comm);
 PetscErrorCode BSSCreateFromOptions(BSS *bss, MPI_Comm comm);
 PetscErrorCode BSSDestroy(BSS *bss);
 PetscErrorCode BSSFPrintf(BSS self, FILE* file, int lvl);

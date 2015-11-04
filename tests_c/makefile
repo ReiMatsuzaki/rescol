@@ -1,4 +1,4 @@
-FEMOBJS=../src_c/fem_inf.o ../src_c/fd.o ../src_c/bspline.o ../src_c/dvr.o ../src_c/bps.o ../src_c/mat.o
+FEMOBJS=../src_c/fem_inf.o ../src_c/fd.o ../src_c/bspline.o ../src_c/dvr.o ../src_c/bps.o ../src_c/mat.o ../src_c/pot.o ../src_c/scale.o
 ANGOBJS=../src_c/angmoment.o
 
 CFLAGS=-std=gnu99
