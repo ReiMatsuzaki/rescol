@@ -164,7 +164,7 @@ int testBSplineSetBasic() {
   ASSERT_EQ(2, bss->b_idx_list[1]);
   ASSERT_EQ(4, bss->b_idx_list[3]);
 
-  PetscScalar *zs; BPSGetZs(bps, &zs, NULL);
+  PetscReal *zs; BPSGetZs(bps, &zs, NULL);
   for(int i = 0; i < 6; i++)
     ASSERT_DOUBLE_EQ(1.0*i, zs[i]);
   ASSERT_DOUBLE_EQ(0.0, bss->ts[0]);
@@ -397,7 +397,9 @@ int testBSplineSetEE_time() {
   MatAssemblyEnd(ee, MAT_FINAL_ASSEMBLY);
   t1 = clock();
 
+#if defined(SHOW_DEBUG)
   PetscPrintf(PETSC_COMM_SELF, "t_new = %f\n", ((double)(t1-t0)/CLOCKS_PER_SEC));
+#endif
 
   MatDestroy(&ee);
   BSSDestroy(&bss);
@@ -417,7 +419,9 @@ int testBSplineSetNE_time() {
   MatDestroy(&M);
   t1 = clock();
 
+#if defined(SHOW_DEBUG)
   PetscPrintf(comm, "t(n-e) = %f\n", ((double)(t1-t0)/CLOCKS_PER_SEC));
+#endif
   
   return 0;
 }
@@ -520,8 +524,8 @@ int testBSplinePot2() {
 }
 int testSlaterPotWithECS() {
   MPI_Comm comm = PETSC_COMM_SELF;
-  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 20.0, 21);
-  Scaler scaler; ScalerCreateSharpECS(&scaler, comm, 15.0, 50.0);
+  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 100.0, 201);
+  Scaler scaler; ScalerCreateSharpECS(&scaler, comm, 70.0, 25.0);
   int order = 5;
   BSS bss; BSSCreate(&bss, order, bps, scaler, comm);
 
@@ -536,19 +540,27 @@ int testSlaterPotWithECS() {
   POTDestroy(&slater);
   BSSDestroy(&bss);
 
-  EPS eps; EPSCreateForBoundState(&eps, comm, H, S, 0.3, EPS_GNHEP);
+  EPS eps; EPSCreateForBoundState(&eps, comm, H, S, 3.4, EPS_GNHEP);
+  EPSSetDimensions(eps, 10, PETSC_DEFAULT, PETSC_DEFAULT);
+  EPSSetTolerances(eps, PETSC_DEFAULT, 1000);
+  //  EPSSetType(eps, EPSARNOLDI);
+
   EPSSolve(eps);
-  
+
   PetscInt nconv;
   PetscScalar kr, ki;
   EPSGetConverged(eps, &nconv);
-
+  
   ASSERT_TRUE(nconv > 0);
+#if defined(SHOW_DEBUG)
+  for(int i = 0; i < nconv; i++) {
+    EPSGetEigenpair(eps, i, &kr, &ki, NULL, NULL);
+    PetscPrintf(comm, "%f, %f\n", PetscRealPart(kr), PetscImaginaryPart(kr));
+  }
+#endif
   EPSGetEigenpair(eps, 0, &kr, &ki, NULL, NULL);
-  ASSERT_DOUBLE_NEAR(-0.0127745, PetscImaginaryPart(kr), pow(10.0, -7.0));
-  ASSERT_DOUBLE_NEAR(3.4263903, PetscRealPart(kr), pow(10.0, -7.0));
-  
-  
+  ASSERT_DOUBLE_NEAR(3.4263903, PetscRealPart(kr), pow(10.0, -3.0));
+  ASSERT_DOUBLE_NEAR(-0.0127745, PetscImaginaryPart(kr), pow(10.0, -3.0));
   EPSDestroy(&eps);
   MatDestroy(&H); MatDestroy(&S);
   return 0;

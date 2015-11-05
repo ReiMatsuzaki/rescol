@@ -7,8 +7,9 @@ PetscErrorCode POTCreate(POT *pot) {
   *pot = _pot;
   return 0;
 }
-PetscScalar POTCalc(POT pot, PetscScalar x) {
-  return pot->Calc(x, pot->vs);
+PetscErrorCode POTCalc(POT pot, PetscScalar x, PetscScalar *y) {
+  *y = pot->Calc(x, pot->vs);
+  return 0;
 }
 PetscErrorCode POTView(POT pot) {
   PetscErrorCode ierr;

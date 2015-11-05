@@ -109,7 +109,7 @@ TEST_F(TestY2s, S) {
   MatGetRow(M, 0, &ncols, &cols, &row);
   ASSERT_EQ(1, ncols);
   ASSERT_EQ(0, cols[0]);
-  ASSERT_DOUBLE_EQ(1.0, row[0]);
+  ASSERT_DOUBLE_EQ(1.0, PetscRealPart(row[0]));
   MatDestroy(&M);
 }
 TEST_F(TestY2s, Guess) {
@@ -119,7 +119,7 @@ TEST_F(TestY2s, Guess) {
   PetscScalar y[1];
   const PetscInt ix[1] = {0};
   VecGetValues(v, 1, ix, y);
-  ASSERT_DOUBLE_EQ(1.0, y[0]);
+  ASSERT_DOUBLE_EQ(1.0, PetscRealPart(y[0]));
   
   VecDestroy(&v);
 }
@@ -133,7 +133,7 @@ TEST_F(TestY2s, Pq12) {
   MatGetRow(M, 0, &ncols, &cols, &row);
   ASSERT_EQ(1, ncols);
   ASSERT_EQ(1, cols[0]);
-  ASSERT_DOUBLE_EQ(-0.57735026918962562, row[0]);
+  ASSERT_DOUBLE_EQ(-0.57735026918962562, PetscRealPart(row[0]));
   MatDestroy(&M);
 }
 TEST_F(TestY2s, Pq1A) {
@@ -145,7 +145,7 @@ TEST_F(TestY2s, Pq1A) {
   MatGetRow(M, 0, &ncols, &cols, &row);
   ASSERT_EQ(1, ncols);
   ASSERT_EQ(4, cols[0]);
-  ASSERT_DOUBLE_EQ(0.44721359549995793, row[0]);
+  ASSERT_DOUBLE_EQ(0.44721359549995793, PetscRealPart(row[0]));
   MatDestroy(&M);  
 
   Mat MM;
@@ -161,7 +161,7 @@ TEST_F(TestY2s, Pq2A) {
   MatGetRow(M, 0, &ncols, &cols, &row);
   ASSERT_EQ(1, ncols);
   ASSERT_EQ(2, cols[0]);
-  ASSERT_DOUBLE_EQ(0.44721359549995793, row[0]);
+  ASSERT_DOUBLE_EQ(0.44721359549995793, PetscRealPart(row[0]));
   MatDestroy(&M);  
 }
 

@@ -38,7 +38,6 @@ PetscErrorCode MatCreateFromCOOFormatFileHandler(FILE* fp, Mat* mat) {
   }
   #else
   while(fscanf(fp, "%d %d %lf", &row, &col, &dat) != EOF) {
-    dat = a + b * PETSC_i;
     ierr = MatSetValue(*mat, row, col, dat, INSERT_VALUES); CHKERRQ(ierr);
   }
   #endif

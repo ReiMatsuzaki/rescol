@@ -121,7 +121,6 @@ int testENR1LSMat() {
   MatGetSize(V, &n, &m);
   ASSERT_EQ(15, n); ASSERT_EQ(15, m);
 
-
   const PetscScalar *row;
   PetscInt ncols;
   const PetscInt *cols;
@@ -281,7 +280,7 @@ int testHAtom2() {
   EPSGetEigenpair(eps, 0, &kr, NULL, NULL, NULL);
   ASSERT_DOUBLE_NEAR(-1.0/8.0, kr, pow(10.0, -5.0));
 
-  return 0;  
+  return 0;
 
 }
 int testHeAtom() {

@@ -30,7 +30,9 @@ public:
 };
 TEST_F(TestOCE2, He) {
 
+#if defined(SHOW_DEBUG)
   OCE2View(oce2);
+#endif
 
   Mat H, S;
   
@@ -57,7 +59,7 @@ TEST_F(TestOCE2, He) {
   PetscScalar kr;
   EPSGetEigenpair(eps, 0, &kr, NULL, NULL, NULL);
   
-  ASSERT_NEAR(kr, -2.858256, 0.000001);
+  ASSERT_NEAR(PetscRealPart(kr), -2.858256, 0.000001);
 }
 
 /*

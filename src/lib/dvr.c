@@ -2,11 +2,13 @@
 #include <rescol/dvr.h>
 
 // ------- Lapack -------
-int dgetrf_(long*, long*, double*, long*, long*, long*);
+int dgetrf_(long*, long*, PetscReal*,   long*, long*, long*);
+int zgetrf_(long*, long*, PetscScalar*, long*, long*, long*);
 int dgetri_(long*, double*, long*, long*, double*, long*, long*);
+int zgetri_(long*, PetscScalar*, long*, long*, PetscScalar*, long*, long*);
 
 // ------- external functions ---------
-PetscErrorCode MatCreateTransformMat(PetscScalar *ws, int nq, int ne, 
+PetscErrorCode MatCreateTransformMat(PetscReal *ws, int nq, int ne, 
 				     MPI_Comm comm, Mat *A) {
   MatCreate(comm, A);
   MatSetSizes(*A, PETSC_DECIDE, PETSC_DECIDE, nq*ne, (nq-2)*ne + ne-1);
@@ -35,7 +37,7 @@ PetscErrorCode MatCreateTransformMat(PetscScalar *ws, int nq, int ne,
 int NumDVRBasis(int nq, int ne) {
   return ne * (nq-2) + (ne-1);  
 }
-PetscErrorCode DerivLS(PetscScalar *xs, PetscScalar *ws, 
+PetscErrorCode DerivLS(PetscReal *xs, PetscReal *ws, 
 		       PetscInt ne, PetscInt nq, 
 		       PetscInt i, PetscInt m, PetscInt mp, PetscScalar *v) {
   /*
@@ -84,7 +86,7 @@ PetscErrorCode DVRCreate(DVR *dvr, int nq, BPS bps, MPI_Comm comm) {
   _dvr->num_basis = NumDVRBasis(_dvr->nq, ne);  
   ierr = PetscMalloc1(_dvr->num_basis, &_dvr->xs_basis); CHKERRQ(ierr);
   
-  PetscScalar *zs; BPSGetZs(bps, &zs, NULL);
+  PetscReal *zs; BPSGetZs(bps, &zs, NULL);
   int idx = 0;
   for(int i_ele = 0; i_ele < ne; i_ele++) {
     PetscScalar a = zs[i_ele];
@@ -241,13 +243,23 @@ PetscErrorCode DVRSetR2invR1Mat(DVR this, Mat *M) {
   return 0;
 }
 PetscErrorCode DVRSetENR1Mat(DVR this, int q, double a, Mat *M) {
+
   PetscErrorCode ierr;
   DVRInitR1Mat(this, M);
   
   for(int i = 0; i < this->num_basis; i++) {
+    PetscReal x = this->xs_basis[i];
+    PetscScalar g = x > a ? x : a;
+    PetscScalar s = x < a ? x : a;
+    PetscScalar v;
+    v = pow(s/g, q)/g;
+    ierr = MatSetValue(*M, i, i, v, INSERT_VALUES); CHKERRQ(ierr);
+
+    /*
     PetscScalar v;
     PartialCoulomb(q, a, this->xs_basis[i], &v);
     ierr = MatSetValue(*M, i, i, v, INSERT_VALUES); CHKERRQ(ierr);
+    */
   }
   MatAssemblyBegin(*M, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(*M, MAT_FINAL_ASSEMBLY);
@@ -383,7 +395,7 @@ PetscErrorCode DVRSetR2invR1LSMat(DVR this, Mat *M) {
   return 0;
   
 }
-PetscErrorCode DVRSetENR1LSMat(DVR this, int q, double a, Mat *M) {
+PetscErrorCode DVRSetENR1LSMat(DVR this, int q, PetscReal a, Mat *M) {
 
   PetscErrorCode ierr;
 
@@ -395,14 +407,17 @@ PetscErrorCode DVRSetENR1LSMat(DVR this, int q, double a, Mat *M) {
   int idx = 0;
   for(int i_ele = 0; i_ele < ne; i_ele++) {
     for(int i_q = 0; i_q < nq; i_q++) {
-      PetscScalar x, w, v;
+      PetscReal x, w, v;
       x = this->xs[idx];
       w = this->ws[idx];
       if(i_ele == 0 && i_q == 0)
 	v = 0.0;
-      else
-	PartialCoulomb(q, a, x, &v);
-
+      else {
+	PetscScalar g = x > a ? x : a;
+	PetscScalar s = x < a ? x : a;
+	v = pow(s/g, q)/g;
+	// PartialCoulomb(q, a, x, &v);
+      }
       ierr = MatSetValue(*M, idx, idx, v*w, INSERT_VALUES); CHKERRQ(ierr);
       idx++;
     }    
@@ -447,7 +462,7 @@ PetscErrorCode DVRSetEER2LSMat(DVR this, int q, Mat *M) {
   
   int nq = this->nq;
   int ne; BPSGetNumEle(this->bps, &ne);
-  PetscScalar rmax; BPSGetZMax(this->bps, &rmax);
+  PetscReal rmax; BPSGetZMax(this->bps, &rmax);
   
   Mat T;
   ierr = MatConvert(D2, MATSAME, MAT_INITIAL_MATRIX, &T); CHKERRQ(ierr);  
@@ -467,8 +482,13 @@ PetscErrorCode DVRSetEER2LSMat(DVR this, int q, Mat *M) {
     ierr = MatGetValues(T, nq, idx, nq, idx, vs); CHKERRQ(ierr);    
     long info;
     long lnq = nq;
+#if defined(PETSC_USE_COMPLEX)
+    zgetrf_(&lnq, &lnq, vs, &lnq, ipiv, &info);
+    zgetri_(&lnq, vs, &lnq, ipiv, work, &lnq, &info);
+#else
     dgetrf_(&lnq, &lnq, vs, &lnq, ipiv, &info);
     dgetri_(&lnq, vs, &lnq, ipiv, work, &lnq, &info);
+#endif
 
     for(int j_ele = 0; j_ele < ne; j_ele++) {
       for(int i = 0; i < nq; i++) 

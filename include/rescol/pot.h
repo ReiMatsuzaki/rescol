@@ -18,7 +18,7 @@ struct _p_POT {
   PetscErrorCode (*View)(PetscScalar*);
 };
 typedef struct _p_POT* POT;
-PetscScalar POTCalc(POT pot, PetscScalar x);
+PetscErrorCode POTCalc(POT pot, PetscScalar x, PetscScalar *y);
 PetscErrorCode POTView(POT pot);
 PetscErrorCode POTDestroy(POT *pot);
 

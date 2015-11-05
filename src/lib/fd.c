@@ -19,7 +19,7 @@ PetscErrorCode FDCreate(FD *fd, int num_xs, double xmax, MPI_Comm comm) {
 PetscErrorCode FDCreateFromOptions(FD *fd, MPI_Comm comm) {
 
   PetscBool find;
-  PetscScalar xmax = 30.0;  
+  PetscReal xmax = 30.0;  
   PetscInt num = 30;
   PetscErrorCode ierr;
 
@@ -135,8 +135,8 @@ PetscErrorCode FDSetENR1Mat(FD this, int q, PetscScalar a, Mat *M) {
 
   FDInitR1Mat(this, M);
   for(int i = 0; i < this->num; i++) {
-    PetscScalar x = (i+1) * this->h;
-    PetscScalar y;
+    PetscReal x = (i+1) * this->h;
+    PetscReal y;
     PartialCoulomb(q, a, x, &y);
     ierr = MatSetValue(*M, i, i, y, INSERT_VALUES);
   }
@@ -154,9 +154,9 @@ PetscErrorCode FDSetEER2Mat(FD this, int q, Mat *M) {
   FDInitR2Mat(this, M);
   for(int i = 0; i < n; i++) 
     for(int j = 0; j < n; j++) {
-      PetscScalar xi = (i+1) * h;
-      PetscScalar xj = (j+1) * h;
-      PetscScalar y;
+      PetscReal xi = (i+1) * h;
+      PetscReal xj = (j+1) * h;
+      PetscReal y;
       PartialCoulomb(q, xi, xj, &y);
       PetscInt idx = i*n+j;
       ierr = MatSetValue(*M, idx, idx, y, INSERT_VALUES);

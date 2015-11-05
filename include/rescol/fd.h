@@ -11,7 +11,7 @@ extern "C" {
 
 struct _p_FD {
   MPI_Comm comm;
-  PetscScalar h;
+  PetscReal h;
   PetscInt num;
 };
 

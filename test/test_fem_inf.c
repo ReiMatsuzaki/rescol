@@ -8,10 +8,6 @@ static char help[] = "Unit test for fem_inf.c \n";
 
 int test1() {
 
-  PetscErrorCode ierr;
-  
-  printf("AAA\n");
-  
   BPS bps;
   BPSCreate(&bps, PETSC_COMM_SELF); BPSSetLine(bps, 5.0, 6);
   DVR dvr;
@@ -19,8 +15,10 @@ int test1() {
   FEMInf fem;
   FEMInfCreateDVR(&fem, dvr);
 
+#if defined(SHOW_DEBUG)
+  PetscErrorCode ierr;
   ierr = FEMInfFPrintf(fem, stdout, 0); CHKERRQ(ierr);
-
+#endif  
 
   return 0;
 }
@@ -30,9 +28,11 @@ int testH_BSS() {
   BSS bss; BSSCreate(&bss, 5, bps, NULL, PETSC_COMM_SELF);
   FEMInf fem; FEMInfCreateBSS(&fem, bss);
 
+#if defined(SHOW_DEBUG)
   printf("\n");
   FEMInfFPrintf(fem, stdout, 0);
   printf("\n");
+#endif
 
   Mat H;
   FEMInfSetD2R1Mat(fem, &H); MatScale(H, -0.5);
@@ -61,10 +61,6 @@ int testH_BSS() {
   ASSERT_TRUE(nconv > 0);
   EPSGetEigenpair(eps, 0, &kr, NULL, NULL, NULL);
   ASSERT_DOUBLE_NEAR(-0.5, kr, pow(10.0, -5.0));
-  
-  return 0;
-
-  
 
   return 0;
 }

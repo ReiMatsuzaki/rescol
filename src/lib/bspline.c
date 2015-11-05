@@ -101,7 +101,7 @@ PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, Scaler scaler,
   PetscNew(&_bss);
   *bss = NULL;
 
-  PetscScalar *zs; PetscInt num_zs;
+  PetscReal *zs; PetscInt num_zs;
   BPSGetZs(bps, &zs, &num_zs);
   
   // data num
@@ -502,7 +502,7 @@ PetscErrorCode BSSSetPotR1Mat(BSS this, POT pot, Mat *M) {
   PetscMalloc1(ne*nq, &vs);
 
   for(int k = 0; k < ne*nq; k++) 
-    vs[k] = POTCalc(pot, this->xs[k]);
+    POTCalc(pot, this->xs[k], &vs[k]);
 
   for(int i = 0; i < nb; i++)
     for(int j = 0; j < nb; j++) {

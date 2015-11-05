@@ -16,7 +16,7 @@ PetscErrorCode BPSCreate(BPS *bps, MPI_Comm comm) {
   return 0;
 }
 
-PetscErrorCode BPSSetExp(BPS this, PetscScalar zmax, PetscInt num_zs, PetscScalar gamma) {
+PetscErrorCode BPSSetExp(BPS this, PetscReal zmax, PetscInt num_zs, PetscReal gamma) {
 
   if(this == NULL)
     SETERRQ(PETSC_COMM_SELF, 1, "BPS object is null");
@@ -32,7 +32,7 @@ PetscErrorCode BPSSetExp(BPS this, PetscScalar zmax, PetscInt num_zs, PetscScala
 
 }
 
-PetscErrorCode BPSSetLine(BPS this, PetscScalar zmax, PetscInt num_zs) {
+PetscErrorCode BPSSetLine(BPS this, PetscReal zmax, PetscInt num_zs) {
 
   if(this == NULL)
     SETERRQ(PETSC_COMM_SELF, 1, "BPS object is null");
@@ -105,7 +105,7 @@ PetscErrorCode BPSFPrintf(BPS this, FILE *file, int lvl) {
 }
 
 // ------ Getter ---------
-PetscErrorCode BPSGetZs(BPS this, PetscScalar **zs, PetscInt *num_zs) {
+PetscErrorCode BPSGetZs(BPS this, PetscReal **zs, PetscInt *num_zs) {
 
   PetscErrorCode ierr;
   ierr = BPSCheckPreallocated(this); CHKERRQ(ierr);
@@ -128,7 +128,7 @@ PetscErrorCode BPSGetNumEle(BPS this, PetscInt *num_ele) {
 
   return 0;
 }
-PetscErrorCode BPSGetZMax(BPS this, PetscScalar *zmax) {
+PetscErrorCode BPSGetZMax(BPS this, PetscReal *zmax) {
   PetscErrorCode ierr;
   ierr = BPSCheckPreallocated(this); CHKERRQ(ierr);
   *zmax = this->zs[this->num_zs-1];

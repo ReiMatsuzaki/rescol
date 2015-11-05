@@ -14,10 +14,10 @@ struct _p_DVR {
   MPI_Comm comm;
   int nq; // # of audrature in each element
   BPS bps; // breakpoints
-  PetscScalar *xs;
-  PetscScalar *ws;
+  PetscReal *xs;
+  PetscReal *ws;
   PetscInt num_basis;
-  PetscScalar *xs_basis; 
+  PetscReal *xs_basis; 
   Mat D2_R1LSMat;  // matrix of d^2/dx^2 for LS basis
   Mat R2_R1LSMat;  // matrix of r^{-2} for LS basis
   Mat T;   // Transformation matrix for LS basis to connected LS.
@@ -29,7 +29,7 @@ struct _p_DVR {
 typedef struct _p_DVR* DVR;
 
 // ------- external functions ---------
-PetscErrorCode MatCreateTransformMat(PetscScalar *ws, int nq, int ne, 
+PetscErrorCode MatCreateTransformMat(PetscReal *ws, int nq, int ne, 
 				     MPI_Comm comm, Mat *B);
 int NumDVR(int nq, int ne);
 
@@ -48,7 +48,7 @@ PetscErrorCode DVRInitR1Mat(DVR self, Mat *M);
 PetscErrorCode DVRSetSR1Mat(DVR self, Mat *M);
 PetscErrorCode DVRSetD2R1Mat(DVR self, Mat *M);
 PetscErrorCode DVRSetR2invR1Mat(DVR self, Mat *M);
-PetscErrorCode DVRSetENR1Mat(DVR self, int q, double a, Mat *M);
+PetscErrorCode DVRSetENR1Mat(DVR self, int q, PetscReal a, Mat *M);
 
 // ------ R2Mat ---------
 PetscErrorCode DVRSetEER2Mat(DVR self, int q, Mat *M);
@@ -58,7 +58,7 @@ PetscErrorCode DVRInitR1LSMat(DVR self, Mat *M);
 PetscErrorCode DVRSetSR1LSMat(DVR self, Mat *M);
 PetscErrorCode DVRSetD2R1LSMat(DVR self, Mat *M);
 PetscErrorCode DVRSetR2invR1LSMat(DVR self, Mat *M);
-PetscErrorCode DVRSetENR1LSMat(DVR self, int q, double a, Mat *M);
+PetscErrorCode DVRSetENR1LSMat(DVR self, int q, PetscReal a, Mat *M);
 
 PetscErrorCode DVRLSMatToMat(DVR self, Mat A, Mat *B);
 
