@@ -31,6 +31,9 @@ PetscErrorCode POTPowerCreate(POT *pot, PetscScalar a, PetscScalar n);
 // ---- Coulomb Potential ----
 PetscErrorCode POTCoulombCreate(POT *pot, PetscScalar q, PetscScalar a);
 
+// ---- Slater Potential ----
+PetscErrorCode POTSlaterCreate(POT *pot, PetscScalar v0, PetscScalar z);
+
 #ifdef __cplusplus
 }
 #endif

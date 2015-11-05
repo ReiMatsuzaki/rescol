@@ -1,43 +1,5 @@
 #include <rescol/mat.h>
 
-PetscErrorCode MatCreateFromCOOFormatFileOld(char* path, Mat* mat) {
-  FILE* fp;
-  PetscInt *rows, *cols;
-  PetscScalar *datas;
-  PetscInt i;
-  PetscErrorCode ierr;
-  int num_data, num_row, num_col, ret;
-
-  if((fp = fopen(path, "r")) == NULL) {
-    const char* msg = "Failed to open file.\0";
-    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_FILE_OPEN, msg);
-  }
-  
-  ret = fscanf(fp, "%d %d %d", &num_data, &num_row, &num_col);
-  if(ret == EOF) {
-    const char* msg = "Failed to read first line. Expected format is:\n num_data, num_row, num_col\0";
-    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_FILE_UNEXPECTED, msg);
-  }
-    
-  rows = (PetscInt*)malloc(sizeof(PetscInt)*num_data);
-  cols = (PetscInt*)malloc(sizeof(PetscInt)*num_data);
-  datas = (PetscScalar*)malloc(sizeof(PetscScalar)*num_data);
-  if(rows == NULL || cols == NULL || datas == NULL){
-    const char* msg = "Failed to allocate memory for row or col or data\0";
-    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_MEM, msg);
-  }
-
-  i = 0;
-  while((ret = fscanf(fp, "%d %d %lf", &rows[i], &cols[i], &datas[i])) != EOF) { i++; }
-
-  ierr = MatCreateSeqAIJFromTriple(PETSC_COMM_WORLD, 
-				   num_row, num_col, 
-				   rows, cols, datas, 
-				   mat,
-				   num_data, 0); CHKERRQ(ierr);
-  fclose(fp);
-  return ierr;
-}
 PetscErrorCode MatCreateFromCOOFormatFileHandler(FILE* fp, Mat* mat) {
 
   PetscInt col, row;
@@ -68,9 +30,19 @@ PetscErrorCode MatCreateFromCOOFormatFileHandler(FILE* fp, Mat* mat) {
   ierr = MatSetFromOptions(*mat); CHKERRQ(ierr);
   ierr = MatSetUp(*mat); CHKERRQ(ierr);
 
-  while(fscanf(fp, "%d %d %lf", &row, &col, &dat) != EOF) {
+  #if defined(PETSC_USE_COMPLEX)
+  PetscReal a, b;
+  while(fscanf(fp, "%d %d %lf %lf", &row, &col, &a, &b) != EOF) {
+    dat = a + b * PETSC_i;
     ierr = MatSetValue(*mat, row, col, dat, INSERT_VALUES); CHKERRQ(ierr);
   }
+  #else
+  while(fscanf(fp, "%d %d %lf", &row, &col, &dat) != EOF) {
+    dat = a + b * PETSC_i;
+    ierr = MatSetValue(*mat, row, col, dat, INSERT_VALUES); CHKERRQ(ierr);
+  }
+  #endif
+
   MatAssemblyBegin(*mat, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(*mat, MAT_FINAL_ASSEMBLY);
   return 0;
@@ -157,7 +129,8 @@ PetscErrorCode EPSWriteToFile(EPS eps, char* path_detail, char* path_eigvals, ch
   EPSType type;
   PetscErrorCode ierr;
   PetscInt nconv, i, its, nev, maxit;
-  PetscScalar eig, im_eig, error, tol;
+  PetscScalar eig, im_eig;
+  PetscReal tol, error;
   Mat H;
   Vec xs, ys;
   PetscViewer vec_viewer;
@@ -210,6 +183,18 @@ PetscErrorCode EPSWriteToFile(EPS eps, char* path_detail, char* path_eigvals, ch
 
   return 0;
 }
+PetscErrorCode EPSCreateForBoundState(EPS *eps, MPI_Comm comm, Mat H, Mat S, PetscScalar target, EPSProblemType type) {
+
+  EPSCreate(comm, eps);
+  EPSSetOperators(*eps, H, S);
+  EPSSetProblemType(*eps, type);
+  EPSSetWhichEigenpairs(*eps, EPS_TARGET_MAGNITUDE);
+  EPSSetTarget(*eps, target);
+  EPSSetFromOptions(*eps);
+
+  return 0;
+}
+
 
 PetscErrorCode VecInitSynthesize(Vec A, Vec B, MPI_Comm comm, Vec *C) {
 
@@ -477,20 +462,5 @@ PetscErrorCode LobGauss(int n, int i, PetscScalar* x, PetscScalar* w) {
 
   *x = xs[idx];
   *w = ws[idx];
-  return 0;
-}
-
-PetscErrorCode CreateLinKnots(int num, double zmax, double *zs[]) {
-  double dz = zmax / (num-1);
-  *zs = (double*)malloc(sizeof(double)*num);
-  for(int i = 0; i < num; i++) 
-    (*zs)[i] = i * dz;
-  return 0;
-}
-PetscErrorCode CreateExpKnots(int num, double zmax, double gamma, double *zs[]){
-  *zs = (double*)malloc(sizeof(double)*num);
-  for(int n = 0; n < num; n++) {
-    (*zs)[n] = zmax * (exp(gamma*n/(num-1)) - 1.0) / (exp(gamma) - 1.0);
-  }
   return 0;
 }

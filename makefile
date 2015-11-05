@@ -23,11 +23,11 @@ LIBGTEST = -lgtest
 include src/bin/makefile
 include test/makefile
 
-${OBJ_DIR}/%.o : %.c
-	echo compile $(notdir $<)
+${OBJ_DIR}/%.o : %.c ${OBJ_DIR}
+	@echo compile $(notdir $<)
 	${PCC} -c ${PCC_FLAGS} ${CFLAGS} ${CCPPFLAGS} -o $@ $< 
-${OBJ_DIR}/%.o : %.cpp
-	echo compile $(notdir $<)
+${OBJ_DIR}/%.o : %.cpp ${OBJ_DIR}
+	@echo compile $(notdir $<)
 	${CXX} -c ${PCC_FLAGS}  ${CXXFLAGS} ${CCPPFLAGS} -o $@ $< 
 
 myrm: 
@@ -37,7 +37,8 @@ myrm:
 
 ${OBJ_DIR}:
 	mkdir -p ${OBJ_DIR}
-
 ${BIN_DIR}:
 	mkdir -p ${BIN_DIR}
+${TEST_BIN_DIR}:
+	mkdir -p ${TEST_BIN_DIR}
 

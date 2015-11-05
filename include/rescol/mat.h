@@ -15,6 +15,7 @@ PetscErrorCode MatSetDirFile(const char* dn, const char* fn, Mat *M);
 PetscErrorCode VecCreateFromFile(const char* path, MPI_Comm comm, Vec *v );
 PetscErrorCode PrintTimeStamp(MPI_Comm comm, const char* label, time_t *t);
 PetscErrorCode EPSWriteToFile(EPS eps, char* path_detail, char* path_eigvals, char* path_eigvecs);
+PetscErrorCode EPSCreateForBoundState(EPS *eps, MPI_Comm comm, Mat H, Mat S, PetscScalar target, EPSProblemType type);
 
 PetscErrorCode VecInitSynthesize(Vec A, Vec B, MPI_Comm comm, Vec *C);
 PetscErrorCode VecSynthesize(Vec A, Vec B, PetscScalar c, Vec *C, InsertMode mode);
@@ -34,8 +35,6 @@ PetscErrorCode MatSetSynthesize3Fast(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D)
 PetscErrorCode PartialCoulomb(int q, double r1, double r2, double *y);
 PetscErrorCode LegGauss(int n, int i, PetscScalar *x, PetscScalar *w);
 PetscErrorCode LobGauss(int n, int i, PetscScalar *x, PetscScalar *w);
-//PetscErrorCode CreateLinKnots(int num, double zmax, double *zs[]);
-//PetscErrorCode CreateExpKnots(int num, double zmax, double gamma, double *zs[]);
 
 #ifdef __cplusplus
 }

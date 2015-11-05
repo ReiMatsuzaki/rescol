@@ -504,7 +504,7 @@ int testBSplinePot2() {
   BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
   POT pot; POTCoulombCreate(&pot, 2.0, 1.5);
 
-  POTView(pot);
+  //  POTView(pot);
 
   Mat V;
   Mat U;
@@ -516,6 +516,41 @@ int testBSplinePot2() {
   MatNorm(V, NORM_1, &v);
   ASSERT_DOUBLE_EQ(0.0, v);
   
+  return 0;
+}
+int testSlaterPotWithECS() {
+  MPI_Comm comm = PETSC_COMM_SELF;
+  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 20.0, 21);
+  Scaler scaler; ScalerCreateSharpECS(&scaler, comm, 15.0, 50.0);
+  int order = 5;
+  BSS bss; BSSCreate(&bss, order, bps, scaler, comm);
+
+  Mat H, V, S;
+  BSSSetD2R1Mat(bss, &H); MatScale(H, -0.5);
+  POT slater; POTSlaterCreate(&slater, 7.5, 1.0);
+  BSSSetPotR1Mat(bss, slater, &V);
+  MatAXPY(H, 1.0, V, DIFFERENT_NONZERO_PATTERN);
+  BSSSetSR1Mat(bss, &S);
+
+  MatDestroy(&V); 
+  POTDestroy(&slater);
+  BSSDestroy(&bss);
+
+  EPS eps; EPSCreateForBoundState(&eps, comm, H, S, 0.3, EPS_GNHEP);
+  EPSSolve(eps);
+  
+  PetscInt nconv;
+  PetscScalar kr, ki;
+  EPSGetConverged(eps, &nconv);
+
+  ASSERT_TRUE(nconv > 0);
+  EPSGetEigenpair(eps, 0, &kr, &ki, NULL, NULL);
+  ASSERT_DOUBLE_NEAR(-0.0127745, PetscImaginaryPart(kr), pow(10.0, -7.0));
+  ASSERT_DOUBLE_NEAR(3.4263903, PetscRealPart(kr), pow(10.0, -7.0));
+  
+  
+  EPSDestroy(&eps);
+  MatDestroy(&H); MatDestroy(&S);
   return 0;
 }
 int main(int argc, char **args) {
@@ -542,6 +577,8 @@ int main(int argc, char **args) {
 
   testBSplinePot();
   testBSplinePot2();
+
+  testSlaterPotWithECS();
   
   SlepcFinalize();
   return 0;

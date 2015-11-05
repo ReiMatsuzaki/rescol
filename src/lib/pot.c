@@ -80,8 +80,11 @@ PetscErrorCode POTPowerCreate(POT *pot, PetscScalar a, PetscScalar n) {
 
 // ---- Coulomb Potential ----
 PetscScalar POTCoulombCalc(PetscScalar x, PetscScalar *vs) {
-  PetscScalar g = vs[1] > x ? vs[1] : x;
-  PetscScalar s = vs[1] < x ? vs[1] : x;
+
+  PetscReal a_r = PetscRealPart(vs[1]);
+  PetscReal x_r = PetscRealPart(x);
+  PetscScalar g = a_r > x_r ? vs[1] : x;
+  PetscScalar s = a_r < x_r ? vs[1] : x;
   return pow(s/g, vs[0])/g;
 }
 PetscErrorCode POTCoulombView(PetscScalar *vs) {
@@ -106,6 +109,30 @@ PetscErrorCode POTCoulombCreate(POT *pot, PetscScalar q, PetscScalar a) {
   (*pot)->Calc = POTCoulombCalc;
   (*pot)->View = POTCoulombView;
   return 0;
+}
 
-
+// ---- Slater Potential ----
+PetscScalar POTSlaterCalc(PetscScalar x, PetscScalar *vs) {
+  return vs[0] * x * x * exp(-vs[1]*x);
+}
+PetscErrorCode POTSlaterView(PetscScalar *vs) {
+  PetscPrintf(PETSC_COMM_SELF, ">>> POT Slater >>>\n");
+  PetscPrintf(PETSC_COMM_SELF, "             2  -zx \n", vs[0]);
+  PetscPrintf(PETSC_COMM_SELF, "v(x) =  V_0 x  e    \n", vs[0]);
+  PetscPrintf(PETSC_COMM_SELF, "V_0 = %f\n", vs[0]);
+  PetscPrintf(PETSC_COMM_SELF, "z   = %f\n", vs[1]);
+  PetscPrintf(PETSC_COMM_SELF, "<<< POT Slater <<<\n");  
+  return 0;
+}
+PetscErrorCode POTSlaterCreate(POT *pot, PetscScalar v0, PetscScalar z) {
+  POTCreate(pot);
+  PetscScalar *vs; 
+  PetscMalloc1(2, &vs); 
+  vs[0] = v0;
+  vs[1] = z;
+  (*pot)->num = 2;
+  (*pot)->vs = vs;
+  (*pot)->Calc = POTSlaterCalc;
+  (*pot)->View = POTSlaterView;
+  return 0;
 }

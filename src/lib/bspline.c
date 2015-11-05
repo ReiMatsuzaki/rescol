@@ -153,8 +153,8 @@ PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, Scaler scaler,
       _bss->ws[ix] = w;
       
       for(ib = 0; ib < _bss->num_basis; ib++) {
-	PetscScalar y;
-	PetscScalar dy;
+	PetscReal y;
+	PetscReal dy;
 	CalcBSpline(     order, _bss->ts, _bss->b_idx_list[ib], x, &y);
 	CalcDerivBSpline(order, _bss->ts, _bss->b_idx_list[ib], x, &dy);
 	int iy = ib*(_bss->num_ele*order) + ie*order + iq;
@@ -216,9 +216,9 @@ PetscErrorCode BSSFPrintf(BSS this, FILE* file, int lvl) {
   PetscFPrintf(comm, file, "===== End B-Spline =====\n");
   return 0;
 }
-PetscErrorCode BSSBasisPsi(BSS this, int i, PetscScalar x, PetscScalar *y) {
+PetscErrorCode BSSBasisPsi(BSS this, int i, PetscReal x, PetscReal *y) {
 
-  PetscScalar z;
+  PetscReal z;
   CalcBSpline(this->order, 
 	      this->ts, 
 	      this->b_idx_list[i], 
@@ -227,8 +227,8 @@ PetscErrorCode BSSBasisPsi(BSS this, int i, PetscScalar x, PetscScalar *y) {
   *y = z;
   return 0;
 }
-PetscErrorCode BSSDerivBasisPsi(BSS this, int i, PetscScalar x, PetscScalar *y) {
-  PetscScalar z;
+PetscErrorCode BSSDerivBasisPsi(BSS this, int i, PetscReal x, PetscReal *y) {
+  PetscReal z;
   CalcDerivBSpline(this->order, 
 		   this->ts, 
 		   this->b_idx_list[i], 
@@ -323,7 +323,7 @@ PetscErrorCode BSSCalcD2R1Mat(BSS this, Mat D, InsertMode mode) {
     }
   return 0;
 }
-PetscErrorCode BSSCalcENR1Mat(BSS this, int q, PetscScalar a, Mat V, InsertMode mode) {
+PetscErrorCode BSSCalcENR1Mat(BSS this, int q, PetscReal a, Mat V, InsertMode mode) {
   int order = this->order;
   int nb = this->num_basis;
   int ne = this->num_ele;
