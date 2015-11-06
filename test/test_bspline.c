@@ -397,9 +397,8 @@ int testBSplineSetEE_time() {
   MatAssemblyEnd(ee, MAT_FINAL_ASSEMBLY);
   t1 = clock();
 
-#if defined(SHOW_DEBUG)
-  PetscPrintf(PETSC_COMM_SELF, "t_new = %f\n", ((double)(t1-t0)/CLOCKS_PER_SEC));
-#endif
+  if(getenv("SHOW_DEBUG"))
+    PetscPrintf(PETSC_COMM_SELF, "t_new = %f\n", ((double)(t1-t0)/CLOCKS_PER_SEC));
 
   MatDestroy(&ee);
   BSSDestroy(&bss);
@@ -419,9 +418,8 @@ int testBSplineSetNE_time() {
   MatDestroy(&M);
   t1 = clock();
 
-#if defined(SHOW_DEBUG)
-  PetscPrintf(comm, "t(n-e) = %f\n", ((double)(t1-t0)/CLOCKS_PER_SEC));
-#endif
+  if(getenv("SHOW_DEBUG"))
+    PetscPrintf(comm, "t(n-e) = %f\n", ((double)(t1-t0)/CLOCKS_PER_SEC));
   
   return 0;
 }
@@ -552,12 +550,12 @@ int testSlaterPotWithECS() {
   EPSGetConverged(eps, &nconv);
   
   ASSERT_TRUE(nconv > 0);
-#if defined(SHOW_DEBUG)
-  for(int i = 0; i < nconv; i++) {
-    EPSGetEigenpair(eps, i, &kr, &ki, NULL, NULL);
-    PetscPrintf(comm, "%f, %f\n", PetscRealPart(kr), PetscImaginaryPart(kr));
-  }
-#endif
+  if(getenv("SHOW_DEBUG"))
+    for(int i = 0; i < nconv; i++) {
+      EPSGetEigenpair(eps, i, &kr, &ki, NULL, NULL);
+      PetscPrintf(comm, "%f, %f\n", PetscRealPart(kr), PetscImaginaryPart(kr));
+    }
+
   EPSGetEigenpair(eps, 0, &kr, &ki, NULL, NULL);
   ASSERT_DOUBLE_NEAR(3.4263903, PetscRealPart(kr), pow(10.0, -3.0));
   ASSERT_DOUBLE_NEAR(-0.0127745, PetscImaginaryPart(kr), pow(10.0, -3.0));

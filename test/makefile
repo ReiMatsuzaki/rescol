@@ -1,25 +1,28 @@
-TESTS=angmoment bps bspline dvr fem_inf mat oce2 pot scale
-GO_TESTS=$(addprefix go_test_, ${TESTS})
+test_angmoment.out:test_angmoment.o angmoment.o
+test_bps.out: test_bps.o bps.o
+test_bspline.out: test_bspline.o bspline.o bps.o pot.o mat.o scale.o
+test_dvr.out: test_dvr.o dvr.o bps.o mat.o 
+#test_fd.out: test_fd.o fd.o bps.o mat.o
+test_fem_inf.out: test_fem_inf.o fem_inf.o dvr.o bspline.o fd.o bps.o pot.o scale.o mat.o
+test_mat.out: test_mat.o mat.o
+test_oce2.out: test_oce2.o oce2.o mat.o fem_inf.o dvr.o bspline.o fd.o bps.o pot.o scale.o mat.o angmoment.o
+test_pot.out: test_pot.o pot.o
+test_scale.out: test_scale.o scale.o
+TEST_LIST=angmoment bps bspline dvr fem_inf mat oce2 pot scale #fd
 
-${TEST_BIN_DIR}/test_bspline.out: ${OBJ_DIR}/test_bspline.o ${OBJ_DIR}/bspline.o ${OBJ_DIR}/bps.o ${OBJ_DIR}/pot.o ${OBJ_DIR}/mat.o ${OBJ_DIR}/scale.o
-	@echo ////link test_bspline////
-	@-${CLINKER} -o $@ $^ ${LIBGSL} ${LIBGTEST} ${SLEPC_EPS_LIB}
+test_angmoment.out:test_angmoment.o angmoment.o
+test_bps.out: test_bps.o bps.o
+test_bspline.out: test_bspline.o bspline.o bps.o pot.o mat.o scale.o
+test_dvr.out: test_dvr.o dvr.o bps.o mat.o 
+#test_fd.out: test_fd.o fd.o bps.o mat.o
+test_fem_inf.out: test_fem_inf.o fem_inf.o dvr.o bspline.o fd.o bps.o pot.o scale.o mat.o
+test_mat.out: test_mat.o mat.o
+test_oce2.out: test_oce2.o oce2.o mat.o fem_inf.o dvr.o bspline.o fd.o bps.o pot.o scale.o mat.o angmoment.o
+test_pot.out: test_pot.o pot.o
+test_scale.out: test_scale.o scale.o
 
-${TEST_BIN_DIR}/test_%.out: ${OBJ_DIR}/test_%.o ${LIB_OBJS}	
-	@echo link $(notdir $<)
-	@-${CLINKER} -o $@ $^ ${LIBGSL} ${LIBGTEST} ${SLEPC_EPS_LIB}
-
-#.PHONY: go_test_bspline
-#go_test_bspline: ${TEST_BIN_DIR}/test_bspline.out
-#	@echo 
-#	@echo //////$@////////
-#	@-./$<
-
-.PHONY: go_test_%
-go_test_%: ${TEST_BIN_DIR}/test_%.out
-	@echo 
-	@echo //////$@////////
-	@-./$<
-
-.PHONY: all_test
-all_test: ${GO_TESTS}
+check_%: test_%.out
+	@echo
+	@echo ////Unit Test////
+	./$<
+	@echo

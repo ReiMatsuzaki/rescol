@@ -7,9 +7,8 @@ static char help[] = "unit test for pot.c";
 TEST(TestPOT, Harmonic) {
   POT harm; POTHarmCreate(&harm, 2.5);
 
-#if defined(SHOW_DEBUG)
-  POTView(harm);
-#endif
+  if(getenv("SHOW_DEBUG"))
+    POTView(harm);
 
   PetscScalar y;
   POTCalc(harm, 0.2, &y);

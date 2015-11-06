@@ -15,10 +15,10 @@ int test1() {
   FEMInf fem;
   FEMInfCreateDVR(&fem, dvr);
 
-#if defined(SHOW_DEBUG)
-  PetscErrorCode ierr;
-  ierr = FEMInfFPrintf(fem, stdout, 0); CHKERRQ(ierr);
-#endif  
+  if(getenv("SHOW_DEBUG")) {
+    PetscErrorCode ierr;
+    ierr = FEMInfFPrintf(fem, stdout, 0); CHKERRQ(ierr);
+  }
 
   return 0;
 }
@@ -28,11 +28,11 @@ int testH_BSS() {
   BSS bss; BSSCreate(&bss, 5, bps, NULL, PETSC_COMM_SELF);
   FEMInf fem; FEMInfCreateBSS(&fem, bss);
 
-#if defined(SHOW_DEBUG)
-  printf("\n");
-  FEMInfFPrintf(fem, stdout, 0);
-  printf("\n");
-#endif
+  if(getenv("SHOW_DEBUG")) {
+    printf("\n");
+    FEMInfFPrintf(fem, stdout, 0);
+    printf("\n");
+  }
 
   Mat H;
   FEMInfSetD2R1Mat(fem, &H); MatScale(H, -0.5);

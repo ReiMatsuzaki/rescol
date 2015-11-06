@@ -1,5 +1,11 @@
 #include <rescol/oce2.h>
 
+#if defined(PETSC_USE_COMPLEX)
+#define ABS cabs
+#else
+#define ABS fabs
+#endif
+
 static char help[] = "solve H2 mole eigen value problem";
 /*
   -eps_nev : # of necessary eigen pairs
@@ -195,8 +201,8 @@ PetscErrorCode CheckSymmetry(H2 this, Vec cs, PetscBool *is_sym) {
   PetscPrintf(this->comm, "y2: %d\n", n_y2);
   
   PetscScalar *vs;
-  PetscScalar eps = 0.000001;
-  PetscMalloc(2, &vs);
+  PetscReal eps = 0.000001;
+  PetscMalloc1(2, &vs);
   for(int y = 0; y < n_y2; y++)
     for(int i = 0; i < n_r1; i++) {
       for(int j = 0; j < i; j++) {
@@ -204,14 +210,14 @@ PetscErrorCode CheckSymmetry(H2 this, Vec cs, PetscBool *is_sym) {
 	idx[0] = i + j*n_r1 + y*n_r1*n_r1; 
 	idx[1] = j + i*n_r1 + y*n_r1*n_r1;
 	VecGetValues(cs, 2, idx, vs);
-	if(fabs(vs[0]) > eps && fabs(vs[1]) > eps)
+	if(ABS(vs[0]) > eps && ABS(vs[1]) > eps)
 	  goto end;
     }
   }
 
  end:
-  *is_sym = (vs[0]*vs[1] > 0.0);
-  if(fabs(fabs(vs[0])-fabs(vs[1])) > eps | fabs(vs[0]) < eps) {
+  *is_sym = (ABS(vs[0]*vs[1]) > 0.0);
+  if(fabs(ABS(vs[0])-ABS(vs[1])) > eps | ABS(vs[0]) < eps) {
     PetscPrintf(this->comm, "WARNING: check symmetry may contain error\n");
     PetscPrintf(this->comm, "vs[0] = %f\n", vs[0]);
     PetscPrintf(this->comm, "vs[1] = %f\n", vs[1]);
@@ -276,16 +282,16 @@ int main(int argc, char **args) {
   H2 h2;
 
   ierr = SlepcInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);
+#if defined(PETSC_USE_COMPLEX)
+  PetscPrintf(comm, "Scalar: complex\n");
+#else
+  PetscPrintf(comm, "Scalar: real\n");
+#endif
   PetscOptionsBegin(comm, "", "h2mole.c options", "none");
   ierr = H2CreateFromOptions(&h2, comm); CHKERRQ(ierr);
   PetscOptionsEnd();
 
-  /*
-  if(2 > 1) {
-    PetscComplex a = 2.0 + 1.0*PETSC_i;
-    PetscPrintf(comm, "complex: %f\n", a);
-  }
-  */
+
 
   OCE2View(h2->oce2);
   

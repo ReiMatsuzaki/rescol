@@ -1,6 +1,8 @@
 #include <slepceps.h>
-#include "unittest.h"
+#include <stdlib.h>
 #include <rescol/bps.h>
+#include "unittest.h"
+
 
 static char help[] = "Unit test for dvr.c \n\n";
 
@@ -39,7 +41,8 @@ PetscErrorCode testExp() {
 
   ASSERT_EQ(6, num);
 
-  BPSFPrintf(bps, stdout, 0);
+  if(getenv("SHOW_DEBUG"))
+    BPSFPrintf(bps, stdout, 0);
 
   BPSDestroy(&bps);
 

@@ -30,9 +30,8 @@ public:
 };
 TEST_F(TestOCE2, He) {
 
-#if defined(SHOW_DEBUG)
-  OCE2View(oce2);
-#endif
+  if(getenv("SHOW_DEBUG"))
+    OCE2View(oce2);
 
   Mat H, S;
   
