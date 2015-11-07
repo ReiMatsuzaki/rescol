@@ -16,8 +16,8 @@ LIBS=-lgsl -lgtest
 OBJ_FEM= fem_inf.o fd.o bspline.o dvr.o bps.o mat.o pot.o scale.o
 
 include $(subst .c,.d,${SOURCE_LIST})
-include ${RESCOL_DIR}/test/makefile
-include ${RESCOL_DIR}/src/bin/makefile
+include ${RESCOL_DIR}/test/make.mk
+include ${RESCOL_DIR}/src/bin/make.mk
 
 ${BIN_DIR}:
 	mkdir -p ${BIN_DIR}
