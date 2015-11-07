@@ -6,3 +6,6 @@
 qsub*.sh
 *.dat
 *.info
+GPATH
+GRTAGS
+GTAGS

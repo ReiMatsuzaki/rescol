@@ -15,7 +15,7 @@ PetscErrorCode MatSetDirFile(const char* dn, const char* fn, Mat *M);
 PetscErrorCode VecCreateFromFile(const char* path, MPI_Comm comm, Vec *v );
 PetscErrorCode PrintTimeStamp(MPI_Comm comm, const char* label, time_t *t);
 PetscErrorCode EPSWriteToFile(EPS eps, char* path_detail, char* path_eigvals, char* path_eigvecs);
-PetscErrorCode EPSCreateForBoundState(EPS *eps, MPI_Comm comm, Mat H, Mat S, PetscScalar target, EPSProblemType type);
+PetscErrorCode EPSCreateForBoundState(EPS *eps, MPI_Comm comm, Mat H, Mat S, PetscScalar target);
 
 PetscErrorCode VecInitSynthesize(Vec A, Vec B, MPI_Comm comm, Vec *C);
 PetscErrorCode VecSynthesize(Vec A, Vec B, PetscScalar c, Vec *C, InsertMode mode);

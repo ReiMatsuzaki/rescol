@@ -34,7 +34,6 @@ struct _p_FEMInf{
   FEMSc* sc; // scheme for polymorphism
   void* obj;  // address of object
 } ;
-
 typedef struct _p_FEMInf* FEMInf;
 
 // ----- getter of interface -----
@@ -54,6 +53,7 @@ PetscErrorCode FEMInfGetOverlapIsId(FEMInf self, PetscBool *is_id);
 
 // ---- calculation -----
 PetscErrorCode FEMInfSetSR1Mat(FEMInf self, Mat *M);
+PetscErrorCode FEMInfSEtSR1MatNullable(FEMInf self, Mat *M);
 PetscErrorCode FEMInfSetD2R1Mat(FEMInf self, Mat *M);
 PetscErrorCode FEMInfSetR2invR1Mat(FEMInf self, Mat *M);
 PetscErrorCode FEMInfSetENR1Mat(FEMInf self, int q, double a, Mat *M); 

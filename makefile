@@ -44,9 +44,15 @@ ${TEST_BIN_DIR}:
 	@echo [  link  ] $^
 	@${CLINKER} -o $@ $^ ${LIBS} ${SLEPC_EPS_LIB}
 
+.PHONY: TAGS
+TAGS: 
+	find ${PETSC_DIR}/include -regex '.*\.h$$' | grep -v ftn-auto | gtags -q -f -
+	find ${PETSC_DIR}/${PETSC_ARCH}/include -regex '.*\.h$$' | grep -v ftn-auto | gtags -q -f -
+
 .PHONY: check
 check: $(addprefix check_, ${TEST_LIST})
 
+.PHONY:myrm
 myrm: 
 	rm -f ${OBJ_DIR}/*.o
 	rm -f ${BIN_DIR}/*.out

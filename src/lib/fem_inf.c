@@ -116,12 +116,15 @@ PetscErrorCode FEMInfCreateFromOptions(FEMInf *inf, MPI_Comm comm) {
     BSS bss;
     ierr = BSSCreateFromOptions(&bss, comm);
     ierr = FEMInfCreateBSS(inf, bss);
+
   } else if(strcmp(type, "dvr") == 0) {
     DVR dvr;
     ierr = DVRCreateFromOptions(&dvr, comm); CHKERRQ(ierr);
     ierr = FEMInfCreateDVR(inf, dvr);
+
   } else if(strcmp(type, "") == 0){
     SETERRQ(comm, 1, "value of option -fem_type is empty. chose {fd, bss, dvr}.");
+
   } else {
     SETERRQ(comm, 1, "-fem_type <- {bss, dvr}");
   }
@@ -174,6 +177,18 @@ PetscErrorCode FEMInfSetSR1Mat(FEMInf this, Mat *M) {
     SETERRQ(this->comm, 1, "method is null");
 
   this->sc->SetSR1Mat(this->obj, M);
+  return 0;
+}
+PetscErrorCode FEMInfSEtSR1MatNullable(FEMInf self, Mat *M) {
+  PetscErrorCode ierr;
+  PetscBool s_is_id;
+  ierr = FEMInfGetOverlapIsId(self, &s_is_id); CHKERRQ(ierr);
+  if(s_is_id)
+    *M = NULL;
+  else {
+    ierr =FEMInfSetSR1Mat(self, M); CHKERRQ(ierr);
+  }
+
   return 0;
 }
 PetscErrorCode FEMInfSetD2R1Mat(FEMInf this, Mat *M) {

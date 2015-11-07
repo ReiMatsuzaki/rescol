@@ -34,6 +34,9 @@ PetscErrorCode POTCoulombCreate(POT *pot, PetscScalar q, PetscScalar a);
 // ---- Slater Potential ----
 PetscErrorCode POTSlaterCreate(POT *pot, PetscScalar v0, PetscScalar z);
 
+// ---- Create from options ----
+PetscErrorCode POTCreateFromOptions(POT *pot, MPI_Comm comm);
+
 #ifdef __cplusplus
 }
 #endif

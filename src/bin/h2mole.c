@@ -291,8 +291,6 @@ int main(int argc, char **args) {
   ierr = H2CreateFromOptions(&h2, comm); CHKERRQ(ierr);
   PetscOptionsEnd();
 
-
-
   OCE2View(h2->oce2);
   
   ierr = H2SetBasic(h2); CHKERRQ(ierr);

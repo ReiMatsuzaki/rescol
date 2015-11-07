@@ -137,3 +137,40 @@ PetscErrorCode POTSlaterCreate(POT *pot, PetscScalar v0, PetscScalar z) {
   (*pot)->View = POTSlaterView;
   return 0;
 }
+
+// ---- Create from options ----
+PetscErrorCode POTCreateFromOptions(POT *pot, MPI_Comm comm) {
+  
+  char type[10];
+  PetscErrorCode ierr;
+  PetscBool find;
+
+  ierr = PetscOptionsGetString(NULL, "-pot_type", type, 10, &find); CHKERRQ(ierr);
+
+  if(!find) 
+    SETERRQ(comm, 1, "options -pot_type is not found");
+  
+  if(strcmp(type, "harm") == 0) {
+    PetscReal a;
+    ierr = PetscOptionsGetReal(NULL, "-pot_a", &a, &find); CHKERRQ(ierr);
+    if(!find)
+      SETERRQ(comm, 1, "-pot_a is not found");
+    POTHarmCreate(pot, a);
+
+  } else if(strcmp(type, "slater")) {
+    PetscReal v0, z;
+    ierr = PetscOptionsGetReal(NULL, "-pot_v0", &v0, &find); CHKERRQ(ierr);
+    if(!find)
+      SETERRQ(comm, 1, "-pot_v0 is not found");
+    ierr = PetscOptionsGetReal(NULL, "-pot_z", &z, &find); CHKERRQ(ierr);
+    if(!find)
+      SETERRQ(comm, 1, "-pot_z is not found");
+    POTSlaterCreate(pot, v0, z);
+
+  } else {
+    char msg[100]; sprintf(msg, "unsupported pot_type: %s", type);
+    SETERRQ(comm, 1, msg);
+  }
+
+  return 0;
+}

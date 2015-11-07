@@ -182,11 +182,23 @@ PetscErrorCode EPSWriteToFile(EPS eps, char* path_detail, char* path_eigvals, ch
 
   return 0;
 }
-PetscErrorCode EPSCreateForBoundState(EPS *eps, MPI_Comm comm, Mat H, Mat S, PetscScalar target, EPSProblemType type) {
+PetscErrorCode EPSCreateForBoundState(EPS *eps, MPI_Comm comm, Mat H, Mat S, PetscScalar target) {
 
   EPSCreate(comm, eps);
   EPSSetOperators(*eps, H, S);
-  EPSSetProblemType(*eps, type);
+
+#if defined(PETSC_USE_COMPLEX)
+  if(S == NULL) 
+    EPSSetProblemType(*eps, EPS_NHEP);
+  else
+    EPSSetProblemType(*eps, EPS_GNHEP);
+#else
+  if(S == NULL) 
+    EPSSetProblemType(*eps, EPS_HEP);
+  else
+    EPSSetProblemType(*eps, EPS_GHEP);
+#endif
+
   EPSSetWhichEigenpairs(*eps, EPS_TARGET_MAGNITUDE);
   EPSSetTarget(*eps, target);
   EPSSetFromOptions(*eps);
