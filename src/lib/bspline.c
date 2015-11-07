@@ -213,11 +213,12 @@ PetscErrorCode BSSFPrintf(BSS this, FILE* file, int lvl) {
   PetscFPrintf(comm, file, "order: %d\n", this->order);
   PetscFPrintf(comm, file, "num_basis: %d\n", this->num_basis);
   BPSFPrintf(this->bps, file, lvl);
+  ScalerView(this->scaler);
   PetscFPrintf(comm, file, "===== End B-Spline =====\n");
   return 0;
 }
 PetscErrorCode BSSBasisPsi(BSS this, int i, PetscReal x, PetscReal *y) {
-
+  
   PetscReal z;
   CalcBSpline(this->order, 
 	      this->ts, 

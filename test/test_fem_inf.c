@@ -24,12 +24,16 @@ int test1() {
 }
 int testH_BSS() {
 
-  BPS bps; BPSCreate(&bps, PETSC_COMM_SELF); BPSSetExp(bps, 20.0, 21, 5.0);
-  BSS bss; BSSCreate(&bss, 5, bps, NULL, PETSC_COMM_SELF);
+  PetscErrorCode ierr;
+
+  BPS bps; BPSCreate(&bps, PETSC_COMM_SELF); BPSSetLine(bps, 100.0, 101);
+  Scaler scaler; ScalerCreateSharpECS(&scaler, PETSC_COMM_SELF, 70.0, 20.0);
+  BSS bss; BSSCreate(&bss, 5, bps, scaler, PETSC_COMM_SELF);
   FEMInf fem; FEMInfCreateBSS(&fem, bss);
 
   if(getenv("SHOW_DEBUG")) {
     printf("\n");
+    printf("SHOW_DEBUG = %s\n", getenv("SHOW_DEBUG"));
     FEMInfFPrintf(fem, stdout, 0);
     printf("\n");
   }
@@ -47,21 +51,62 @@ int testH_BSS() {
   EPS eps; 
   EPSCreate(PETSC_COMM_SELF, &eps);
   EPSSetOperators(eps, H, S);
-  EPSSetProblemType(eps, EPS_GHEP);
+  EPSSetProblemType(eps, EPS_GNHEP);
   EPSSetType(eps, EPSJD);
   EPSSetFromOptions(eps);
   EPSSetWhichEigenpairs(eps, EPS_TARGET_MAGNITUDE);
-  
+
+  Vec x0[1]; MatCreateVecs(H, &x0[0], NULL); 
+  int num; FEMInfGetSize(fem, &num);
+  for(int i = 0; i < num; i++) {
+    if(i < 400)
+      VecSetValue(x0[0], i, 0.5, INSERT_VALUES);
+  }
+  VecAssemblyBegin(x0[0]); VecAssemblyEnd(x0[0]);
+  EPSSetInitialSpace(eps, 1, x0);
   EPSSetTarget(eps, -0.6);
   EPSSolve(eps);
   
   int nconv;
   PetscScalar kr;
+  Vec cs;
   EPSGetConverged(eps, &nconv);
   ASSERT_TRUE(nconv > 0);
-  EPSGetEigenpair(eps, 0, &kr, NULL, NULL, NULL);
+  MatCreateVecs(H, &cs, NULL);
+  EPSGetEigenpair(eps, 0, &kr, NULL, cs, NULL);
   ASSERT_DOUBLE_NEAR(-0.5, kr, pow(10.0, -5.0));
 
+
+  if(getenv("SHOW_DEBUG"))
+    PrintTimeStamp(PETSC_COMM_SELF, ">>Write>>", NULL);
+  PetscInt num0 = 350;
+  PetscReal *xs; PetscMalloc1(num0, &xs);
+  for(int i = 0; i < num0; i++)
+    xs[i] = i*0.1;
+  FILE* fp; PetscFOpen(PETSC_COMM_SELF, "tmp/psi.dat", "w", &fp);
+  ierr = FEMInfWritePsi(fem, xs, num0, cs, fp); CHKERRQ(ierr);
+  
+  if(getenv("SHOW_DEBUG"))
+    PrintTimeStamp(PETSC_COMM_SELF, "<<Write<<", NULL);
+  return 0;
+}
+int testPOT_BSS() {
+  
+  MPI_Comm comm = PETSC_COMM_SELF;
+  BPS bps; BPSCreate(&bps, comm); BPSSetExp(bps, 20.0, 21, 5.0);
+  BSS bss; BSSCreate(&bss, 5, bps, NULL, comm);
+  FEMInf fem; FEMInfCreateBSS(&fem, bss);
+
+  POT r2inv; POTPowerCreate(&r2inv, 1.0, -2.0);
+  Mat A; FEMInfSetPOTR1Mat(fem, r2inv, &A);
+  Mat B; FEMInfSetR2invR1Mat(fem, &B);
+
+  MatAXPY(A, -1.0, B, DIFFERENT_NONZERO_PATTERN);
+
+  PetscReal norm;
+  MatNorm(A, NORM_1, &norm);
+  ASSERT_DOUBLE_NEAR(norm, 0.0, 0.00000001);
+  
   return 0;
 }
 int testH_DVR() {
@@ -107,8 +152,10 @@ int main(int argc, char **args) {
   SlepcInitialize(&argc, &args, (char*)0, help);
   test1();
   testH_BSS();
+  testPOT_BSS();
   testH_DVR();
   SlepcFinalize();
   return 0;
+
 }
 

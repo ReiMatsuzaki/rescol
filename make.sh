@@ -1,5 +1,5 @@
 #!/bin/bash
-source ${RESCOL_DIR}/common/variable.mk
+source ${RESCOL_DIR}/common/variable.sh
 build_dir=${RESCOL_DIR}/build/${PETSC_ARCH}
 
 if [ ! -e $build_dir ]; then

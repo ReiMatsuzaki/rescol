@@ -523,9 +523,12 @@ int testBSplinePot2() {
 int testSlaterPotWithECS() {
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 100.0, 201);
-  Scaler scaler; ScalerCreateSharpECS(&scaler, comm, 70.0, 25.0);
+  Scaler scaler; ScalerCreateSharpECS(&scaler, comm, 80.0, 30.0*M_PI/18.0);
   int order = 5;
   BSS bss; BSSCreate(&bss, order, bps, scaler, comm);
+
+  if(getenv("SHOW_DEBUG"))
+    BSSFPrintf(bss, stdout, 0);
 
   Mat H, V, S;
   BSSSetD2R1Mat(bss, &H); MatScale(H, -0.5);

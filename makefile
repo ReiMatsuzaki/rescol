@@ -1,11 +1,7 @@
 include ${SLEPC_DIR}/lib/slepc/conf/slepc_common
-include ${RESCOL_DIR}/common/variable.mk
+# include ${RESCOL_DIR}/common/variable.mk
 RESCOL_DIR ?= $(realpath .)
 
-#SRC_DIR=${RESCOL_DIR}/src
-#LIB_SRC_DIR=${SRC_DIR}/lib
-#OBJ_DIR=${RESCOL_DIR}/obj/${PETSC_ARCH}
-#BIN_DIR=${RESCOL_DIR}/bin/${PETSC_ARCH}
 INC_DIR=${RESCOL_DIR}/include
 
 VPATH = ${RESCOL_DIR}/src/lib \
@@ -30,10 +26,10 @@ ${TEST_BIN_DIR}:
 
 %.o: %.c ${OBJ_DIR}
 	@echo [compile] $(notdir $<)
-	@${PCC} -c ${PCC_FLAGS} ${CFLAGS} ${CCPPFLAGS} ${CPPFLAGS} -o $@ $< 
+	${PCC} -c ${PCC_FLAGS} ${CFLAGS} ${CCPPFLAGS} ${CPPFLAGS} -o $@ $< 
 %.o : %.cpp ${OBJ_DIR}
 	@echo [compile] $(notdir $<)
-	@${CXX} -c ${PCC_FLAGS}  ${CXXFLAGS} ${CCPPFLAGS} ${CPPFLAGS} -o $@ $< 
+	${CXX} -c ${PCC_FLAGS}  ${CXXFLAGS} ${CCPPFLAGS} ${CPPFLAGS} -o $@ $< 
 %.d: %.c
 	${PCC} -M ${CPPFLAGS} ${CCPPFLAGS}$< > $@.$$$$;                  \
 	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \

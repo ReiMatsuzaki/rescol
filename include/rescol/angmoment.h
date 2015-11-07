@@ -27,7 +27,6 @@ PetscReal Y1RedYq(int j1, int j2, int j3);
 PetscReal Y1EleYqk(int j1, int j2, int j3, int m1, int m2, int m3);
 PetscReal Y1ElePq(int j1, int q, int j2, int m1, int m2);
 
-
 // ---- Y1s ----
 struct _p_Y1s {
   int num;

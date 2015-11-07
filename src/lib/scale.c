@@ -59,13 +59,13 @@ PetscErrorCode ScalerUniformView(ScalerUniform self) {
 PetscErrorCode ScalerUniformSetRr(ScalerUniform self, PetscReal xs[], int n, PetscScalar ys[]) {
 
   for(int i = 0; i < n; i++)
-    ys[i] = xs[i] * cos(-self->theta) + xs[i] * sin(-self->theta) * PETSC_i;
+    ys[i] = xs[i] * cos(self->theta) + xs[i] * sin(self->theta) * PETSC_i;
   return 0;
 }
 PetscErrorCode ScalerUniformSetQr(ScalerUniform self, PetscReal xs[], int n, PetscScalar ys[]) {
 
   for(int i = 0; i < n; i++)
-    ys[i] = cos(-self->theta) + sin(-self->theta) * PETSC_i;
+    ys[i] = cos(self->theta) + sin(self->theta) * PETSC_i;
   return 0;
 
 }
@@ -89,7 +89,8 @@ PetscErrorCode ScalerSharpECSDestroy(ScalerSharpECS *scaler) {
 }
 PetscErrorCode ScalerSharpECSView(ScalerSharpECS self) {
   PetscPrintf(self->comm, ">>>> ScalerSharpECS >>>>\n");
-  PetscPrintf(self->comm, "theta: %f\n", self->theta);
+  PetscPrintf(self->comm, "r0        : %f\n", self->r0);
+  PetscPrintf(self->comm, "theta(rad): %f\n", self->theta);
   PetscPrintf(self->comm, "<<<< ScalerSharpECS <<<<\n");
   return 0;
 }
@@ -103,7 +104,7 @@ PetscErrorCode ScalerSharpECSSetRr(ScalerSharpECS self, PetscReal xs[], int n, P
     if(x < r0)
       ys[i] = x;
     else
-      ys[i] = r0 + (x-r0) * cos(-t) + (x-r0) * sin(-t) * PETSC_i;
+      ys[i] = r0 + (x-r0) * cos(t) + (x-r0) * sin(t) * PETSC_i;
   }
   return 0;
 }
@@ -116,7 +117,7 @@ PetscErrorCode ScalerSharpECSSetQr(ScalerSharpECS self, PetscReal xs[], int n, P
     if(x < r0)
       ys[i] = 1.0;
     else
-      ys[i] = cos(-t) + sin(-t) * PETSC_i;
+      ys[i] = cos(t) + sin(t) * PETSC_i;
   }
   return 0;
 
@@ -210,7 +211,7 @@ PetscErrorCode ScalerCreateFromOptions(Scaler *scaler, MPI_Comm comm) {
   } else if(strcmp(type, "uni") == 0) {
     ScalerCreateUniform(scaler, comm, theta*M_PI/180.0);
   } else if(strcmp(type, "secs") == 0) {
-    ScalerCreateSharpECS(scaler, comm, r0, theta);
+    ScalerCreateSharpECS(scaler, comm, r0, theta*M_PI/180.0);
   } else
     SETERRQ(comm, 1, "scaler_type<-{none, uni, secs}");
   
