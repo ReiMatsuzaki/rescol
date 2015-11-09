@@ -76,29 +76,33 @@ int testCalcBSpline() {
   int order = 3;
   
   // overlaped knot points list
-  double ts[10] = {0.0, 0.0, 0.0, 
+  double ts_r[10] = {0.0, 0.0, 0.0, 
 		   1.0, 2.0, 3.0, 4.0,
 		   5.0, 5.0, 5.0};
+  PetscScalar ts_s[10];
+  for(int i = 0; i < 10; i++)
+    ts_s[i] = ts_r[i];
   
   // non overlaped points list
   //double zs[6] = {0.0, 1.0, 2.0, 3.0, 4.0, 5.0}; 
 
-  double y = 777.0;
-  CalcBSpline(order, ts, 0, 0.0, &y); ASSERT_DOUBLE_EQ(1.0, y);
-  CalcBSpline(order, ts, 0, 1.0, &y); ASSERT_DOUBLE_EQ(0.0, y);
-  CalcBSpline(order, ts, 6, 4.0, &y); ASSERT_DOUBLE_EQ(0.0, y);
+  double y = 777.0; double y2 = 666.0;
+  CalcBSpline(order, ts_r, ts_s, 0, 0.0, &y); ASSERT_DOUBLE_EQ(1.0, y);
+  CalcBSpline(order, ts_r, ts_s, 0, 1.0, &y); ASSERT_DOUBLE_EQ(0.0, y);
+  CalcBSpline(order, ts_r, ts_s, 6, 4.0, &y); ASSERT_DOUBLE_EQ(0.0, y);
+  CalcBSplineOld(order, ts_r, 6, 4.0, &y2); ASSERT_DOUBLE_EQ(y, y2);
   
   double x = 0.34;
-  CalcBSpline(order, ts, 2, x, &y); ASSERT_DOUBLE_EQ(0.5*x*x, y);
-  CalcDerivBSpline(order, ts, 2, x, &y); ASSERT_DOUBLE_EQ(x, y);
+  CalcBSpline(order, ts_r, ts_s, 2, x, &y); ASSERT_DOUBLE_EQ(0.5*x*x, y);
+  CalcDerivBSpline(order, ts_r, 2, x, &y); ASSERT_DOUBLE_EQ(x, y);
 
   x = 2.44;
-  CalcBSpline(order, ts, 2, x, &y); ASSERT_DOUBLE_EQ(0.5*x*x-3*x+4.5, y);
-  CalcDerivBSpline(order, ts, 2, x, &y);  ASSERT_DOUBLE_EQ(x-3.0, y);
+  CalcBSpline(order, ts_r, ts_s, 2, x, &y); ASSERT_DOUBLE_EQ(0.5*x*x-3*x+4.5, y);
+  CalcDerivBSpline(order, ts_r, 2, x, &y);  ASSERT_DOUBLE_EQ(x-3.0, y);
 
   x = 3.44;
-  CalcBSpline(order, ts, 2, x, &y); ASSERT_DOUBLE_EQ(0.0, y);
-  CalcDerivBSpline(order, ts, 2, x, &y); ASSERT_DOUBLE_EQ(0.0, y);
+  CalcBSpline(order, ts_r, ts_s, 2, x, &y); ASSERT_DOUBLE_EQ(0.0, y);
+  CalcDerivBSpline(order, ts_r, 2, x, &y); ASSERT_DOUBLE_EQ(0.0, y);
 
   return 0;
 }
@@ -167,19 +171,19 @@ int testBSplineSetBasic() {
   PetscReal *zs; BPSGetZs(bps, &zs, NULL);
   for(int i = 0; i < 6; i++)
     ASSERT_DOUBLE_EQ(1.0*i, zs[i]);
-  ASSERT_DOUBLE_EQ(0.0, bss->ts[0]);
-  ASSERT_DOUBLE_EQ(0.0, bss->ts[1]);
-  ASSERT_DOUBLE_EQ(0.0, bss->ts[2]);
-  ASSERT_DOUBLE_EQ(1.0, bss->ts[3]);
-  ASSERT_DOUBLE_EQ(2.0, bss->ts[4]);
-  ASSERT_DOUBLE_EQ(3.0, bss->ts[5]);
-  ASSERT_DOUBLE_EQ(4.0, bss->ts[6]);
-  ASSERT_DOUBLE_EQ(5.0, bss->ts[7]);
-  ASSERT_DOUBLE_EQ(5.0, bss->ts[8]);
-  ASSERT_DOUBLE_EQ(5.0, bss->ts[9]);
+  ASSERT_DOUBLE_EQ(0.0, bss->ts_r[0]);
+  ASSERT_DOUBLE_EQ(0.0, bss->ts_r[1]);
+  ASSERT_DOUBLE_EQ(0.0, bss->ts_r[2]);
+  ASSERT_DOUBLE_EQ(1.0, bss->ts_r[3]);
+  ASSERT_DOUBLE_EQ(2.0, bss->ts_r[4]);
+  ASSERT_DOUBLE_EQ(3.0, bss->ts_r[5]);
+  ASSERT_DOUBLE_EQ(4.0, bss->ts_r[6]);
+  ASSERT_DOUBLE_EQ(5.0, bss->ts_r[7]);
+  ASSERT_DOUBLE_EQ(5.0, bss->ts_r[8]);
+  ASSERT_DOUBLE_EQ(5.0, bss->ts_r[9]);
 
   double x = 0.34;
-  PetscScalar y1; BSSBasisPsi(bss, 2-1, x, &y1);
+  PetscReal y1; BSSBasisPsi(bss, 2-1, x, &y1);
   ASSERT_DOUBLE_EQ(0.5*x*x, PetscRealPart(y1));
 
   ASSERT_DOUBLE_NEAR(0.11270167, bss->xs[0], pow(10.0, -8.0));

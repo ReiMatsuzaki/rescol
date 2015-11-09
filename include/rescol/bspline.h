@@ -21,24 +21,25 @@ struct _p_BSS {
   //  PetscReal rmax;
   int* b_idx_list; // basis index list;
   
-  PetscReal* ts_real; // overlapped knots points in real axix
-  PetscScalar* ts; // overlapped knots points 
+  PetscReal* ts_r; // overlapped knots points
+  PetscScalar* ts_s; // overlapped knots points
   PetscReal* xs; // quadrature points
   PetscReal* ws; // weight
-  PetscScalar* vals; // bspline values on quadrature points
-  PetscScalar* derivs; // derivative values
+  PetscReal* vals; // bspline values on quadrature points
+  PetscReal* derivs; // derivative values
   PetscScalar *qrs; // coordinate transform
   PetscScalar *Rrs; // integral of qrs
 };
+
 typedef struct _p_BSS* BSS;
 
 // ----- external functions -----
 int NumBSpline(int order, int num_ele);
 int HasNon0Value(int order, int i, int j);
-PetscErrorCode CalcBSpline(int order, PetscReal* ts, int i, 
-			   PetscReal x, PetscReal* y);
-PetscErrorCode CalcDerivBSpline(int order, PetscReal* ts, int i, 
-				PetscReal x, PetscReal* y);
+PetscErrorCode CalcBSpline(int order, PetscReal* ts_r, PetscScalar* ts_s, int i, double x, double* y);
+PetscErrorCode CalcDerivBSpline(int order, double* ts, int i, double x, double* y);
+PetscErrorCode CalcBSplineOld(int order, double* ts_r,  int i, double x, double* y);
+PetscErrorCode CalcDerivBSpline2(int order, double* ts, int i, double x, double* y);
 PetscErrorCode Non0QuadIndex(int a, int c, int k, int nq, int* i0, int* i1);
 
 // ---- Basic Methods ----
@@ -47,8 +48,8 @@ PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, Scaler scaler,
 PetscErrorCode BSSCreateFromOptions(BSS *bss, MPI_Comm comm);
 PetscErrorCode BSSDestroy(BSS *bss);
 PetscErrorCode BSSFPrintf(BSS self, FILE* file, int lvl);
-PetscErrorCode BSSBasisPsi(BSS self, int i, PetscReal x, PetscScalar *y);
-PetscErrorCode BSSDerivBasisPsi(BSS self, int i, PetscReal x, PetscScalar *y);
+PetscErrorCode BSSBasisPsi(BSS self, int i, PetscReal x, PetscReal *y);
+PetscErrorCode BSSDerivBasisPsi(BSS self, int i, PetscReal x, PetscReal *y);
 
 // ---- Accessor ----
 PetscErrorCode BSSGetSize(BSS self, int *n);

@@ -1,14 +1,47 @@
 #include <rescol/bspline.h>
 
-// ---- External functions -- --
+// ---- External functions ----
 int NumBSpline(int order, int num_ele) {
   return num_ele + 2*(order-1) - 2 - (order-1);
 }
 int HasNon0Value(int order, int i, int j) {
   return abs(i-j) < order;
 }
-PetscErrorCode CalcBSpline(int order, PetscReal* ts, int i, 
-			   PetscReal x, PetscReal* y)  {
+PetscErrorCode CalcBSpline(int k, double* ts_r, PetscScalar* ts, int i, double x, double* y) {
+
+  if(k < 1) {
+    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_ARG_OUTOFRANGE, 
+	    "order must be positive integer\n");
+  }
+
+  if(x < ts_r[i] || ts_r[i+k] < x) {
+    *y = 0.0; 
+    return 0;
+  }
+
+  if(k == 1) {
+    if(ts_r[i] <= x && x < ts_r[i+1])
+      *y = 1.0;
+    else
+      *y = 0.0;
+  } else {
+    double ti    = ts[i];
+    double ti1   = ts[i+1];
+    double tidm1 = ts[i+k-1];
+    double tid   = ts[i+k];
+    double bs0; CalcBSpline(k-1, ts_r, ts, i, x, &bs0);
+    double bs1; CalcBSpline(k-1, ts_r, ts, i+1, x, &bs1);
+    
+    double acc = 0.0;
+    if(fabs(bs0) > 0.000000001)
+      acc += (x - ti) / (tidm1 - ti) * bs0;
+    if(fabs(bs1) > 0.000000001)
+      acc += (tid - x) / (tid - ti1) * bs1;
+    *y = acc;
+  }
+  return 0;
+}
+PetscErrorCode CalcBSplineOld(int order, double* ts, int i, double x, double* y) {
 
   if(order < 1) {
     SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_ARG_OUTOFRANGE, 
@@ -30,8 +63,8 @@ PetscErrorCode CalcBSpline(int order, PetscReal* ts, int i,
     double ti1   = ts[i+1];
     double tidm1 = ts[i+order-1];
     double tid   = ts[i+order];
-    double bs0; CalcBSpline(order-1, ts, i, x, &bs0);
-    double bs1; CalcBSpline(order-1, ts, i+1, x, &bs1);
+    double bs0; CalcBSplineOld(order-1, ts, i, x, &bs0);
+    double bs1; CalcBSplineOld(order-1, ts, i+1, x, &bs1);
     
     double acc = 0.0;
     if(fabs(bs0) > 0.000000001)
@@ -42,8 +75,7 @@ PetscErrorCode CalcBSpline(int order, PetscReal* ts, int i,
   }
   return 0;
 }
-PetscErrorCode CalcDerivBSpline(int order, PetscReal *ts, int i,
-				PetscReal x, PetscReal *y) {
+PetscErrorCode CalcDerivBSpline(int order, double* ts, int i, double x, double* y) {
   
   if(order < 1) {
     SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_ARG_OUTOFRANGE, 
@@ -56,78 +88,14 @@ PetscErrorCode CalcDerivBSpline(int order, PetscReal *ts, int i,
 
     int k = order;
     double bs0;
-    CalcBSpline(k-1, ts, i, x, &bs0);
+    CalcBSplineOld(k-1, ts, i, x, &bs0);
     double bs1;
-    CalcBSpline(k-1, ts, i+1, x, &bs1);
+    CalcBSplineOld(k-1, ts, i+1, x, &bs1);
     double eps = 0.000000001;
     double acc = 0.0;
     if(fabs(bs0) > eps)
       acc += (k-1)/(ts[i+k-1]-ts[i]) * bs0;
     if(fabs(bs1) > eps)
-      acc -= (k-1)/(ts[i+k]-ts[i+1]) * bs1;
-    *y = acc;
-  }
-  return 0;
-}
-typedef struct {
-  PetscScalar *ts;
-  PetscReal *ts_r;
-  int num;
-} Knots;
-PetscErrorCode BSplineScaled(Knots knots, int k, int i, 
-			     PetscReal x, PetscScalar *y) {
-  if(k < 1) 
-    SETERRQ(PETSC_COMM_SELF, 1,
-	    "order must be positive integer\n");
-
-  PetscScalar *ts = knots.ts;
-  PetscReal *ts_r = knots.ts_r;
-
-  if(x < ts_r[i] || ts_r[i+k] < x) {
-    *y = 0.0; 
-    return 0;
-  }
-
-  if(k == 1) {
-    if(ts_r[i] <= x && x < ts_r[i+1])
-      *y = 1.0;
-    else
-      *y = 0.0;
-  } else {
-    PetscScalar bs0; BSplineScaled(knots, k-1, i,   x, &bs0);
-    PetscScalar bs1; BSplineScaled(knots, k-1, i+1, x, &bs1);
-
-    double cumsum = 0.0;
-    if(ScalarAbs(bs0) > 0.000000001)
-      cumsum += (x-ts[i]) / (ts[i+k-1]-ts[i]) * bs0;
-    if(ScalarAbs(bs1) > 0.000000001)
-      cumsum += (ts[i+k]-x) / (ts[i+k]-ts[i+1]) * bs1;
-
-    *y = cumsum;
-  }
-  return 0;
-}
-PetscErrorCode DBSplineScaled(Knots knots, int k, int i, 
-			      PetscReal x, PetscScalar* y) {
-  
-  if(k < 1) {
-    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_ARG_OUTOFRANGE, 
-	    "order must be positive integer\n");
-  }
-
-  PetscScalar *ts = knots.ts;
-
-  if(k == 1) 
-    *y = 0.0;
-  else {
-
-    PetscScalar bs0; BSplineScaled(knots, k-1, i,   x, &bs0);
-    PetscScalar bs1; BSplineScaled(knots, k-1, i+1, x, &bs1);
-    double eps = 0.000000001;
-    double acc = 0.0;
-    if(ScalarAbs(bs0) > eps)
-      acc += (k-1)/(ts[i+k-1]-ts[i]) * bs0;
-    if(ScalarAbs(bs1) > eps)
       acc -= (k-1)/(ts[i+k]-ts[i+1]) * bs1;
     *y = acc;
   }
@@ -183,22 +151,21 @@ PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, Scaler scaler,
 
   BPSGetNumEle(bps, &_bss->num_ele);
   _bss->num_basis = NumBSpline(order, num_zs-1);
+  //  BPSGetZMax(bps, &_bss->rmax);
 
   // copy ts and zs
-  int num_t = num_zs+2*order-2;
-  PetscMalloc1(num_t, &_bss->ts);
-  PetscMalloc1(num_t, &_bss->ts_real);
+  PetscMalloc1(num_zs+2*order-2, &_bss->ts_r);
+  PetscMalloc1(num_zs+2*order-2, &_bss->ts_s);
 
   for(i = 0; i < order-1; i++) {
-    _bss->ts_real[i] = zs[0];
-    _bss->ts_real[order-1+num_zs+i] = zs[num_zs-1];
+    _bss->ts_r[i] = zs[0];
+    _bss->ts_r[order-1+num_zs+i] = zs[num_zs-1];
   }
   for(i = 0; i < num_zs; i++) 
-    _bss->ts_real[i+order-1] = zs[i];
+    _bss->ts_r[i+order-1] = zs[i];
 
-  ScalerSetRr(_bss->scaler, _bss->ts_real, num_t, _bss->ts);
-  Knots knots; 
-  knots.ts = _bss->ts; knots.ts_r = _bss->ts_real; knots.num = num_t;
+  for(int i = 0; i < num_zs+2*order-2; i++)
+    _bss->ts_s[i] = _bss->ts_r[i];
 
   // calculate appreciate quadrature points
   int n_xs = _bss->num_ele * _bss->order;
@@ -207,7 +174,7 @@ PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, Scaler scaler,
   PetscMalloc1(n_xs, &_bss->ws);
   PetscMalloc1(n_xs, &_bss->qrs);
   PetscMalloc1(n_xs, &_bss->Rrs);
-  int num = n_xs*_bss->num_basis;
+  int num = sizeof(PetscScalar)*(n_xs)*(_bss->num_basis);
   PetscMalloc1(num, &_bss->vals);
   PetscMalloc1(num, &_bss->derivs);
 
@@ -226,12 +193,8 @@ PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, Scaler scaler,
       for(ib = 0; ib < _bss->num_basis; ib++) {
 	PetscReal y;
 	PetscReal dy;
-	CalcBSpline(     order, _bss->ts_real, _bss->b_idx_list[ib], x, &y);
-	CalcDerivBSpline(order, _bss->ts_real, _bss->b_idx_list[ib], x, &dy);
-	// PetscScalar y;
-	// PetscScalar dy;
-	// BSplineScaled(knots, order, _bss->b_idx_list[ib], x, &y);
-	// DBSplineScaled(knots, order, _bss->b_idx_list[ib], x, &dy);
+	CalcBSpline(order, _bss->ts_r, _bss->ts_s, _bss->b_idx_list[ib], x, &y);
+	CalcDerivBSpline(order, _bss->ts_r,  _bss->b_idx_list[ib], x, &dy);
 	int iy = ib*(_bss->num_ele*order) + ie*order + iq;
 	_bss->vals[iy] = y;  
 	_bss->derivs[iy] = dy;
@@ -267,14 +230,12 @@ PetscErrorCode BSSDestroy(BSS *bss) {
   ierr = BPSDestroy(&this->bps); CHKERRQ(ierr);
   ierr = ScalerDestroy(&this->scaler); CHKERRQ(ierr);
   ierr = PetscFree(this->b_idx_list); CHKERRQ(ierr);
-  ierr = PetscFree(this->ts_real);  CHKERRQ(ierr);
-  ierr = PetscFree(this->ts);  CHKERRQ(ierr);
+  ierr = PetscFree(this->ts_s);  CHKERRQ(ierr);
+  ierr = PetscFree(this->ts_r);  CHKERRQ(ierr);  
   ierr = PetscFree(this->xs); CHKERRQ(ierr);
   ierr = PetscFree(this->ws); CHKERRQ(ierr);
   ierr = PetscFree(this->vals); CHKERRQ(ierr);
   ierr = PetscFree(this->derivs); CHKERRQ(ierr);
-  ierr = PetscFree(this->qrs); CHKERRQ(ierr);
-  ierr = PetscFree(this->Rrs); CHKERRQ(ierr);
   ierr = PetscFree(*bss); CHKERRQ(ierr);
   return 0;
 }
@@ -295,44 +256,28 @@ PetscErrorCode BSSFPrintf(BSS this, FILE* file, int lvl) {
   PetscFPrintf(comm, file, "===== End B-Spline =====\n");
   return 0;
 }
-PetscErrorCode BSSBasisPsi(BSS this, int i, PetscReal x, PetscScalar *y) {
-  Knots knots;
-  knots.ts = this->ts;
-  knots.ts_r = this->ts_real;
-  knots.num = -11;
-  BSplineScaled(knots, this->order, i, x, y);
-  return 0;
-/*
+PetscErrorCode BSSBasisPsi(BSS this, int i, PetscReal x, PetscReal *y) {
+  
   PetscReal z;
   CalcBSpline(this->order, 
-	      this->ts, 
+	      this->ts_r, 
+	      this->ts_s, 
 	      this->b_idx_list[i], 
 	      x, 
 	      &z);
   *y = z;
   return 0;
-*/
 }
-PetscErrorCode BSSDerivBasisPsi(BSS this, int i, PetscReal x, PetscScalar *y) {
-
-  Knots knots;
-  knots.ts = this->ts;
-  knots.ts_r = this->ts_real;
-  knots.num = -11;
-  DBSplineScaled(knots, this->order, i, x, y);
-  return 0;
-
-  /*
+PetscErrorCode BSSDerivBasisPsi(BSS this, int i, PetscReal x, PetscReal *y) {
+  PetscReal z;
   CalcDerivBSpline(this->order, 
-		   this->ts, 
+		   this->ts_r, 
 		   this->b_idx_list[i], 
 		   x, 
 		   &z);
   *y = z;
-  */
   return 0;
 }
-
 
 // ---- Accessor ----
 PetscErrorCode BSSGetSize(BSS this, int *n) {
