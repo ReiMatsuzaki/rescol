@@ -87,7 +87,7 @@ PetscErrorCode FEMInfCreateDVR(FEMInf *inf, DVR this) {
     DVR_Sc.SetENR1Mat = DVRSetENR1Mat;
     DVR_Sc.SetPotR1Mat = NULL;
     DVR_Sc.SetEER2Mat = DVRSetEER2Mat;        
-    DVR_Sc.BasisPsi = DVRBasisPsi;
+    DVR_Sc.BasisPsi = NULL;
     DVR_Sc.GetSize = DVRGetSize;
     DVR_Sc.GuessHEig = NULL;
     DVR_Sc.overlap_is_id = PETSC_TRUE;
@@ -242,6 +242,26 @@ PetscErrorCode FEMInfBasisPsi(FEMInf this, int i, PetscScalar x, PetscScalar *y)
   this->sc->BasisPsi(this->obj, i, x, y);
   return 0;
 }
+PetscErrorCode FEMInfPsi(FEMInf self, PetscReal x, Vec c, PetscScalar *y) {
+  PetscErrorCode ierr;
+  int num_b; ierr = FEMInfGetSize(self, &num_b);
+
+  Vec us; VecCreate(self->comm, &us); VecSetSizes(us, PETSC_DECIDE, num_b);
+  VecSetFromOptions(us);
+  for(int i = 0; i < num_b; i++) {
+    PetscScalar y0;
+    ierr = FEMInfBasisPsi(self, i, x, &y0);
+    VecSetValue(us, i, y0, INSERT_VALUES);
+  }
+  VecAssemblyBegin(us); VecAssemblyEnd(us);
+
+  PetscScalar yy;
+  VecTDot(us, c, &yy);
+  *y = yy;
+
+  return 0;
+}
+/*
 PetscErrorCode FEMInfWritePsi(FEMInf self, PetscReal *xs, int num_x, 
 			      Vec cs, FILE *file) {
 
@@ -278,7 +298,7 @@ PetscErrorCode FEMInfWritePsi(FEMInf self, PetscReal *xs, int num_x,
   }
   return 0;
 }
-
+*/
 PetscErrorCode FEMInfGuessHEig(FEMInf this, int n, int l, PetscScalar z, Vec *v) {
 
   if(this->sc->GuessHEig == NULL)

@@ -77,17 +77,31 @@ PetscErrorCode Y1sSet(Y1s y1s, int m, int g_or_u, int lmax) {
 
   return 0;
 }
+PetscErrorCode Y1sSetOne(Y1s y1s, int M, int L) {
+
+  PetscErrorCode ierr;
+  if(M < 0)
+    SETERRQ(y1s->comm, 1, "M must be 0 or positive");
+
+  if(M > L)
+    SETERRQ(y1s->comm, 1, "M must smaller or equal to L");
+
+  y1s->num = 1;
+  ierr = PetscMalloc1(1, &y1s->ls); CHKERRQ(ierr);
+  y1s->ls[0] = L;
+  y1s->m = M;
+
+  return 0;
+}
 PetscErrorCode Y1sCreateFromOptions(Y1s *y1s, MPI_Comm comm) {
 
   char rot[10] = "sigma";
-  char parity[10] = "gerade";
   int lmax = 2;
   PetscErrorCode ierr;
-  ierr = PetscOptionsGetString(NULL, "-y1s_rot", rot, 10, NULL); CHKERRQ(ierr);
-  ierr = PetscOptionsGetString(NULL, "-y1s_parity", parity, 10, NULL); 
-  CHKERRQ(ierr);
-  ierr = PetscOptionsGetInt(NULL, "-y1s_lmax", &lmax, NULL); CHKERRQ(ierr);
-  
+  PetscBool find;
+  PetscOptionsGetString(NULL, "-y1s_rot", rot, 10, NULL);
+  PetscOptionsGetInt(NULL, "-y1s_lmax", &lmax, &find); 
+
   int m = SIGMA;
   if(strcmp(rot, "sigma") == 0)
     m = SIGMA;
@@ -100,24 +114,43 @@ PetscErrorCode Y1sCreateFromOptions(Y1s *y1s, MPI_Comm comm) {
   else
     SETERRQ(comm, 1, "options -rot <- {sigma, pi, delta, phi}");
 
-  int g_or_u = GERADE;
-  if(strcmp(parity, "gerade") == 0)
-    g_or_u = GERADE;
-  else if(strcmp(parity, "ungerade") == 0)
-    g_or_u = UNGERADE;
-  else
-    SETERRQ(comm, 1, "options -parity <- {gerade, ungerade}");
 
-  if(lmax < 0)
-    SETERRQ(comm, 1, "options lmax must non negative integer");
+  if(find) {
+    
+    char parity[10] = "gerade";
+    int g_or_u = GERADE;
 
-  ierr = Y1sCreate(y1s, comm); CHKERRQ(ierr);
-  ierr = Y1sSet(*y1s, m, g_or_u, lmax); CHKERRQ(ierr);
+    PetscOptionsGetString(NULL, "-y1s_parity", parity, 10, NULL); 
+    
+    if(strcmp(parity, "gerade") == 0)
+      g_or_u = GERADE;
+    else if(strcmp(parity, "ungerade") == 0)
+      g_or_u = UNGERADE;
+    else
+      SETERRQ(comm, 1, "options -parity <- {gerade, ungerade}");
+    
+    if(lmax < 0)
+      SETERRQ(comm, 1, "options lmax must non negative integer");
+    
+    ierr = Y1sCreate(y1s, comm); CHKERRQ(ierr);
+    ierr = Y1sSet(*y1s, m, g_or_u, lmax); CHKERRQ(ierr);
+
+  } else {
+
+    int L; 
+    PetscOptionsGetInt(NULL, "-y1s_L", &L, &find);
+    if(!find)
+      SETERRQ(comm, 1, "-y1s_lmax or -y1s_L is necessary");
+    
+    ierr = Y1sCreate(y1s, comm); CHKERRQ(ierr);
+    ierr = Y1sSetOne(*y1s, m, L); CHKERRQ(ierr);
+  }
   
   return 0;
 }
 PetscErrorCode Y1sView(Y1s ys1) {
 
+  PetscPrintf(ys1->comm, ">>>> Y1s >>>>\n", ys1->num);
   PetscPrintf(ys1->comm, "num: %d\n", ys1->num);
   PetscPrintf(ys1->comm, "m: %d\n", ys1->m);
   PetscPrintf(ys1->comm, "ls: ");
@@ -125,6 +158,7 @@ PetscErrorCode Y1sView(Y1s ys1) {
     PetscPrintf(ys1->comm, "%d ", ys1->ls[i]);
   }
   PetscPrintf(ys1->comm, "\n");
+  PetscPrintf(ys1->comm, "<<<< Y1s <<<<\n", ys1->num);
   return 0;
 
 }

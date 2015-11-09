@@ -1,4 +1,4 @@
-#include "oce1.h"
+#include <rescol/oce1.h>
 
 static char help[] = "solve H2^+ problem";
 /*
@@ -23,14 +23,14 @@ int main(int argc, char **args) {
   PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
   OCE1 oce1;
-  char guess_type[10] = "none";
+  //  char guess_type[10] = "none";
   double bond_length = 2.0;
 
   // Initialize
   ierr = SlepcInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);
   PrintTimeStamp(comm, "Init", NULL);
   PetscOptionsBegin(PETSC_COMM_SELF, "", "h2plus.c options", "none");
-  PetscOptionsGetString(NULL, "-guess_type", guess_type, 10, NULL);
+  //  PetscOptionsGetString(NULL, "-guess_type", guess_type, 10, NULL);
   PetscOptionsGetReal(NULL, "-bond_length", &bond_length, NULL);
   ierr = OCE1CreateFromOptions(&oce1, comm); CHKERRQ(ierr);
   PetscOptionsEnd();  
@@ -39,31 +39,16 @@ int main(int argc, char **args) {
   PetscBool s_is_id; FEMInfGetOverlapIsId(oce1->fem, &s_is_id);
 
   // Matrix
-  Mat H;
+  Mat H, S;
   PrintTimeStamp(comm, "Mat", NULL);
   ierr = OCE1SetTMat(oce1, &H); CHKERRQ(ierr);
-  ierr = OCE1PlusVneMat(oce1, bond_length/2.0, 1.0, &H);
-  
-  // Overlap
-  Mat S;
-  if(s_is_id)
-    S = NULL;
-  else {
-    ierr = OCE1SetSMat(oce1, &S); CHKERRQ(ierr);
-  }
+  ierr = OCE1PlusVneMat(oce1, bond_length/2.0, 1.0, &H); CHKERRQ(ierr);
+  ierr = OCE1SetSMatNullable(oce1, &S); CHKERRQ(ierr);
 
   // Solve
-  PrintTimeStamp(comm, "EPS", NULL);
   EPS eps; 
-  EPSCreate(comm, &eps);
-  EPSSetOperators(eps, H, S);
-  if(s_is_id)
-    EPSSetProblemType(eps, EPS_HEP);
-  else
-    EPSSetProblemType(eps, EPS_GHEP);
-  EPSSetTarget(eps, -4.0);
-  EPSSetFromOptions(eps);
-  EPSSetWhichEigenpairs(eps, EPS_TARGET_MAGNITUDE);
+  PrintTimeStamp(comm, "EPS", NULL);
+  EPSCreateForBoundState(&eps, comm, H, S, -1.2);
   EPSSolve(eps);  
   
   // Output

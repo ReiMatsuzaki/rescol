@@ -10,6 +10,7 @@ PetscErrorCode OCE1Create(OCE1 *oce1, MPI_Comm comm) {
   *oce1 = NULL;
 
   _oce1->comm = comm;
+  _oce1->mu = 1.0;
   _oce1->fem = NULL;
   _oce1->y1s = NULL;
   _oce1->s_r = NULL;
@@ -44,10 +45,20 @@ PetscErrorCode OCE1Set(OCE1 self, FEMInf fem, Y1s y1s) {
   return 0;
 
 }
+PetscErrorCode OCE1SetMu(OCE1 self, PetscReal mu) {
+  self->mu = mu;
+  return 0;
+}
 PetscErrorCode OCE1CreateFromOptions(OCE1 *oce1, MPI_Comm comm) {
 
   PetscErrorCode ierr;
   ierr = OCE1Create(oce1, comm); CHKERRQ(ierr);
+
+  PetscBool find;
+  PetscReal mu;
+  PetscOptionsGetReal(NULL, "-oce1_mu", &mu, &find); 
+  if(find)
+    OCE1SetMu(*oce1, mu);
 
   FEMInf fem;
   ierr = FEMInfCreateFromOptions(&fem, comm); CHKERRQ(ierr);
@@ -60,6 +71,7 @@ PetscErrorCode OCE1CreateFromOptions(OCE1 *oce1, MPI_Comm comm) {
   return 0;
 }
 PetscErrorCode OCE1View(OCE1 self) {
+  PetscPrintf(self->comm, "mu: %f\n", self->mu);
   FEMInfView(self->fem);
   Y1sView(self->y1s);
   return 0;
@@ -93,6 +105,20 @@ PetscErrorCode OCE1SetSMat(OCE1 self, Mat *M) {
 
   return 0;
 }
+PetscErrorCode OCE1SetSMatNullable(OCE1 self, Mat *M) {
+
+  PetscBool s_is_id;
+  FEMInfGetOverlapIsId(self->fem, &s_is_id);
+
+  if(s_is_id)
+    *M = NULL;
+  else {
+    PetscErrorCode ierr;
+    ierr = OCE1SetSMat(self, M); CHKERRQ(ierr);
+  }
+
+  return 0;
+}
 PetscErrorCode OCE1SetTMat(OCE1 self, Mat *M) {
 
   if(self->s_r == NULL)
@@ -105,19 +131,38 @@ PetscErrorCode OCE1SetTMat(OCE1 self, Mat *M) {
   Mat d2_r;
   ierr = FEMInfSetD2R1Mat(self->fem, &d2_r); CHKERRQ(ierr); CHKERRQ(ierr);
   ierr = MatSetSynthesizeFast(d2_r, self->s_y, self->comm, M); CHKERRQ(ierr);
-  ierr = MatScale(*M, -0.5); CHKERRQ(ierr);
+  ierr = MatScale(*M, -0.5/self->mu); CHKERRQ(ierr);
   ierr = MatDestroy(&d2_r); CHKERRQ(ierr);
 
   Mat l_r, l_y, L;
   ierr = FEMInfSetR2invR1Mat(self->fem, &l_r); CHKERRQ(ierr);
   ierr = Y1sSetLambdaY1Mat(self->y1s, &l_y); CHKERRQ(ierr);
   ierr = MatSetSynthesizeFast(l_r, l_y, self->comm, &L);
-  ierr = MatAXPY(*M, 0.5, L, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
+  ierr = MatAXPY(*M, 0.5/self->mu, L, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
   MatDestroy(&l_r); MatDestroy(&l_y); MatDestroy(&L);
 
   return 0;
 }
-PetscErrorCode OCE1PlusVneMat(OCE1 self, PetscReal a, PetscReal z, Mat *M) {
+PetscErrorCode OCE1PlusPOTMat(OCE1 self, RotSym sym, POT pot, Mat M) {
+
+  if(sym != ROT_SCALAR)
+    SETERRQ(self->comm, 1, "now only sym=ROT_SCALAR is supported");
+
+  PetscErrorCode ierr;
+  if(self->s_y == NULL)
+    OCE1SetSy(self);
+
+  Mat r1, V;
+  ierr = FEMInfSetPOTR1Mat(self->fem, pot, &r1); CHKERRQ(ierr);
+  ierr = MatSetSynthesizeFast(r1, self->s_y, self->comm, &V); CHKERRQ(ierr);
+  MatDestroy(&r1);
+
+  MatAXPY(M, 1.0, V, DIFFERENT_NONZERO_PATTERN);
+  MatDestroy(&V);
+
+  return 0;
+}
+PetscErrorCode OCE1PlusVneMat(OCE1 self, PetscReal a, PetscReal z, Mat M) {
 
   PetscErrorCode ierr;
 
@@ -136,7 +181,7 @@ PetscErrorCode OCE1PlusVneMat(OCE1 self, PetscReal a, PetscReal z, Mat *M) {
       Mat V;
       ierr = MatSetSynthesizeFast(pq_r, pq_y, self->comm, &V); CHKERRQ(ierr);
 
-      ierr = MatAXPY(*M, zz, V, DIFFERENT_NONZERO_PATTERN);
+      ierr = MatAXPY(M, zz, V, DIFFERENT_NONZERO_PATTERN);
       
       MatDestroy(&pq_r); MatDestroy(&pq_y); MatDestroy(&V);
     }

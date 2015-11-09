@@ -1,5 +1,14 @@
 #include <rescol/mat.h>
 
+PetscReal ScalarAbs(PetscScalar x) {
+
+#if defined(PETSC_USE_COMPLEX)
+  return cabs(x);
+#else
+  return fabs(x);
+#endif
+}
+
 PetscErrorCode MatCreateFromCOOFormatFileHandler(FILE* fp, Mat* mat) {
 
   PetscInt col, row;
@@ -205,7 +214,26 @@ PetscErrorCode EPSCreateForBoundState(EPS *eps, MPI_Comm comm, Mat H, Mat S, Pet
 
   return 0;
 }
+PetscErrorCode EPSSetGuessFromFiles(EPS eps, MPI_Comm comm, char **fn_list, int n) {
 
+  PetscErrorCode ierr;
+
+  Vec *xs; 
+  ierr = PetscMalloc1(n, &xs); CHKERRQ(ierr);
+  for(int i = 0; i < n; i ++) {
+
+    PetscViewer viewer;
+    ierr = PetscViewerBinaryOpen(comm, fn_list[i], FILE_MODE_READ, &viewer);
+    CHKERRQ(ierr);
+
+    Vec x; VecCreate(comm, &x); 
+    ierr = VecLoad(x, viewer); CHKERRQ(ierr);
+    xs[i] = x;
+  }
+
+  ierr = EPSSetInitialSpace(eps, n, xs);
+  return 0;
+}
 
 PetscErrorCode VecInitSynthesize(Vec A, Vec B, MPI_Comm comm, Vec *C) {
 
@@ -258,6 +286,23 @@ PetscErrorCode VecSetSynthesize(Vec A, Vec B, PetscScalar c,
   ierr = VecAssemblyEnd(*C); CHKERRQ(ierr);
   return 0;
 }
+PetscErrorCode VecNormalizeForS(Mat S, Vec x) {
+
+  PetscScalar v[1]; PetscInt idx[1] = {1};
+  VecGetValues(x, 1, idx, v);
+  PetscScalar scale_factor = v[0] / cabs(v[0]);
+  VecScale(x, 1.0/scale_factor);
+
+  PetscScalar norm0;
+  Vec Sx;  MatCreateVecs(S, &Sx, NULL); 
+  MatMult(S, x, Sx); VecDot(x, Sx, &norm0);
+
+  VecScale(x, 1.0/sqrt(norm0));
+
+  return 0;
+}
+
+
 PetscErrorCode MatInitSynthesize(Mat A, Mat B, MPI_Comm comm, Mat *C) {
 
   PetscInt na, nb, ma, mb;

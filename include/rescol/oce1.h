@@ -14,6 +14,7 @@ extern "C" {
 
 struct _p_OCE1 {
   MPI_Comm comm;
+  PetscReal mu;
   FEMInf fem;
   Y1s y1s;
   Mat s_r;
@@ -30,8 +31,10 @@ PetscErrorCode OCE1View(OCE1 self);
 PetscErrorCode OCE1GetSizes(OCE1 self, int *n_r, int *n_y);
 
 PetscErrorCode OCE1SetSMat(OCE1 self, Mat *M);
+PetscErrorCode OCE1SetSMatNullable(OCE1 self, Mat *M);
 PetscErrorCode OCE1SetTMat(OCE1 self, Mat *M);
-PetscErrorCode OCE1PlusVneMat(OCE1 self, PetscReal a, PetscReal z, Mat *M);
+PetscErrorCode OCE1PlusPOTMat(OCE1 self, RotSym sym, POT pot, Mat M);
+PetscErrorCode OCE1PlusVneMat(OCE1 self, PetscReal a, PetscReal z, Mat M);
 
 #ifdef __cplusplus
 }

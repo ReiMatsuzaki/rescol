@@ -179,8 +179,8 @@ int testBSplineSetBasic() {
   ASSERT_DOUBLE_EQ(5.0, bss->ts[9]);
 
   double x = 0.34;
-  double y1; BSSBasisPsi(bss, 2-1, x, &y1);
-  ASSERT_DOUBLE_EQ(0.5*x*x, y1);
+  PetscScalar y1; BSSBasisPsi(bss, 2-1, x, &y1);
+  ASSERT_DOUBLE_EQ(0.5*x*x, PetscRealPart(y1));
 
   ASSERT_DOUBLE_NEAR(0.11270167, bss->xs[0], pow(10.0, -8.0));
   ASSERT_DOUBLE_NEAR(0.5,        bss->xs[1], pow(10.0, -8.0));
@@ -523,7 +523,7 @@ int testBSplinePot2() {
 int testSlaterPotWithECS() {
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 100.0, 201);
-  Scaler scaler; ScalerCreateSharpECS(&scaler, comm, 80.0, 30.0*M_PI/18.0);
+  Scaler scaler; ScalerCreateSharpECS(&scaler, comm, 60.0, 20.0*M_PI/180.0);
   int order = 5;
   BSS bss; BSSCreate(&bss, order, bps, scaler, comm);
 
@@ -541,7 +541,7 @@ int testSlaterPotWithECS() {
   POTDestroy(&slater);
   BSSDestroy(&bss);
 
-  EPS eps; EPSCreateForBoundState(&eps, comm, H, S, 3.4, EPS_GNHEP);
+  EPS eps; EPSCreateForBoundState(&eps, comm, H, S, 3.4);
   EPSSetDimensions(eps, 10, PETSC_DEFAULT, PETSC_DEFAULT);
   EPSSetTolerances(eps, PETSC_DEFAULT, 1000);
   //  EPSSetType(eps, EPSARNOLDI);

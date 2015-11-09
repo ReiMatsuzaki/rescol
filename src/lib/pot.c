@@ -23,6 +23,9 @@ PetscErrorCode POTDestroy(POT *pot) {
   ierr = PetscFree(*pot); CHKERRQ(ierr);
   return 0;
 }
+PetscBool POTIsType(POT pot, char *name) {
+  return (strcmp(pot->name, name) == 0);
+}
 
 // ---- Harmonic Potential ----
 PetscScalar POTHarmCalc(PetscScalar x, PetscScalar *vs) {
@@ -39,14 +42,18 @@ PetscErrorCode POTHarmView(PetscScalar *vs) {
 }
 PetscErrorCode POTHarmCreate(POT *pot, PetscScalar a) {
   
-  POTCreate(pot);
+  POT self;
+  POTCreate(&self);
   PetscScalar *vs; 
   PetscMalloc1(1, &vs); vs[0] = a;
-  (*pot)->num = 1;
-  (*pot)->vs = vs;
-  (*pot)->Calc = POTHarmCalc;
-  (*pot)->View = POTHarmView;
 
+  strcpy(self->name, "harm");
+  self->num = 1;
+  self->vs = vs;
+  self->Calc = POTHarmCalc;
+  self->View = POTHarmView;
+
+  *pot = self;
   return 0;
 }
 
@@ -71,6 +78,7 @@ PetscErrorCode POTPowerCreate(POT *pot, PetscScalar a, PetscScalar n) {
   PetscMalloc1(2, &vs); 
   vs[0] = a;
   vs[1] = n;
+  strcpy((*pot)->name, "power");
   (*pot)->num = 2;
   (*pot)->vs = vs;
   (*pot)->Calc = POTPowerCalc;
@@ -105,6 +113,7 @@ PetscErrorCode POTCoulombCreate(POT *pot, PetscScalar q, PetscScalar a) {
   PetscMalloc1(2, &vs); 
   vs[0] = q;
   vs[1] = a;
+  strcpy((*pot)->name, "coulomb");
   (*pot)->num = 2;
   (*pot)->vs = vs;
   (*pot)->Calc = POTCoulombCalc;
@@ -131,10 +140,45 @@ PetscErrorCode POTSlaterCreate(POT *pot, PetscScalar v0, PetscScalar z) {
   PetscMalloc1(2, &vs); 
   vs[0] = v0;
   vs[1] = z;
+  strcpy((*pot)->name, "slater");
   (*pot)->num = 2;
   (*pot)->vs = vs;
   (*pot)->Calc = POTSlaterCalc;
   (*pot)->View = POTSlaterView;
+  return 0;
+}
+
+// ---- Morse Potential ----
+PetscScalar POTMorseCalc(PetscScalar x, PetscScalar *vs) {
+  PetscScalar D0 = vs[0];
+  PetscScalar a = vs[1];
+  PetscScalar Re = vs[2];
+  PetscScalar t = 1.0 - exp(-a*(x-Re));
+  return D0 * t * t;
+}
+PetscErrorCode POTMorseView(PetscScalar *vs) {
+  PetscPrintf(PETSC_COMM_SELF, ">>> POT Morse >>>\n");
+  PetscPrintf(PETSC_COMM_SELF, "                             2 \n", vs[0]);
+  PetscPrintf(PETSC_COMM_SELF, "v(x) =  D_0 (1-exp[-a(x-Re)])  \n", vs[0]);
+  PetscPrintf(PETSC_COMM_SELF, "D_0 = %f\n", vs[0]);
+  PetscPrintf(PETSC_COMM_SELF, "a   = %f\n", vs[1]);
+  PetscPrintf(PETSC_COMM_SELF, "Re  = %f\n", vs[2]);
+  PetscPrintf(PETSC_COMM_SELF, "<<< POT Morse <<<\n");  
+  return 0;
+}
+PetscErrorCode POTMorseCreate(POT *p_self, PetscScalar D0, PetscScalar a, PetscScalar Re) {
+  POTCreate(p_self);
+  PetscScalar *vs; 
+  PetscMalloc1(3, &vs); 
+  vs[0] = D0;
+  vs[1] = a;
+  vs[2] = Re;
+  strcpy((*p_self)->name, "morse");
+  (*p_self)->num = 3;
+  (*p_self)->vs = vs;
+  (*p_self)->Calc = POTMorseCalc;
+  (*p_self)->View = POTMorseView;
+  return 0;
   return 0;
 }
 
@@ -157,7 +201,7 @@ PetscErrorCode POTCreateFromOptions(POT *pot, MPI_Comm comm) {
       SETERRQ(comm, 1, "-pot_a is not found");
     POTHarmCreate(pot, a);
 
-  } else if(strcmp(type, "slater")) {
+  } else if(strcmp(type, "slater") == 0) {
     PetscReal v0, z;
     ierr = PetscOptionsGetReal(NULL, "-pot_v0", &v0, &find); CHKERRQ(ierr);
     if(!find)
@@ -166,6 +210,20 @@ PetscErrorCode POTCreateFromOptions(POT *pot, MPI_Comm comm) {
     if(!find)
       SETERRQ(comm, 1, "-pot_z is not found");
     POTSlaterCreate(pot, v0, z);
+
+  } else if(strcmp(type, "morse") == 0) {
+    PetscReal D0, a, Re;
+    ierr = PetscOptionsGetReal(NULL, "-pot_D0", &D0, &find); CHKERRQ(ierr);
+    if(!find)
+      SETERRQ(comm, 1, "-pot_D0 is not found");
+    ierr = PetscOptionsGetReal(NULL, "-pot_a", &a, &find); CHKERRQ(ierr);
+    if(!find)
+      SETERRQ(comm, 1, "-pot_z is not found");
+    ierr = PetscOptionsGetReal(NULL, "-pot_Re", &Re, &find); CHKERRQ(ierr);
+    if(!find)
+      SETERRQ(comm, 1, "-pot_Re is not found");
+
+    POTMorseCreate(pot, D0, a, Re);
 
   } else {
     char msg[100]; sprintf(msg, "unsupported pot_type: %s", type);

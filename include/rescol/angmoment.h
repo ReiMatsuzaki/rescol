@@ -16,6 +16,9 @@ extern "C" {
 #define UNGERADE 12
 #define PLUS 23
 #define MINUS 24
+#define ROT_SCALAR 101
+#define ROT_VECTOR 102
+typedef int RotSym;
 
 // ---- utils ----
 PetscReal wigner3j(int a, int b, int c, int d, int f, int e);
@@ -29,15 +32,17 @@ PetscReal Y1ElePq(int j1, int q, int j2, int m1, int m2);
 
 // ---- Y1s ----
 struct _p_Y1s {
+  MPI_Comm comm;
+
   int num;
   int* ls;
-  int m;
-  MPI_Comm comm;
+  int m;  
 };
 typedef struct _p_Y1s* Y1s;
 PetscErrorCode Y1sCreate(Y1s *y1s, MPI_Comm comm);
 PetscErrorCode Y1sDestroy(Y1s *y1s);
 PetscErrorCode Y1sSet(Y1s y1s, int m, int g_or_u, int lmax);
+PetscErrorCode Y1sSetOne(Y1s y1s, int m, int l);
 PetscErrorCode Y1sCreateFromOptions(Y1s *y1s, MPI_Comm comm);
 PetscErrorCode Y1sView(Y1s y1s);
 PetscErrorCode Y1sGetSize(Y1s y1s, int *n);

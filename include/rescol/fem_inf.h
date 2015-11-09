@@ -23,6 +23,7 @@ typedef struct {
   PetscErrorCode (*SetPotR1Mat)();
   PetscErrorCode (*SetEER2Mat)();
   PetscErrorCode (*BasisPsi)();
+  //  PetscErrorCode (*Psi)();
   PetscErrorCode (*GuessHEig)();
   PetscErrorCode (*GetSize)();
   PetscBool overlap_is_id;
@@ -60,8 +61,11 @@ PetscErrorCode FEMInfSetENR1Mat(FEMInf self, int q, double a, Mat *M);
 PetscErrorCode FEMInfSetPOTR1Mat(FEMInf self, POT pot, Mat *M);
 PetscErrorCode FEMInfSetEER2Mat(FEMInf self, int q, Mat *M); 
 PetscErrorCode FEMInfBasisPsi(FEMInf self, int i, PetscScalar x, PetscScalar *y);
+PetscErrorCode FEMInfPsi(FEMInf self, PetscReal x, Vec c, PetscScalar *y);
+/*
 PetscErrorCode FEMInfWritePsi(FEMInf self, PetscReal *xs, int num_x, 
 			      Vec cs, FILE *file);
+*/
 PetscErrorCode FEMInfGuessHEig(FEMInf self, int n, int l, PetscScalar z, Vec *v);
 
 #ifdef __cplusplus
