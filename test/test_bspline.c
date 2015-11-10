@@ -5,32 +5,6 @@
 
 static char help[] = "Unit test for bspline.c \n\n";
 
-PetscErrorCode BSSSetSR1Mat2(BSS self, Mat *S) {
-  int i, j, k;
-  int nb = self->num_basis;
-  int ne = self->num_ele;
-  int nq = self->order;
-  PetscErrorCode ierr;
-
-  BSSInitR1Mat(self, S);
-
-  for(i = 0; i < nb; i++)
-    for(j = 0; j < nb; j++) {
-      if(HasNon0Value(self->order, self->b_idx_list[i], self->b_idx_list[j])) {
-	PetscScalar v = 0.0;
-	int k0, k1;
-	Non0QuadIndex(j, i, nq, nq*ne, &k0, &k1);
-	for(k = k0; k < k1; k++) 
-	  v += self->vals[k+i*(ne*nq)] * self->vals[k+j*(ne*nq)] * self->ws[k] * self->qrs[k];
-	ierr = MatSetValue(*S, i, j, v, INSERT_VALUES); CHKERRQ(ierr);
-      }
-    }
-
-  MatAssemblyBegin(*S, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(*S, MAT_FINAL_ASSEMBLY);
-  return 0;
-}
-
 int testNumBSpline() {
   PrintTimeStamp(PETSC_COMM_SELF, "num bs", NULL);
   /*
@@ -162,10 +136,13 @@ int testBSplineSetBasic() {
   PrintTimeStamp(PETSC_COMM_SELF, "set basics", NULL);
 
   MPI_Comm comm = PETSC_COMM_SELF;
-  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 6);
   
   int order = 3;
-  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
+  BSS bss; 
+  BSSCreate(comm, &bss); 
+  BSSSetKnots(bss, order, bps);
+  BSSSetUp(bss);
 
   ASSERT_EQ(order, bss->order);
   ASSERT_EQ(5, bss->num_ele);
@@ -217,18 +194,16 @@ int testBSplineSetSR1Mat() {
   PrintTimeStamp(PETSC_COMM_SELF, "S", NULL);
 
   MPI_Comm comm = PETSC_COMM_SELF;
-  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 6);
   int order = 3;
-  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
+  BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);
+  BSSSetUp(bss);
 
   // compute S matrix
   Mat S;
   PetscErrorCode ierr;
-  ierr = BSSInitR1Mat(bss, &S);
-  ierr = BSSCalcSR1Mat(bss, S, INSERT_VALUES);  CHKERRQ(ierr);
-  //MatSetValue(S, 0, 0, 7.77, INSERT_VALUES);
-  ierr = MatAssemblyBegin(S, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
-  ierr = MatAssemblyEnd(S, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  ierr = BSSCreateR1Mat(bss, &S);
+  ierr = BSSSR1Mat(bss, S);  CHKERRQ(ierr);
 
   // Get structure and check
   int m, n;
@@ -267,38 +242,17 @@ int testBSplineSetSR1Mat() {
 
   return 0;
 }
-int testBSplineSetSR1MatWithQuad() {
-  PrintTimeStamp(PETSC_COMM_SELF, "Quad", NULL);
-
-  MPI_Comm comm = PETSC_COMM_SELF;
-  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
-  int order = 2;
-  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
-
-  // compute S matrix
-  Mat S0, S1;  
-  BSSSetSR1Mat(bss, &S0);
-  BSSSetSR1Mat2(bss, &S1);
-  MatAXPY(S0, -1.0, S1, DIFFERENT_NONZERO_PATTERN);
-  PetscReal d;
-  MatNorm(S0, NORM_1, &d);
-  ASSERT_DOUBLE_EQ(0.0, d);
-  return 0;
-}
 int testBSplineSetD2R1Mat() {
   PrintTimeStamp(PETSC_COMM_SELF, "D2", NULL);
 
   MPI_Comm comm = PETSC_COMM_SELF;
-  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 6);
   int order = 3;
-  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
+  BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);
+  BSSSetUp(bss);
 
   // compute matrix
-  Mat M;
-  BSSInitR1Mat(bss, &M);
-  BSSCalcD2R1Mat(bss, M, INSERT_VALUES);
-  MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
+  Mat M; BSSCreateR1Mat(bss, &M); BSSD2R1Mat(bss, M);
 
   // value check
   const PetscScalar *row;
@@ -327,16 +281,13 @@ int testBSplineSetENMatR1Mat() {
   PrintTimeStamp(PETSC_COMM_SELF, "EN", NULL);
  
   MPI_Comm comm = PETSC_COMM_SELF;
-  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 6);
   int order = 3;
-  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
+  BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);
+  BSSSetUp(bss);
 
   // compute matrix
-  Mat M;
-  BSSInitR1Mat(bss, &M);
-  BSSCalcENR1Mat(bss, 2, 0.7, M, INSERT_VALUES);
-  MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
+  Mat M; BSSCreateR1Mat(bss, &M); BSSENR1Mat(bss, 2, 0.7, M);
 
   // value check
   const PetscScalar *row;
@@ -355,14 +306,13 @@ int testBSplineSetENMatR1Mat() {
 int testBSplineSetEE() {
   PrintTimeStamp(PETSC_COMM_SELF, "EE", NULL);
 
-  PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
-  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 6);
   int order = 3;
-  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
+  BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);
+  BSSSetUp(bss);
   
-  Mat ee;
-  ierr = BSSSetEER2Mat(bss, 0, &ee); CHKERRQ(ierr);
+  Mat ee; BSSCreateR2Mat(bss, &ee); BSSEER2Mat(bss, 0, ee);
 
   // size check
   PetscInt n, m;
@@ -397,21 +347,18 @@ int testBSplineSetEE() {
   return 0;
 }
 int testBSplineSetEE_time() {
-    PrintTimeStamp(PETSC_COMM_SELF, "EE time", NULL);
+  PrintTimeStamp(PETSC_COMM_SELF, "EE time", NULL);
 
   time_t t0, t1;
-  PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
-  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 10.0, 31);
+
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 10.0, 31);
   int order = 4;
-  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
+  BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);
+  BSSSetUp(bss);
 
   t0 = clock();
-  Mat ee;
-  ierr = BSSInitR2Mat(bss, &ee); CHKERRQ(ierr);
-  BSSCalcEER2Mat(bss, 0, ee, INSERT_VALUES); CHKERRQ(ierr);
-  MatAssemblyBegin(ee, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(ee, MAT_FINAL_ASSEMBLY);
+  Mat ee; BSSCreateR2Mat(bss, &ee); BSSEER2Mat(bss, 0, ee);
   t1 = clock();
 
   if(getenv("SHOW_DEBUG"))
@@ -424,92 +371,80 @@ int testBSplineSetEE_time() {
 int testBSplineSetNE_time() {
   PrintTimeStamp(PETSC_COMM_SELF, "EN time", NULL);
 
+PrintTimeStamp(PETSC_COMM_SELF, "EE time", NULL);
+
   time_t t0, t1;
   MPI_Comm comm = PETSC_COMM_SELF;
-  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 100.0, 200);
+
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 200);
   int order = 10;
-  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
+  BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);
+  BSSSetUp(bss);
 
   t0 = clock();
-  Mat M;
-  BSSSetENR1Mat(bss, 3, 1.3, &M);
-  MatDestroy(&M);
+  Mat en; BSSCreateR1Mat(bss, &en); BSSENR1Mat(bss, 3, 1.3, en);
   t1 = clock();
 
   if(getenv("SHOW_DEBUG"))
     PetscPrintf(comm, "t(n-e) = %f\n", ((double)(t1-t0)/CLOCKS_PER_SEC));
-  
+
+  MatDestroy(&en);
+  BSSDestroy(&bss);
   return 0;
 }
 int testBSplineHAtom() {
   PrintTimeStamp(PETSC_COMM_SELF, "H atom", NULL);
 
   MPI_Comm comm = PETSC_COMM_SELF;
-  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 20.0, 20);
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 20.0, 21);
   int order = 5;
-  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
+  BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);  BSSSetUp(bss);
 
-  Mat H, S, tmp;
-  BSSInitR1Mat(bss, &H);
-  BSSInitR1Mat(bss, &S);
+  Mat H; BSSCreateR1Mat(bss, &H);
+  Mat S; BSSCreateR1Mat(bss, &S);
+  Mat V; BSSCreateR1Mat(bss, &V);
 
-  BSSInitR1Mat(bss, &H);
-  BSSCalcD2R1Mat(bss, H, INSERT_VALUES);
-  MatAssemblyBegin(H, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(H, MAT_FINAL_ASSEMBLY);
+  BSSD2R1Mat(bss, H);
   MatScale(H, -0.5);
-    
-  BSSInitR1Mat(bss, &tmp);
-  BSSCalcENR1Mat(bss, 0, 0.0, tmp, INSERT_VALUES);
-  MatAssemblyBegin(tmp, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(tmp, MAT_FINAL_ASSEMBLY);
-  MatAXPY(H, -1.0, tmp, SAME_NONZERO_PATTERN);
-  MatDestroy(&tmp);
 
-  BSSCalcSR1Mat(bss, S, INSERT_VALUES);
-  MatAssemblyBegin(S, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(S, MAT_FINAL_ASSEMBLY);
+  BSSENR1Mat(bss, 0, 0.0, V);
+  MatAXPY(H, -1.0, V, SAME_NONZERO_PATTERN);
 
-  EPS eps; 
-  EPSCreate(PETSC_COMM_WORLD, &eps);
-  EPSSetOperators(eps, H, S);
-  EPSSetProblemType(eps, EPS_GHEP);
-  EPSSetFromOptions(eps);
+  BSSSR1Mat(bss, S);
+
+  EPS eps; EPSCreate(comm, &eps);
+  EPSSetOperators(eps, H, S); EPSSetProblemType(eps, EPS_GHEP);
   EPSSetWhichEigenpairs(eps, EPS_TARGET_MAGNITUDE);
-  EPSSetTarget(eps, -0.6);
+  EPSSetTarget(eps, -0.6); EPSSetFromOptions(eps);
   EPSSolve(eps);
 
   int nconv;
-  PetscScalar kr, ki;
-  Vec xr, xi;
-  MatCreateVecs(H, NULL, &xr); MatCreateVecs(H, NULL, &xi);
+  PetscScalar kr;
   EPSGetConverged(eps, &nconv);
   ASSERT_TRUE(nconv > 0);
-  EPSGetEigenpair(eps, 0, &kr, &ki, xr, xi);
+  EPSGetEigenpair(eps, 0, &kr, NULL, NULL, NULL);
   ASSERT_DOUBLE_NEAR(-0.5, kr, pow(10.0, -5.0));
 
-  EPSDestroy(&eps);
-  VecDestroy(&xr);
-  VecDestroy(&xi);
-  MatDestroy(&H);
-  MatDestroy(&S);
   BSSDestroy(&bss);
-
+  MatDestroy(&H);
+  MatDestroy(&V);
+  MatDestroy(&S);
+  EPSDestroy(&eps);
   return 0;
 }
 int testBSplinePot() {
-    PrintTimeStamp(PETSC_COMM_SELF, "pot", NULL);
+  PrintTimeStamp(PETSC_COMM_SELF, "pot", NULL);
 
   MPI_Comm comm = PETSC_COMM_SELF;
-  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 6);
   int order = 3;
-  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
-  POT pot; POTPowerCreate(&pot, 1.0, -2.0);
+  BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);  BSSSetUp(bss);
+  POT pot; POTCreate(comm, &pot); POTSetPower(pot, 1.0, -2.0);
 
-  Mat V;
-  Mat U;
-  BSSSetR2invR1Mat(bss, &V);
-  BSSSetPotR1Mat(bss, pot, &U);
+  Mat V; BSSCreateR1Mat(bss, &V);
+  Mat U; BSSCreateR1Mat(bss, &U);
+  BSSR2invR1Mat(bss, V);
+  BSSPotR1Mat(bss, pot, U);
   
   MatAXPY(V, -1.0, U, SAME_NONZERO_PATTERN);
   PetscReal v;
@@ -522,18 +457,18 @@ int testBSplinePot2() {
     PrintTimeStamp(PETSC_COMM_SELF, "pot2", NULL);
 
   MPI_Comm comm = PETSC_COMM_SELF;
-  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 8);
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 8);
   int order = 3;
-  BSS bss; BSSCreate(&bss, order, bps, NULL, comm);
-  POT pot; POTCoulombCreate(&pot, 2.0, 1.5);
+  BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);  BSSSetUp(bss);
+  POT pot; POTCreate(comm, &pot); POTSetCoulomb(pot, 2.0, 1.5);
 
   //  POTView(pot);
 
-  Mat V;
-  Mat U;
-  BSSSetENR1Mat(bss, 2, 1.5, &V);
-  BSSSetPotR1Mat(bss, pot, &U);
-  
+  Mat V; BSSCreateR1Mat(bss, &V);
+  Mat U; BSSCreateR1Mat(bss, &U);
+  BSSENR1Mat(bss, 2, 1.5, V);
+  BSSPotR1Mat(bss, pot, U);
+
   MatAXPY(V, -1.0, U, SAME_NONZERO_PATTERN);
   PetscReal v;
   MatNorm(V, NORM_1, &v);
@@ -545,24 +480,23 @@ int testSlaterPotWithECS() {
   PrintTimeStamp(PETSC_COMM_SELF, "ECS", NULL);
 
   MPI_Comm comm = PETSC_COMM_SELF;
-  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 100.0, 101);
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 101);
   Scaler scaler; ScalerCreateSharpECS(&scaler, comm, 60.0, 20.0*M_PI/180.0);
   int order = 5;
-  BSS bss; BSSCreate(&bss, order, bps, scaler, comm);
+  BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);
+  BSSSetScaler(bss, scaler);   BSSSetUp(bss);
+  POT slater; POTCreate(comm, &slater); POTSetSlater(slater, 7.5, 1.0);
 
   if(getenv("SHOW_DEBUG"))
-    BSSFPrintf(bss, stdout, 0);
+    BSSView(bss, PETSC_VIEWER_STDOUT_SELF);
 
-  Mat H, V, S;
-  BSSSetD2R1Mat(bss, &H); MatScale(H, -0.5);
-  POT slater; POTSlaterCreate(&slater, 7.5, 1.0);
-  BSSSetPotR1Mat(bss, slater, &V);
+  Mat H; BSSCreateR1Mat(bss, &H); 
+  Mat V; BSSCreateR1Mat(bss, &V); BSSPotR1Mat(bss, slater, V);
+  Mat S; BSSCreateR1Mat(bss, &S); BSSSR1Mat(bss, S);
+
+  BSSD2R1Mat(bss, H);
+  MatScale(H, -0.5);
   MatAXPY(H, 1.0, V, DIFFERENT_NONZERO_PATTERN);
-  BSSSetSR1Mat(bss, &S);
-
-  MatDestroy(&V); 
-  POTDestroy(&slater);
-  BSSDestroy(&bss);
 
   EPS eps; EPSCreateForBoundState(&eps, comm, H, S, 3.4);
   EPSSetDimensions(eps, 10, PETSC_DEFAULT, PETSC_DEFAULT);
@@ -585,8 +519,10 @@ int testSlaterPotWithECS() {
   EPSGetEigenpair(eps, 0, &kr, &ki, NULL, NULL);
   ASSERT_DOUBLE_NEAR(-0.0127745, PetscImaginaryPart(kr), pow(10.0, -4.0));
   ASSERT_DOUBLE_NEAR(3.4263903, PetscRealPart(kr), pow(10.0, -4.0));  
+
+  POTDestroy(&slater);
+  BSSDestroy(&bss); MatDestroy(&H); MatDestroy(&V); MatDestroy(&S);
   EPSDestroy(&eps);
-  MatDestroy(&H); MatDestroy(&S);
   return 0;
 }
 int main(int argc, char **args) {
@@ -597,8 +533,6 @@ int main(int argc, char **args) {
   testCalcBSpline();
   testNon0QuadIndex();
   testNon0QuadIndex2();
-
-  testBSplineSetSR1MatWithQuad();
   
   testBSplineSetBasic();
   testBSplineSetSR1Mat();

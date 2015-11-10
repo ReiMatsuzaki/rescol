@@ -94,257 +94,316 @@ PetscErrorCode Non0QuadIndex(int a, int c, int k, int nq, int* i0, int* i1) {
 }
 
 // ---- Basic Methods ----
-PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, Scaler scaler, 
-			 MPI_Comm comm) {
-  PetscErrorCode ierr;
-  int i, ib, ie, iq;
-  BSS _bss;
+PetscErrorCode BSSCreate(MPI_Comm comm, BSS *p_self) {
+  
+  BSS self;
+  PetscNew(&self);
+  self->comm = comm;
+  self->order = 0;
+  self->bps = NULL;
+  self->scaler = NULL;
 
-  PetscNew(&_bss);
-  *bss = NULL;
+  self->num_ele = 0;
+  self->num_basis  = 0;
+  self->b_idx_list = NULL;
+  self->ts_r = NULL;
+  self->ts_s = NULL;
+  self->xs = NULL;
+  self->ws = NULL;
+  self->qrs = NULL;
+  self->Rrs = NULL;
+
+  self->vals = NULL;
+  self->derivs = NULL;
+    
+  *p_self = self;
+  return 0;
+}
+PetscErrorCode BSSDestroy(BSS *p_self) {
+  PetscErrorCode ierr;
+  BSS self = *p_self;
+  ierr = BPSDestroy(&self->bps); CHKERRQ(ierr);
+  ierr = ScalerDestroy(&self->scaler); CHKERRQ(ierr);
+  ierr = PetscFree(self->b_idx_list); CHKERRQ(ierr);
+  ierr = PetscFree(self->ts_s);  CHKERRQ(ierr);
+  ierr = PetscFree(self->ts_r);  CHKERRQ(ierr);  
+  ierr = PetscFree(self->xs); CHKERRQ(ierr);
+  ierr = PetscFree(self->ws); CHKERRQ(ierr);
+  ierr = PetscFree(self->vals); CHKERRQ(ierr);
+  ierr = PetscFree(self->derivs); CHKERRQ(ierr);
+  ierr = PetscFree(*p_self); CHKERRQ(ierr);
+  return 0;
+}
+
+PetscErrorCode BSSView(BSS self, PetscViewer v) {
+
+  PetscViewerType type;
+  PetscViewerGetType(v, &type);
+
+  if(strcmp(type, "ascii") != 0) 
+    SETERRQ(self->comm, 1, "unsupported type");
+
+  PetscViewerASCIIPrintf(v, ">>>> B-Spline >>>>\n");
+  PetscViewerASCIIPrintf(v, "order: %d\n", self->order);
+  BPSView(self->bps, v);  
+  PetscViewerASCIIPrintf(v, "num_ele: %d\n", self->num_ele);
+  PetscViewerASCIIPrintf(v, "num_basis: %d\n", self->num_basis);
+  ScalerView(self->scaler);
+  PetscViewerASCIIPrintf(v, "<<<< B-Spline <<<<\n");
+
+  return 0;
+}
+
+PetscErrorCode BSSSetKnots(BSS self, int order, BPS bps) {
+
+  PetscErrorCode ierr;
+
+  self->order = order;
+  self->bps = bps;
+  ierr = BPSGetNumEle(bps, &self->num_ele); CHKERRQ(ierr);
 
   PetscReal *zs; PetscInt num_zs;
-  BPSGetZs(bps, &zs, &num_zs);
+  BPSGetZs(self->bps, &zs, &num_zs);
   
-  // data num
-  _bss->comm = comm;
-  _bss->order = order;
-  _bss->bps = bps;
+  self->num_basis = NumBSpline(self->order, num_zs-1);
+  self->num_ts = num_zs+2*self->order-2;
+
+  PetscMalloc1(self->num_basis, &self->b_idx_list);
+
+  PetscMalloc1(self->num_ts, &self->ts_r);
+  PetscMalloc1(self->num_ts, &self->ts_s);
+
+  int n_xs = self->num_ele * self->order;
+  PetscMalloc1(n_xs, &self->xs); 
+  PetscMalloc1(n_xs, &self->ws);
+  PetscMalloc1(n_xs, &self->qrs); 
+  PetscMalloc1(n_xs, &self->Rrs);
+
+  int num = n_xs*self->num_basis;
+  PetscMalloc1(num, &self->vals); 
+  PetscMalloc1(num, &self->derivs);
+
+
+  PetscFree(zs);
+  return 0;
+}
+PetscErrorCode BSSSetScaler(BSS self, Scaler scaler) {
+
   if(scaler == NULL) {
-    Scaler scaler_none;
-    ScalerCreateNone(&scaler_none, comm);
-    _bss->scaler = scaler_none;
+    Scaler s; ScalerCreateNone(&s, self->comm); self->scaler = s;
   } else
-    _bss->scaler = scaler;
+    self->scaler = scaler;
+  return 0;
+}
+PetscErrorCode BSSSetUp(BSS self) {
 
-  BPSGetNumEle(bps, &_bss->num_ele);
-  _bss->num_basis = NumBSpline(order, num_zs-1);
+  PetscErrorCode ierr;
 
-  // copy ts and zs
-  int num_ts = num_zs+2*order-2;
-  PetscMalloc1(num_ts, &_bss->ts_r);
-  PetscMalloc1(num_ts, &_bss->ts_s);
+  //  set default scaler
+  if(self->scaler == NULL) 
+    BSSSetScaler(self, NULL);
 
-  for(i = 0; i < order-1; i++) {
-    _bss->ts_r[i] = zs[0];
-    _bss->ts_r[order-1+num_zs+i] = zs[num_zs-1];
+  
+  
+  // copy ts_r and  ts_s
+  PetscReal *zs; PetscInt num_zs;
+  BPSGetZs(self->bps, &zs, &num_zs);
+
+  for(int i = 0; i < self->order-1; i++) {
+    self->ts_r[i] = zs[0];
+    self->ts_r[self->order-1+num_zs+i] = zs[num_zs-1];
   }
-  for(i = 0; i < num_zs; i++) 
-    _bss->ts_r[i+order-1] = zs[i];
+  for(int i = 0; i < num_zs; i++) 
+    self->ts_r[i+self->order-1] = zs[i];
+  PetscFree(zs);
+  ScalerSetRr(self->scaler, self->ts_r, self->num_ts, self->ts_s);
 
-  ScalerSetRr(_bss->scaler, _bss->ts_r, num_ts, _bss->ts_s);
+  // index of basis
+  for(int ib = 0; ib < self->num_basis; ib++)
+    self->b_idx_list[ib] = ib + 1;
 
-  // calculate appreciate quadrature points
-  int n_xs = _bss->num_ele * _bss->order;
-  PetscMalloc1(_bss->num_basis, &_bss->b_idx_list);
-  PetscMalloc1(n_xs, &_bss->xs); PetscMalloc1(n_xs, &_bss->ws);
-  PetscMalloc1(n_xs, &_bss->qrs); PetscMalloc1(n_xs, &_bss->Rrs);
-  int num = n_xs*_bss->num_basis;
-  PetscMalloc1(num, &_bss->vals); PetscMalloc1(num, &_bss->derivs);
-
-  for(ib = 0; ib < _bss->num_basis; ib++)
-    _bss->b_idx_list[ib] = ib + 1;
-  for(ie = 0; ie < _bss->num_ele; ie++) {
-    PetscScalar a, b; a = zs[ie]; b = zs[ie+1];
-    for(iq = 0; iq < order; iq++) {
+  // each element
+  for(int ie = 0; ie < self->num_ele; ie++) {
+    PetscScalar a, b; a = self->bps->zs[ie]; b = self->bps->zs[ie+1];
+    for(int iq = 0; iq < self->order; iq++) {
       PetscScalar x, w;
-      int ix = ie*order+iq;
-      LegGauss(order, iq, &x, &w);
+      int ix = ie*self->order+iq;
+      LegGauss(self->order, iq, &x, &w);
       x = (b+a)/2.0  + (b-a)/2.0 * x; w = (b-a)/2.0*w;
-      _bss->xs[ix] = x;
-      _bss->ws[ix] = w;
+      self->xs[ix] = x;
+      self->ws[ix] = w;
       
-      for(ib = 0; ib < _bss->num_basis; ib++) {
+      for(int ib = 0; ib < self->num_basis; ib++) {
 	PetscScalar y;
 	PetscScalar dy;
-	PetscReal *ts_r = _bss->ts_r;
-	PetscScalar *ts_s = _bss->ts_s;
-	int idx = _bss->b_idx_list[ib];
-	CalcBSpline(order, ts_r, ts_s, idx, x, &y);
-	CalcDerivBSpline(order, ts_r, ts_s, idx, x, &dy);
-	int iy = ib*(_bss->num_ele*order) + ie*order + iq;
-	_bss->vals[iy] = y;  
-	_bss->derivs[iy] = dy;
+	PetscReal *ts_r = self->ts_r;
+	PetscScalar *ts_s = self->ts_s;
+	int idx = self->b_idx_list[ib];
+	CalcBSpline(self->order, ts_r, ts_s, idx, x, &y);
+	CalcDerivBSpline(self->order, ts_r, ts_s, idx, x, &dy);
+	int iy = ib*(self->num_ele*self->order) + ie*self->order + iq;
+	self->vals[iy] = y;  
+	self->derivs[iy] = dy;
       }
     }
   }
-  
-  ierr = ScalerSetQr(_bss->scaler, _bss->xs, n_xs, _bss->qrs); CHKERRQ(ierr);
-  ierr = ScalerSetRr(_bss->scaler, _bss->xs, n_xs, _bss->Rrs); CHKERRQ(ierr);
 
-  PetscFree(zs);
-  *bss = _bss;
+  int n_xs = self->num_ele * self->order;
+  ierr = ScalerSetQr(self->scaler, self->xs, n_xs, self->qrs); CHKERRQ(ierr);
+  ierr = ScalerSetRr(self->scaler, self->xs, n_xs, self->Rrs); CHKERRQ(ierr);
+
   return 0;
 }
-PetscErrorCode BSSCreateFromOptions(BSS *bss, MPI_Comm comm) {
-  PetscBool find;
-  PetscInt order;
-  BPS bps;
-  Scaler scaler;
-  PetscErrorCode ierr;
+PetscErrorCode BSSSetFromOptions(BSS self) {
 
-  order = 2;
+  PetscErrorCode ierr;
+  PetscBool find;
+
+  PetscInt order = 2;
+  BPS bps;        BPSCreate(self->comm, &bps);
+  Scaler scaler;  ScalerCreateFromOptions(&scaler, self->comm);
+  
   ierr = PetscOptionsGetInt(NULL, "-bss_order", &order, &find); CHKERRQ(ierr);
-  ierr = BPSCreate(&bps, comm); BPSSetFromOptions(bps); CHKERRQ(ierr);
-  ierr = ScalerCreateFromOptions(&scaler, comm); CHKERRQ(ierr);
-  ierr = BSSCreate(bss, order, bps, scaler, comm);  CHKERRQ(ierr);
+  ierr = BPSSetFromOptions(bps); CHKERRQ(ierr);
+  ierr = BSSSetKnots(self, order, bps); CHKERRQ(ierr);
+  ierr = BSSSetScaler(self, scaler); CHKERRQ(ierr);
+  ierr = BSSSetUp(self); CHKERRQ(ierr);
 
   return 0;
  }
-PetscErrorCode BSSDestroy(BSS *bss) {
-  PetscErrorCode ierr;
-  BSS this = *bss;
-  ierr = BPSDestroy(&this->bps); CHKERRQ(ierr);
-  ierr = ScalerDestroy(&this->scaler); CHKERRQ(ierr);
-  ierr = PetscFree(this->b_idx_list); CHKERRQ(ierr);
-  ierr = PetscFree(this->ts_s);  CHKERRQ(ierr);
-  ierr = PetscFree(this->ts_r);  CHKERRQ(ierr);  
-  ierr = PetscFree(this->xs); CHKERRQ(ierr);
-  ierr = PetscFree(this->ws); CHKERRQ(ierr);
-  ierr = PetscFree(this->vals); CHKERRQ(ierr);
-  ierr = PetscFree(this->derivs); CHKERRQ(ierr);
-  ierr = PetscFree(*bss); CHKERRQ(ierr);
-  return 0;
-}
-PetscErrorCode BSSFPrintf(BSS this, FILE* file, int lvl) {
 
-  MPI_Comm comm = this->comm;
-
-  if(lvl != 0) {
-    SETERRQ(comm, PETSC_ERR_ARG_OUTOFRANGE, 
-	    "now only lvl=0 is supported.");
-  }
-
-  PetscFPrintf(comm, file, "===== Begin B-Spline =====\n");
-  PetscFPrintf(comm, file, "order: %d\n", this->order);
-  PetscFPrintf(comm, file, "num_basis: %d\n", this->num_basis);
-  BPSFPrintf(this->bps, file, lvl);
-  ScalerView(this->scaler);
-  PetscFPrintf(comm, file, "===== End B-Spline =====\n");
-  return 0;
-}
-PetscErrorCode BSSBasisPsi(BSS this, int i, PetscReal x, PetscScalar *y) {
+PetscErrorCode BSSBasisPsi(BSS self, int i, PetscReal x, PetscScalar *y) {
   
   PetscScalar z;
-  CalcBSpline(this->order, 
-	      this->ts_r, 
-	      this->ts_s, 
-	      this->b_idx_list[i], 
+  CalcBSpline(self->order, 
+	      self->ts_r, 
+	      self->ts_s, 
+	      self->b_idx_list[i], 
 	      x, 
 	      &z);
   *y = z;
   return 0;
 }
-PetscErrorCode BSSDerivBasisPsi(BSS this, int i, PetscReal x, PetscScalar *y) {
+PetscErrorCode BSSDerivBasisPsi(BSS self, int i, PetscReal x, PetscScalar *y) {
   PetscScalar z;
-  CalcDerivBSpline(this->order, 
-		   this->ts_r, 
-		   this->ts_s, 
-		   this->b_idx_list[i], 
+  CalcDerivBSpline(self->order, 
+		   self->ts_r, 
+		   self->ts_s, 
+		   self->b_idx_list[i], 
 		   x, 
 		   &z);
   *y = z;
   return 0;
 }
-
-// ---- Accessor ----
-PetscErrorCode BSSGetSize(BSS this, int *n) {
+PetscErrorCode BSSGetSize(BSS self, int *n) {
  
-  *n = this->num_basis;
+  *n = self->num_basis;
   return 0;
 }
 
 // ---- Matrix -----
-PetscErrorCode BSSInitR1Mat(BSS this, Mat *M) {
-  int nb = this->num_basis;
-  MatCreate(this->comm, M);
+PetscErrorCode BSSCreateR1Mat(BSS self, Mat *M) {
+  int nb = self->num_basis;
+  MatCreate(self->comm, M);
   MatSetSizes(*M, PETSC_DECIDE, PETSC_DECIDE, nb, nb);
   MatSetFromOptions(*M);
   MatSetUp(*M);
   return 0;
 }
-PetscErrorCode BSSInitR2Mat(BSS this, Mat *M) {
-  int nb = this->num_basis;
-  MatCreate(this->comm, M);
+PetscErrorCode BSSCreateR2Mat(BSS self, Mat *M) {
+  int nb = self->num_basis;
+  MatCreate(self->comm, M);
   MatSetSizes(*M, PETSC_DECIDE, PETSC_DECIDE, nb*nb, nb*nb);
   MatSetFromOptions(*M);
   MatSetUp(*M);
   return 0;
 }
-PetscErrorCode BSSCalcSR1Mat(BSS this, Mat S, InsertMode mode) {
+PetscErrorCode BSSSR1Mat(BSS self, Mat M) {
   int i, j, k;
-  int nb = this->num_basis;
-  int ne = this->num_ele;
-  int nq = this->order;
+  int nb = self->num_basis;
+  int ne = self->num_ele;
+  int nq = self->order;
   PetscErrorCode ierr;
+  InsertMode mode = INSERT_VALUES;
 
   for(i = 0; i < nb; i++)
     for(j = 0; j < nb; j++) {
-      if(HasNon0Value(this->order, this->b_idx_list[i], this->b_idx_list[j])) {
+      if(HasNon0Value(self->order, self->b_idx_list[i], self->b_idx_list[j])) {
 	PetscScalar v = 0.0;
 	for(k = 0; k < ne*nq; k++) 
-	  v += this->vals[k+i*(ne*nq)] * this->vals[k+j*(ne*nq)] * this->ws[k] * this->qrs[k];
-	ierr = MatSetValue(S, i, j, v, mode); CHKERRQ(ierr);
+	  v += self->vals[k+i*(ne*nq)] * self->vals[k+j*(ne*nq)] * self->ws[k] * self->qrs[k];
+	ierr = MatSetValue(M, i, j, v, mode); CHKERRQ(ierr);
       }
     }
+
+  MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
   return 0;
 }
-PetscErrorCode BSSCalcR2invR1Mat(BSS this, Mat M, InsertMode mode) {
+PetscErrorCode BSSR2invR1Mat(BSS self, Mat M) {
 
   int i, j, k;
-  int nb = this->num_basis;
-  int ne = this->num_ele;
-  int nq = this->order;
+  int nb = self->num_basis;
+  int ne = self->num_ele;
+  int nq = self->order;
   PetscErrorCode ierr;
+  InsertMode mode = INSERT_VALUES;
 
   for(i = 0; i < nb; i++)
     for(j = 0; j < nb; j++) {
-      if(HasNon0Value(this->order, this->b_idx_list[i], this->b_idx_list[j])) {
+      if(HasNon0Value(self->order, self->b_idx_list[i], self->b_idx_list[j])) {
 	PetscScalar v = 0.0;
 	for(k = 0; k < ne*nq; k++) {
-	  PetscScalar x = this->Rrs[k];
-	  PetscReal w = this->ws[k];
-	  PetscScalar q = this->qrs[k];
-	  PetscScalar fi = this->vals[k+i*ne*nq];
-	  PetscScalar fj = this->vals[k+j*ne*nq];
+	  PetscScalar x = self->Rrs[k];
+	  PetscReal w = self->ws[k];
+	  PetscScalar q = self->qrs[k];
+	  PetscScalar fi = self->vals[k+i*ne*nq];
+	  PetscScalar fj = self->vals[k+j*ne*nq];
 	  v += fi*fj*w*q/(x*x);
 	}
 	ierr = MatSetValue(M, i, j, v, mode); CHKERRQ(ierr);
       }
     }
+
+  MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
   return 0;
 }
-PetscErrorCode BSSCalcD2R1Mat(BSS this, Mat D, InsertMode mode) {
+PetscErrorCode BSSD2R1Mat(BSS self, Mat M) {
   int i, j, k;
-  int nb = this->num_basis;
-  int ne = this->num_ele;
-  int nq = this->order;
+  int nb = self->num_basis;
+  int ne = self->num_ele;
+  int nq = self->order;
   PetscErrorCode ierr;
+  InsertMode mode = INSERT_VALUES;
 
   for(i = 0; i < nb; i++)
     for(j = 0; j < nb; j++) {
-      if(HasNon0Value(this->order, this->b_idx_list[i], this->b_idx_list[j])) {
+      if(HasNon0Value(self->order, self->b_idx_list[i], self->b_idx_list[j])) {
 	PetscScalar v = 0.0;
 	for(k = 0; k < ne*nq; k++) 
-	  v += this->derivs[k+i*(ne*nq)] * this->derivs[k+j*(ne*nq)] * this->ws[k] / this->qrs[k];
-	ierr = MatSetValue(D, i, j, -v, mode); CHKERRQ(ierr);
+	  v += self->derivs[k+i*(ne*nq)] * self->derivs[k+j*(ne*nq)] * self->ws[k] / self->qrs[k];
+	ierr = MatSetValue(M, i, j, -v, mode); CHKERRQ(ierr);
       }
     }
+  MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
   return 0;
 }
-PetscErrorCode BSSCalcENR1Mat(BSS this, int q, PetscReal a, Mat V, InsertMode mode) {
-  int order = this->order;
-  int nb = this->num_basis;
-  int ne = this->num_ele;
+PetscErrorCode BSSENR1Mat(BSS self, int q, PetscReal a, Mat M) {
+  int order = self->order;
+  int nb = self->num_basis;
+  int ne = self->num_ele;
   int nq = order*ne;
   PetscErrorCode ierr;
+  InsertMode mode = INSERT_VALUES;
 
   PetscScalar *vs; 
   PetscMalloc1(nq, &vs);
   for(int k = 0; k < nq; k++) {
-    PetscScalar g = this->xs[k] > a ? this->Rrs[k] : a;
-    PetscScalar s = this->xs[k] < a ? this->Rrs[k] : a;
-    vs[k] = pow(s/g, q)/g * this->ws[k] * this->qrs[k];
+    PetscScalar g = self->xs[k] > a ? self->Rrs[k] : a;
+    PetscScalar s = self->xs[k] < a ? self->Rrs[k] : a;
+    vs[k] = pow(s/g, q)/g * self->ws[k] * self->qrs[k];
   }
 
   for(int i = 0; i < nb; i++) {
@@ -354,29 +413,67 @@ PetscErrorCode BSSCalcENR1Mat(BSS this, int q, PetscReal a, Mat V, InsertMode mo
       Non0QuadIndex(j, i, order, nq, &k0, &k1);
       PetscScalar v = 0.0;
       for(int k = k0; k < k1; k++) 
-	v += this->vals[k+i*nq] * this->vals[k+j*nq] * vs[k];
-      ierr = MatSetValue(V, i, j, v, mode); CHKERRQ(ierr);
+	v += self->vals[k+i*nq] * self->vals[k+j*nq] * vs[k];
+      ierr = MatSetValue(M, i, j, v, mode); CHKERRQ(ierr);
       if(i!=j)
-	ierr = MatSetValue(V, j, i, v, mode); CHKERRQ(ierr);
+	ierr = MatSetValue(M, j, i, v, mode); CHKERRQ(ierr);
     }
   }
 
   PetscFree(vs);
+  MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
   return 0;
 }
-PetscErrorCode BSSCalcEER2Mat(BSS this, int q, Mat V, InsertMode mode) {
-
-  int k = this->order;
-  int nb = this->num_basis;
-  int nq = this->order * this->num_ele;
+PetscErrorCode BSSPotR1Mat(BSS self, POT pot, Mat M) {
+  int order = self->order;
+  int nb = self->num_basis;
+  int ne = self->num_ele;
+  int nq = order*ne;
   PetscErrorCode ierr;
+  InsertMode mode = INSERT_VALUES;
+
+  PetscScalar *vs; 
+  PetscMalloc1(nq, &vs);
+  for(int k = 0; k < nq; k++) {
+    PetscScalar v; POTCalc(pot, self->xs[k], &v);
+    vs[k] = v * self->ws[k] * self->qrs[k];
+  }
+
+  for(int i = 0; i < nb; i++) {
+    int j0 = i-order+1; j0 = j0 < 0 ? 0: j0;
+    for(int j = j0; j <= i; j++) {
+      int k0, k1;  
+      Non0QuadIndex(j, i, order, nq, &k0, &k1);
+      PetscScalar v = 0.0;
+      for(int k = k0; k < k1; k++) 
+	v += self->vals[k+i*nq] * self->vals[k+j*nq] * vs[k];
+      ierr = MatSetValue(M, i, j, v, mode); CHKERRQ(ierr);
+      if(i!=j)
+	ierr = MatSetValue(M, j, i, v, mode); CHKERRQ(ierr);
+    }
+  }
+
+  PetscFree(vs);
+  MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
+  return 0;  
+}
+
+PetscErrorCode BSSEER2Mat(BSS self, int q, Mat M) {
+
+  int k = self->order;
+  int nb = self->num_basis;
+  int nq = self->order * self->num_ele;
+  PetscErrorCode ierr;
+  InsertMode mode = INSERT_VALUES;
 
   PetscScalar *sg_ij; 
   ierr = PetscMalloc1(nq*nq, &sg_ij); CHKERRQ(ierr);
   for(int i = 0; i < nq; i++)
     for(int j = 0; j < nq; j++) {
-      PetscScalar g = this->xs[i]>this->xs[j] ? this->Rrs[i] : this->Rrs[j];
-      PetscScalar s = this->xs[i]>this->xs[j] ? this->Rrs[j] : this->Rrs[i];
+      PetscScalar g = self->xs[i]>self->xs[j] ? self->Rrs[i] : self->Rrs[j];
+      PetscScalar s = self->xs[i]>self->xs[j] ? self->Rrs[j] : self->Rrs[i];
       sg_ij[j+nq*i] = pow(s/g, q)/g;      
     }
 
@@ -390,7 +487,7 @@ PetscErrorCode BSSCalcEER2Mat(BSS this, int q, Mat V, InsertMode mode) {
       int i0, i1; Non0QuadIndex(a, c, k, nq, &i0, &i1);
       i0s[a*nb+c] = i0; i1s[a*nb+c] = i1;
       for(int n = 0; n < nq; n++) 
-	wvv[a*nb*nq+c*nq+n]= this->ws[n] * this->vals[a*nq+n] * this->vals[c*nq+n];
+	wvv[a*nb*nq+c*nq+n]= self->ws[n] * self->vals[a*nq+n] * self->vals[c*nq+n];
     }
   }
 
@@ -408,18 +505,18 @@ PetscErrorCode BSSCalcEER2Mat(BSS this, int q, Mat V, InsertMode mode) {
 	  }
 	  
 	  if(a > c && b > d) {
-	    ierr = MatSetValue(V, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
-	    ierr = MatSetValue(V, a*nb+d, c*nb+b, v, mode); CHKERRQ(ierr);
-	    ierr = MatSetValue(V, c*nb+b, a*nb+d, v, mode); CHKERRQ(ierr);
-	    ierr = MatSetValue(V, c*nb+d, a*nb+b, v, mode); CHKERRQ(ierr);
+	    ierr = MatSetValue(M, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
+	    ierr = MatSetValue(M, a*nb+d, c*nb+b, v, mode); CHKERRQ(ierr);
+	    ierr = MatSetValue(M, c*nb+b, a*nb+d, v, mode); CHKERRQ(ierr);
+	    ierr = MatSetValue(M, c*nb+d, a*nb+b, v, mode); CHKERRQ(ierr);
 	  } else if(a > c && b == d) {
-	    ierr = MatSetValue(V, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
-	    ierr = MatSetValue(V, c*nb+b, a*nb+d, v, mode); CHKERRQ(ierr);
+	    ierr = MatSetValue(M, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
+	    ierr = MatSetValue(M, c*nb+b, a*nb+d, v, mode); CHKERRQ(ierr);
 	  } else if(a == c && b > d) {
-	    ierr = MatSetValue(V, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
-	    ierr = MatSetValue(V, a*nb+d, c*nb+b, v, mode); CHKERRQ(ierr);   
+	    ierr = MatSetValue(M, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
+	    ierr = MatSetValue(M, a*nb+d, c*nb+b, v, mode); CHKERRQ(ierr);   
 	  } else if(a == c && b == d) {
-	    ierr = MatSetValue(V, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
+	    ierr = MatSetValue(M, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
 	  }
 	}
       }
@@ -427,19 +524,22 @@ PetscErrorCode BSSCalcEER2Mat(BSS this, int q, Mat V, InsertMode mode) {
   }
 
   PetscFree(sg_ij); PetscFree(wvv); PetscFree(i0s); PetscFree(i1s);
+  MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
   return 0;
 }
-PetscErrorCode BSSCalcEER2Mat_ver1(BSS this, int q, Mat V, InsertMode mode) {
+PetscErrorCode BSSEER2Mat_ver1(BSS self, int q, Mat M) {
 
-  int nb = this->num_basis;
-  int nq = this->order * this->num_ele;
+  int nb = self->num_basis;
+  int nq = self->order * self->num_ele;
   PetscErrorCode ierr;
+  InsertMode mode = INSERT_VALUES;
 
   double *sg_ij;
   sg_ij = (double*)malloc(sizeof(double)*nq*nq);
   for(int i = 0; i < nq; i++)
     for(int j = 0; j < nq; j++) {
-      double v; PartialCoulomb(q, this->xs[i], this->xs[j], &v);
+      double v; PartialCoulomb(q, self->xs[i], self->xs[j], &v);
       sg_ij[j+nq*i] = v;
     }
 
@@ -456,87 +556,17 @@ PetscErrorCode BSSCalcEER2Mat_ver1(BSS this, int q, Mat V, InsertMode mode) {
 	  double v = 0.0;
 	  for(int n = 0; n < nq; n++) {
 	    for(int m = 0; m < nq; m++){
-	      v += this->ws[n] * this->vals[a*nq+m] * this->vals[c*nq+m] 
-		* this->ws[m] * this->vals[b*nq+n] * this->vals[d*nq+n] 
+	      v += self->ws[n] * self->vals[a*nq+m] * self->vals[c*nq+m] 
+		* self->ws[m] * self->vals[b*nq+n] * self->vals[d*nq+n] 
 		* sg_ij[n*nq+m];
 	    }
 	  }
-	  ierr = MatSetValue(V, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
+	  ierr = MatSetValue(M, a*nb+b, c*nb+d, v, mode); CHKERRQ(ierr);
 	}
       }
     }
   }
+  MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
   return 0;
 }
-PetscErrorCode BSSSetSR1Mat(BSS this, Mat *S) {
-  PetscErrorCode ierr;
-  ierr = BSSInitR1Mat(this, S); CHKERRQ(ierr);
-  ierr = BSSCalcSR1Mat(this, *S, INSERT_VALUES); CHKERRQ(ierr);
-  MatAssemblyBegin(*S, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(*S, MAT_FINAL_ASSEMBLY);
-  return 0;
-}
-PetscErrorCode BSSSetR2invR1Mat(BSS this, Mat *M) {
-  PetscErrorCode ierr;
-  ierr = BSSInitR1Mat(this, M); CHKERRQ(ierr);
-  ierr = BSSCalcR2invR1Mat(this, *M, INSERT_VALUES); CHKERRQ(ierr);
-  MatAssemblyBegin(*M, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(*M, MAT_FINAL_ASSEMBLY);
-  return 0;  
-}
-PetscErrorCode BSSSetD2R1Mat(BSS this, Mat* D) {
-  PetscErrorCode ierr;
-  ierr = BSSInitR1Mat(this, D); CHKERRQ(ierr);
-  ierr = BSSCalcD2R1Mat(this, *D, INSERT_VALUES); CHKERRQ(ierr);
-  MatAssemblyBegin(*D, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(*D, MAT_FINAL_ASSEMBLY);
-  return 0;  
-}
-PetscErrorCode BSSSetENR1Mat(BSS this, int q, PetscScalar a, Mat *D) {
-  PetscErrorCode ierr;
-  ierr = BSSInitR1Mat(this, D); CHKERRQ(ierr);
-  ierr = BSSCalcENR1Mat(this, q, a, *D, INSERT_VALUES); CHKERRQ(ierr);
-  MatAssemblyBegin(*D, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(*D, MAT_FINAL_ASSEMBLY);
-  return 0;  
-}
-PetscErrorCode BSSSetPotR1Mat(BSS this, POT pot, Mat *M) {
-  PetscErrorCode ierr;
-  int nb = this->num_basis;
-  int ne = this->num_ele;
-  int nq = this->order;
-  BSSInitR1Mat(this, M);
-
-  PetscScalar *vs;
-  PetscMalloc1(ne*nq, &vs);
-
-  for(int k = 0; k < ne*nq; k++) 
-    POTCalc(pot, this->Rrs[k], &vs[k]);
-
-  for(int i = 0; i < nb; i++)
-    for(int j = 0; j < nb; j++) {
-      if(HasNon0Value(this->order, this->b_idx_list[i], this->b_idx_list[j])) {
-	PetscScalar v = 0.0;
-	for(int k = 0; k < ne*nq; k++) {
-	  PetscReal w = this->ws[k];
-	  PetscScalar v1 = vs[k];
-	  v += this->vals[k+i*(ne*nq)] * this->vals[k+j*(ne*nq)] 
-	    * w * v1 * this->qrs[k];
-	}
-	ierr = MatSetValue(*M, i, j, v, INSERT_VALUES); CHKERRQ(ierr);
-      }
-    }
-  PetscFree(vs);
-  MatAssemblyBegin(*M, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(*M, MAT_FINAL_ASSEMBLY);
-  return 0;
-}
-PetscErrorCode BSSSetEER2Mat(BSS this, int q, Mat *V) {
-  PetscErrorCode ierr;
-  ierr = BSSInitR2Mat(this, V); CHKERRQ(ierr);
-  ierr = BSSCalcEER2Mat(this, q, *V, INSERT_VALUES ); CHKERRQ(ierr);
-  MatAssemblyBegin(*V, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(*V, MAT_FINAL_ASSEMBLY);
-  return 0;
-}
-
