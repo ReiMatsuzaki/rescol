@@ -1,6 +1,6 @@
 #include <slepceps.h>
 #include <gtest/gtest.h>
-#include <rescol/scale.h>
+#include <rescol/scaler.h>
 
 static char help[] = "Unit test for scale.c";
 
@@ -8,8 +8,11 @@ TEST(TestScaling, Uniform) {
 
   MPI_Comm comm = MPI_COMM_SELF;
   PetscReal theta = M_PI*10.0/18.0;
-  Scaler scaler;
-  ScalerCreateUniform(&scaler, comm, theta);
+  Scaler scaler; ScalerCreate(comm, &scaler);
+  ScalerSetUniformCS(scaler, theta);
+
+  if(getenv("SHOW_DEBUG"))
+    ScalerView(scaler, PETSC_VIEWER_STDOUT_SELF);
 
   PetscReal xs[10];
   PetscScalar Rr[10];
@@ -19,8 +22,7 @@ TEST(TestScaling, Uniform) {
   }
 
   PetscErrorCode ierr;
-  ierr = ScalerSetRr(scaler, xs, 10, Rr); ASSERT_EQ(0, ierr);  
-  ierr = ScalerSetQr(scaler, xs, 10, qr); ASSERT_EQ(0, ierr);
+  ierr = ScalerCalc(scaler, xs, 10, qr, Rr); ASSERT_EQ(0, ierr);  
 
   double eps = 0.00000000001;
 #if defined(PETSC_USE_COMPLEX)
@@ -43,8 +45,11 @@ TEST(TestScaling, SharpECS) {
   MPI_Comm comm = MPI_COMM_SELF;
   PetscReal theta = M_PI*10.0/180.0;
   PetscReal r0 = 4.0;
-  Scaler scaler;
-  ScalerCreateSharpECS(&scaler, comm, r0, theta);
+  Scaler scaler; ScalerCreate(comm, &scaler);
+  ScalerSetSharpECS(scaler, r0, theta);
+
+  if(getenv("SHOW_DEBUG"))
+    ScalerView(scaler, PETSC_VIEWER_STDOUT_SELF);
 
   PetscReal xs[10];
   PetscScalar Rr[10];
@@ -54,9 +59,7 @@ TEST(TestScaling, SharpECS) {
   }
 
   PetscErrorCode ierr;
-
-  ierr = ScalerSetRr(scaler, xs, 10, Rr); ASSERT_EQ(0, ierr);  
-  ierr = ScalerSetQr(scaler, xs, 10, qr); ASSERT_EQ(0, ierr);
+  ierr = ScalerCalc(scaler, xs, 10, qr, Rr);  ASSERT_EQ(0, ierr);  
 
   double eps = 0.00000000001;
 
@@ -83,8 +86,10 @@ TEST(TestScaling, SharpECS) {
 TEST(TestScaling, none) {
   
   MPI_Comm comm = MPI_COMM_SELF;
-  Scaler scaler;
-  ScalerCreateNone(&scaler, comm);
+  Scaler scaler; ScalerCreate(comm, &scaler); ScalerSetNone(scaler);
+
+  if(getenv("SHOW_DEBUG"))
+    ScalerView(scaler, PETSC_VIEWER_STDOUT_SELF);
 
   PetscReal xs[10];
   PetscScalar Rr[10];
@@ -94,12 +99,10 @@ TEST(TestScaling, none) {
   }
 
   PetscErrorCode ierr;
-
-  ierr = ScalerSetRr(scaler, xs, 10, Rr); ASSERT_EQ(0, ierr);  
-  ierr = ScalerSetQr(scaler, xs, 10, qr); ASSERT_EQ(0, ierr);
+  ierr = ScalerCalc(scaler, xs, 10, qr, Rr);  ASSERT_EQ(0, ierr);  
 
   double eps = 0.00000000001;
-  
+ 
   ASSERT_NEAR(PetscRealPart(Rr[0]), 0.0, eps);
   ASSERT_NEAR(PetscRealPart(Rr[2]), 2.2, eps);
   ASSERT_NEAR(PetscRealPart(Rr[5]), 5.5, eps);

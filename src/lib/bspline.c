@@ -144,11 +144,11 @@ PetscErrorCode BSSView(BSS self, PetscViewer v) {
     SETERRQ(self->comm, 1, "unsupported type");
 
   PetscViewerASCIIPrintf(v, ">>>> B-Spline >>>>\n");
-  PetscViewerASCIIPrintf(v, "order: %d\n", self->order);
-  BPSView(self->bps, v);  
+  PetscViewerASCIIPrintf(v, "order: %d\n", self->order);  
   PetscViewerASCIIPrintf(v, "num_ele: %d\n", self->num_ele);
   PetscViewerASCIIPrintf(v, "num_basis: %d\n", self->num_basis);
-  ScalerView(self->scaler);
+  BPSView(self->bps, v);  
+  ScalerView(self->scaler, v);
   PetscViewerASCIIPrintf(v, "<<<< B-Spline <<<<\n");
 
   return 0;
@@ -189,10 +189,13 @@ PetscErrorCode BSSSetKnots(BSS self, int order, BPS bps) {
 }
 PetscErrorCode BSSSetScaler(BSS self, Scaler scaler) {
 
+  Scaler s;
   if(scaler == NULL) {
-    Scaler s; ScalerCreateNone(&s, self->comm); self->scaler = s;
-  } else
-    self->scaler = scaler;
+    ScalerCreate(self->comm, &s); ScalerSetNone(s);
+  } else {
+    s = scaler;
+  }
+  self->scaler = s;
   return 0;
 }
 PetscErrorCode BSSSetUp(BSS self) {
@@ -216,7 +219,7 @@ PetscErrorCode BSSSetUp(BSS self) {
   for(int i = 0; i < num_zs; i++) 
     self->ts_r[i+self->order-1] = zs[i];
   PetscFree(zs);
-  ScalerSetRr(self->scaler, self->ts_r, self->num_ts, self->ts_s);
+  ScalerCalc(self->scaler, self->ts_r, self->num_ts, NULL, self->ts_s);
 
   // index of basis
   for(int ib = 0; ib < self->num_basis; ib++)
@@ -249,8 +252,8 @@ PetscErrorCode BSSSetUp(BSS self) {
   }
 
   int n_xs = self->num_ele * self->order;
-  ierr = ScalerSetQr(self->scaler, self->xs, n_xs, self->qrs); CHKERRQ(ierr);
-  ierr = ScalerSetRr(self->scaler, self->xs, n_xs, self->Rrs); CHKERRQ(ierr);
+  ierr = ScalerCalc(self->scaler, self->xs, n_xs, 
+		    self->qrs, self->Rrs); CHKERRQ(ierr);
 
   return 0;
 }
@@ -261,10 +264,11 @@ PetscErrorCode BSSSetFromOptions(BSS self) {
 
   PetscInt order = 2;
   BPS bps;        BPSCreate(self->comm, &bps);
-  Scaler scaler;  ScalerCreateFromOptions(&scaler, self->comm);
+  Scaler scaler;  ScalerCreate(self->comm, &scaler);
   
   ierr = PetscOptionsGetInt(NULL, "-bss_order", &order, &find); CHKERRQ(ierr);
   ierr = BPSSetFromOptions(bps); CHKERRQ(ierr);
+  ierr = ScalerSetFromOptions(scaler); CHKERRQ(ierr);
   ierr = BSSSetKnots(self, order, bps); CHKERRQ(ierr);
   ierr = BSSSetScaler(self, scaler); CHKERRQ(ierr);
   ierr = BSSSetUp(self); CHKERRQ(ierr);

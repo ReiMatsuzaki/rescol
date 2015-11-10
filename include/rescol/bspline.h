@@ -9,7 +9,7 @@ extern "C" {
 #include "mat.h"
 #include "bps.h"
 #include "pot.h"
-#include "scale.h"
+#include "scaler.h"
 
 struct _p_BSS {
   MPI_Comm comm;

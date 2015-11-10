@@ -481,7 +481,9 @@ int testSlaterPotWithECS() {
 
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 101);
-  Scaler scaler; ScalerCreateSharpECS(&scaler, comm, 60.0, 20.0*M_PI/180.0);
+  Scaler scaler; ScalerCreate(comm, &scaler); 
+  ScalerSetSharpECS(scaler, 60.0, 20.0*M_PI/180.0);
+
   int order = 5;
   BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);
   BSSSetScaler(bss, scaler);   BSSSetUp(bss);
