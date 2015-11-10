@@ -7,7 +7,8 @@ int NumBSpline(int order, int num_ele) {
 int HasNon0Value(int order, int i, int j) {
   return abs(i-j) < order;
 }
-PetscErrorCode CalcBSpline(int k, double* ts_r, PetscScalar* ts, int i, double x, double* y) {
+PetscErrorCode CalcBSpline(int k, double* ts_r, PetscScalar* ts, 
+			   int i, double x, PetscScalar* y) {
 
   if(k < 1) {
     SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_ARG_OUTOFRANGE, 
@@ -25,57 +26,24 @@ PetscErrorCode CalcBSpline(int k, double* ts_r, PetscScalar* ts, int i, double x
     else
       *y = 0.0;
   } else {
-    double ti    = ts[i];
-    double ti1   = ts[i+1];
-    double tidm1 = ts[i+k-1];
-    double tid   = ts[i+k];
-    double bs0; CalcBSpline(k-1, ts_r, ts, i, x, &bs0);
-    double bs1; CalcBSpline(k-1, ts_r, ts, i+1, x, &bs1);
+    PetscScalar ti    = ts[i];
+    PetscScalar ti1   = ts[i+1];
+    PetscScalar tidm1 = ts[i+k-1];
+    PetscScalar tid   = ts[i+k];
+    PetscScalar bs0; CalcBSpline(k-1, ts_r, ts, i, x, &bs0);
+    PetscScalar bs1; CalcBSpline(k-1, ts_r, ts, i+1, x, &bs1);
     
-    double acc = 0.0;
-    if(fabs(bs0) > 0.000000001)
+    PetscScalar acc = 0.0;
+    if(ScalarAbs(bs0) > 0.000000001)
       acc += (x - ti) / (tidm1 - ti) * bs0;
-    if(fabs(bs1) > 0.000000001)
+    if(ScalarAbs(bs1) > 0.000000001)
       acc += (tid - x) / (tid - ti1) * bs1;
     *y = acc;
   }
   return 0;
 }
-PetscErrorCode CalcBSplineOld(int order, double* ts, int i, double x, double* y) {
-
-  if(order < 1) {
-    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_ARG_OUTOFRANGE, 
-	    "order must be positive integer\n");
-  }
-
-  if(x < ts[i] || ts[i+order] < x) {
-    *y = 0.0; 
-    return 0;
-  }
-
-  if(order == 1) {
-    if(ts[i] <= x && x < ts[i+1])
-      *y = 1.0;
-    else
-      *y = 0.0;
-  } else {
-    double ti    = ts[i];
-    double ti1   = ts[i+1];
-    double tidm1 = ts[i+order-1];
-    double tid   = ts[i+order];
-    double bs0; CalcBSplineOld(order-1, ts, i, x, &bs0);
-    double bs1; CalcBSplineOld(order-1, ts, i+1, x, &bs1);
-    
-    double acc = 0.0;
-    if(fabs(bs0) > 0.000000001)
-      acc += (x - ti) / (tidm1 - ti) * bs0;
-    if(fabs(bs1) > 0.000000001)
-      acc += (tid - x) / (tid - ti1) * bs1;
-    *y = acc;
-  }
-  return 0;
-}
-PetscErrorCode CalcDerivBSpline(int order, double* ts, int i, double x, double* y) {
+PetscErrorCode CalcDerivBSpline(int order, PetscReal* ts_r, PetscScalar *ts, 
+				int i, double x, PetscScalar* y) {
   
   if(order < 1) {
     SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_ARG_OUTOFRANGE, 
@@ -87,15 +55,15 @@ PetscErrorCode CalcDerivBSpline(int order, double* ts, int i, double x, double* 
   else {
 
     int k = order;
-    double bs0;
-    CalcBSplineOld(k-1, ts, i, x, &bs0);
-    double bs1;
-    CalcBSplineOld(k-1, ts, i+1, x, &bs1);
+    PetscScalar bs0;
+    CalcBSpline(k-1, ts_r, ts, i, x, &bs0);
+    PetscScalar bs1;
+    CalcBSpline(k-1, ts_r, ts, i+1, x, &bs1);
     double eps = 0.000000001;
     double acc = 0.0;
-    if(fabs(bs0) > eps)
+    if(ScalarAbs(bs0) > eps)
       acc += (k-1)/(ts[i+k-1]-ts[i]) * bs0;
-    if(fabs(bs1) > eps)
+    if(ScalarAbs(bs1) > eps)
       acc -= (k-1)/(ts[i+k]-ts[i+1]) * bs1;
     *y = acc;
   }
@@ -151,11 +119,11 @@ PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, Scaler scaler,
 
   BPSGetNumEle(bps, &_bss->num_ele);
   _bss->num_basis = NumBSpline(order, num_zs-1);
-  //  BPSGetZMax(bps, &_bss->rmax);
 
   // copy ts and zs
-  PetscMalloc1(num_zs+2*order-2, &_bss->ts_r);
-  PetscMalloc1(num_zs+2*order-2, &_bss->ts_s);
+  int num_ts = num_zs+2*order-2;
+  PetscMalloc1(num_ts, &_bss->ts_r);
+  PetscMalloc1(num_ts, &_bss->ts_s);
 
   for(i = 0; i < order-1; i++) {
     _bss->ts_r[i] = zs[0];
@@ -164,19 +132,15 @@ PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, Scaler scaler,
   for(i = 0; i < num_zs; i++) 
     _bss->ts_r[i+order-1] = zs[i];
 
-  for(int i = 0; i < num_zs+2*order-2; i++)
-    _bss->ts_s[i] = _bss->ts_r[i];
+  ScalerSetRr(_bss->scaler, _bss->ts_r, num_ts, _bss->ts_s);
 
   // calculate appreciate quadrature points
   int n_xs = _bss->num_ele * _bss->order;
   PetscMalloc1(_bss->num_basis, &_bss->b_idx_list);
-  PetscMalloc1(n_xs, &_bss->xs);
-  PetscMalloc1(n_xs, &_bss->ws);
-  PetscMalloc1(n_xs, &_bss->qrs);
-  PetscMalloc1(n_xs, &_bss->Rrs);
-  int num = sizeof(PetscScalar)*(n_xs)*(_bss->num_basis);
-  PetscMalloc1(num, &_bss->vals);
-  PetscMalloc1(num, &_bss->derivs);
+  PetscMalloc1(n_xs, &_bss->xs); PetscMalloc1(n_xs, &_bss->ws);
+  PetscMalloc1(n_xs, &_bss->qrs); PetscMalloc1(n_xs, &_bss->Rrs);
+  int num = n_xs*_bss->num_basis;
+  PetscMalloc1(num, &_bss->vals); PetscMalloc1(num, &_bss->derivs);
 
   for(ib = 0; ib < _bss->num_basis; ib++)
     _bss->b_idx_list[ib] = ib + 1;
@@ -191,10 +155,13 @@ PetscErrorCode BSSCreate(BSS *bss, int order, BPS bps, Scaler scaler,
       _bss->ws[ix] = w;
       
       for(ib = 0; ib < _bss->num_basis; ib++) {
-	PetscReal y;
-	PetscReal dy;
-	CalcBSpline(order, _bss->ts_r, _bss->ts_s, _bss->b_idx_list[ib], x, &y);
-	CalcDerivBSpline(order, _bss->ts_r,  _bss->b_idx_list[ib], x, &dy);
+	PetscScalar y;
+	PetscScalar dy;
+	PetscReal *ts_r = _bss->ts_r;
+	PetscScalar *ts_s = _bss->ts_s;
+	int idx = _bss->b_idx_list[ib];
+	CalcBSpline(order, ts_r, ts_s, idx, x, &y);
+	CalcDerivBSpline(order, ts_r, ts_s, idx, x, &dy);
 	int iy = ib*(_bss->num_ele*order) + ie*order + iq;
 	_bss->vals[iy] = y;  
 	_bss->derivs[iy] = dy;
@@ -256,9 +223,9 @@ PetscErrorCode BSSFPrintf(BSS this, FILE* file, int lvl) {
   PetscFPrintf(comm, file, "===== End B-Spline =====\n");
   return 0;
 }
-PetscErrorCode BSSBasisPsi(BSS this, int i, PetscReal x, PetscReal *y) {
+PetscErrorCode BSSBasisPsi(BSS this, int i, PetscReal x, PetscScalar *y) {
   
-  PetscReal z;
+  PetscScalar z;
   CalcBSpline(this->order, 
 	      this->ts_r, 
 	      this->ts_s, 
@@ -268,10 +235,11 @@ PetscErrorCode BSSBasisPsi(BSS this, int i, PetscReal x, PetscReal *y) {
   *y = z;
   return 0;
 }
-PetscErrorCode BSSDerivBasisPsi(BSS this, int i, PetscReal x, PetscReal *y) {
-  PetscReal z;
+PetscErrorCode BSSDerivBasisPsi(BSS this, int i, PetscReal x, PetscScalar *y) {
+  PetscScalar z;
   CalcDerivBSpline(this->order, 
 		   this->ts_r, 
+		   this->ts_s, 
 		   this->b_idx_list[i], 
 		   x, 
 		   &z);
@@ -335,7 +303,7 @@ PetscErrorCode BSSCalcR2invR1Mat(BSS this, Mat M, InsertMode mode) {
 	PetscScalar v = 0.0;
 	for(k = 0; k < ne*nq; k++) {
 	  PetscScalar x = this->Rrs[k];
-	  PetscScalar w = this->ws[k];
+	  PetscReal w = this->ws[k];
 	  PetscScalar q = this->qrs[k];
 	  PetscScalar fi = this->vals[k+i*ne*nq];
 	  PetscScalar fj = this->vals[k+j*ne*nq];
@@ -412,7 +380,7 @@ PetscErrorCode BSSCalcEER2Mat(BSS this, int q, Mat V, InsertMode mode) {
       sg_ij[j+nq*i] = pow(s/g, q)/g;      
     }
 
-  PetscReal *wvv; ierr = PetscMalloc1(nb*nb*nq, &wvv); CHKERRQ(ierr);
+  PetscScalar *wvv; ierr = PetscMalloc1(nb*nb*nq, &wvv); CHKERRQ(ierr);
   int *i0s; ierr = PetscMalloc1(nb*nb, &i0s); CHKERRQ(ierr);
   int *i1s; ierr = PetscMalloc1(nb*nb, &i1s); CHKERRQ(ierr);
   for(int a = 0; a < nb; a++){
@@ -432,9 +400,9 @@ PetscErrorCode BSSCalcEER2Mat(BSS this, int q, Mat V, InsertMode mode) {
       for(int b = 0; b < nb; b++) {
 	int d0 = b-k+1; d0 = d0<0?0:d0;
 	for(int d = d0; d <= b; d++) {
-	  double v = 0.0;
+	  PetscScalar v = 0.0;
 	  for(int i = i0s[a*nb+c]; i < i1s[a*nb+c]; i++) {
-	    double aci = wvv[a*nb*nq + c*nq + i];
+	    PetscScalar aci = wvv[a*nb*nq + c*nq + i];
 	    for(int j = i0s[b*nb+d]; j < i1s[b*nb+d]; j++)
 	      v += aci * sg_ij[i*nq+j] * wvv[b*nb*nq + d*nq + j];
 	  }
@@ -543,7 +511,7 @@ PetscErrorCode BSSSetPotR1Mat(BSS this, POT pot, Mat *M) {
   PetscMalloc1(ne*nq, &vs);
 
   for(int k = 0; k < ne*nq; k++) 
-    POTCalc(pot, this->xs[k], &vs[k]);
+    POTCalc(pot, this->Rrs[k], &vs[k]);
 
   for(int i = 0; i < nb; i++)
     for(int j = 0; j < nb; j++) {
@@ -553,7 +521,7 @@ PetscErrorCode BSSSetPotR1Mat(BSS this, POT pot, Mat *M) {
 	  PetscReal w = this->ws[k];
 	  PetscScalar v1 = vs[k];
 	  v += this->vals[k+i*(ne*nq)] * this->vals[k+j*(ne*nq)] 
-	    * w * v1;
+	    * w * v1 * this->qrs[k];
 	}
 	ierr = MatSetValue(*M, i, j, v, INSERT_VALUES); CHKERRQ(ierr);
       }

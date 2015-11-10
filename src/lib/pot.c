@@ -16,6 +16,39 @@ PetscErrorCode POTView(POT pot) {
   ierr = pot->View(pot->vs);
   return 0;
 }
+PetscErrorCode POTViewFunc(POT self, ViewerFunc viewer) {
+
+  PetscErrorCode ierr;
+  MPI_Comm comm = PETSC_COMM_WORLD;
+  ierr = ViewerFuncCheckAcrive(viewer); CHKERRQ(ierr);
+
+  PetscViewerType type;
+  PetscViewerGetType(viewer->base, &type);
+  if(strcmp(type, "ascii") != 0) {
+    char msg[100]; sprintf(msg, "unsupported type: %s", type);
+    SETERRQ(comm, 1, msg);
+  }
+
+  PetscInt num;
+  PetscReal *xs; 
+  ViewerFuncGetXs(viewer, &num, &xs);
+
+  for(int i = 0; i < num; i++) {
+    PetscScalar y;
+    POTCalc(self, xs[i], &y);
+    PetscReal re, im;
+#if defined(PETSC_USE_COMPLEX)
+    re = PetscRealPart(y);
+    im  =PetscImaginaryPart(y);
+#else
+    re = y;
+    im = 0.0;
+#endif
+    PetscViewerASCIIPrintf(viewer->base, "%lf %lf %lf\n", xs[i], re, im);
+  }
+  
+  return 0;
+}
 PetscErrorCode POTDestroy(POT *pot) {
   PetscErrorCode ierr;
   

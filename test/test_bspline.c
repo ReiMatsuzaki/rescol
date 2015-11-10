@@ -31,7 +31,8 @@ PetscErrorCode BSSSetSR1Mat2(BSS self, Mat *S) {
   return 0;
 }
 
-int testNumBSpline() { 
+int testNumBSpline() {
+  PrintTimeStamp(PETSC_COMM_SELF, "num bs", NULL);
   /*
     order = 4
 ----|. . . . . |   0 (not used)
@@ -72,6 +73,8 @@ int testNumBSpline() {
   return 0;
 }
 int testCalcBSpline() {
+  PrintTimeStamp(PETSC_COMM_SELF, "calc", NULL);
+
   // see paper
   int order = 3;
   
@@ -86,27 +89,28 @@ int testCalcBSpline() {
   // non overlaped points list
   //double zs[6] = {0.0, 1.0, 2.0, 3.0, 4.0, 5.0}; 
 
-  double y = 777.0; double y2 = 666.0;
+  PetscScalar y = 777.0;
   CalcBSpline(order, ts_r, ts_s, 0, 0.0, &y); ASSERT_DOUBLE_EQ(1.0, y);
   CalcBSpline(order, ts_r, ts_s, 0, 1.0, &y); ASSERT_DOUBLE_EQ(0.0, y);
   CalcBSpline(order, ts_r, ts_s, 6, 4.0, &y); ASSERT_DOUBLE_EQ(0.0, y);
-  CalcBSplineOld(order, ts_r, 6, 4.0, &y2); ASSERT_DOUBLE_EQ(y, y2);
   
-  double x = 0.34;
+  PetscScalar x = 0.34;
   CalcBSpline(order, ts_r, ts_s, 2, x, &y); ASSERT_DOUBLE_EQ(0.5*x*x, y);
-  CalcDerivBSpline(order, ts_r, 2, x, &y); ASSERT_DOUBLE_EQ(x, y);
+  CalcDerivBSpline(order, ts_r, ts_s, 2, x, &y); ASSERT_DOUBLE_EQ(x, y);
 
   x = 2.44;
   CalcBSpline(order, ts_r, ts_s, 2, x, &y); ASSERT_DOUBLE_EQ(0.5*x*x-3*x+4.5, y);
-  CalcDerivBSpline(order, ts_r, 2, x, &y);  ASSERT_DOUBLE_EQ(x-3.0, y);
+  CalcDerivBSpline(order, ts_r, ts_s, 2, x, &y);  ASSERT_DOUBLE_EQ(x-3.0, y);
 
   x = 3.44;
   CalcBSpline(order, ts_r, ts_s, 2, x, &y); ASSERT_DOUBLE_EQ(0.0, y);
-  CalcDerivBSpline(order, ts_r, 2, x, &y); ASSERT_DOUBLE_EQ(0.0, y);
+  CalcDerivBSpline(order, ts_r, ts_s, 2, x, &y); ASSERT_DOUBLE_EQ(0.0, y);
 
   return 0;
 }
 int testNon0QuadIndex() {
+  PrintTimeStamp(PETSC_COMM_SELF, "non0", NULL);
+
   int i0, i1;
   Non0QuadIndex(0, 0, 3, 3*5, &i0, &i1);
   ASSERT_EQ(0, i0); ASSERT_EQ(6, i1);
@@ -132,6 +136,8 @@ int testNon0QuadIndex() {
   return 0;
 }
 int testNon0QuadIndex2() {
+  PrintTimeStamp(PETSC_COMM_SELF, "non02", NULL);
+
 
   int i0, i1;
   int k  = 2;
@@ -153,6 +159,7 @@ int testNon0QuadIndex2() {
   return 0;
 }
 int testBSplineSetBasic() {
+  PrintTimeStamp(PETSC_COMM_SELF, "set basics", NULL);
 
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
@@ -183,7 +190,7 @@ int testBSplineSetBasic() {
   ASSERT_DOUBLE_EQ(5.0, bss->ts_r[9]);
 
   double x = 0.34;
-  PetscReal y1; BSSBasisPsi(bss, 2-1, x, &y1);
+  PetscScalar y1; BSSBasisPsi(bss, 2-1, x, &y1);
   ASSERT_DOUBLE_EQ(0.5*x*x, PetscRealPart(y1));
 
   ASSERT_DOUBLE_NEAR(0.11270167, bss->xs[0], pow(10.0, -8.0));
@@ -207,6 +214,7 @@ int testBSplineSetBasic() {
   return 0;
 }
 int testBSplineSetSR1Mat() {
+  PrintTimeStamp(PETSC_COMM_SELF, "S", NULL);
 
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
@@ -260,6 +268,7 @@ int testBSplineSetSR1Mat() {
   return 0;
 }
 int testBSplineSetSR1MatWithQuad() {
+  PrintTimeStamp(PETSC_COMM_SELF, "Quad", NULL);
 
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
@@ -277,6 +286,7 @@ int testBSplineSetSR1MatWithQuad() {
   return 0;
 }
 int testBSplineSetD2R1Mat() {
+  PrintTimeStamp(PETSC_COMM_SELF, "D2", NULL);
 
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
@@ -314,6 +324,7 @@ int testBSplineSetD2R1Mat() {
   return 0;
 }
 int testBSplineSetENMatR1Mat() {
+  PrintTimeStamp(PETSC_COMM_SELF, "EN", NULL);
  
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
@@ -342,6 +353,7 @@ int testBSplineSetENMatR1Mat() {
   return 0;
 }
 int testBSplineSetEE() {
+  PrintTimeStamp(PETSC_COMM_SELF, "EE", NULL);
 
   PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
@@ -385,6 +397,7 @@ int testBSplineSetEE() {
   return 0;
 }
 int testBSplineSetEE_time() {
+    PrintTimeStamp(PETSC_COMM_SELF, "EE time", NULL);
 
   time_t t0, t1;
   PetscErrorCode ierr;
@@ -409,6 +422,7 @@ int testBSplineSetEE_time() {
   return 0;
 }
 int testBSplineSetNE_time() {
+  PrintTimeStamp(PETSC_COMM_SELF, "EN time", NULL);
 
   time_t t0, t1;
   MPI_Comm comm = PETSC_COMM_SELF;
@@ -428,6 +442,7 @@ int testBSplineSetNE_time() {
   return 0;
 }
 int testBSplineHAtom() {
+  PrintTimeStamp(PETSC_COMM_SELF, "H atom", NULL);
 
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 20.0, 20);
@@ -483,6 +498,7 @@ int testBSplineHAtom() {
   return 0;
 }
 int testBSplinePot() {
+    PrintTimeStamp(PETSC_COMM_SELF, "pot", NULL);
 
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 6);
@@ -503,6 +519,7 @@ int testBSplinePot() {
   return 0;
 }
 int testBSplinePot2() {
+    PrintTimeStamp(PETSC_COMM_SELF, "pot2", NULL);
 
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 5.0, 8);
@@ -525,8 +542,10 @@ int testBSplinePot2() {
   return 0;
 }
 int testSlaterPotWithECS() {
+  PrintTimeStamp(PETSC_COMM_SELF, "ECS", NULL);
+
   MPI_Comm comm = PETSC_COMM_SELF;
-  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 100.0, 201);
+  BPS bps; BPSCreate(&bps, comm); BPSSetLine(bps, 100.0, 101);
   Scaler scaler; ScalerCreateSharpECS(&scaler, comm, 60.0, 20.0*M_PI/180.0);
   int order = 5;
   BSS bss; BSSCreate(&bss, order, bps, scaler, comm);
@@ -564,8 +583,8 @@ int testSlaterPotWithECS() {
     }
 
   EPSGetEigenpair(eps, 0, &kr, &ki, NULL, NULL);
-  ASSERT_DOUBLE_NEAR(3.4263903, PetscRealPart(kr), pow(10.0, -3.0));
-  ASSERT_DOUBLE_NEAR(-0.0127745, PetscImaginaryPart(kr), pow(10.0, -3.0));
+  ASSERT_DOUBLE_NEAR(-0.0127745, PetscImaginaryPart(kr), pow(10.0, -4.0));
+  ASSERT_DOUBLE_NEAR(3.4263903, PetscRealPart(kr), pow(10.0, -4.0));  
   EPSDestroy(&eps);
   MatDestroy(&H); MatDestroy(&S);
   return 0;

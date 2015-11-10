@@ -6,18 +6,21 @@ INC_DIR=${RESCOL_DIR}/include
 
 VPATH = ${RESCOL_DIR}/src/lib \
 	${RESCOL_DIR}/src/bin \
-	${RESCOL_DIR}/test
+	${RESCOL_DIR}/test \
+	${RESCOL_DIR}/test/training
 
 CPPFLAGS+=-I${INC_DIR}
 CFLAGS+=-std=gnu99
 CXXFLAGS=
 LIBS=-lgsl -lgtest
 
-OBJ_FEM= fem_inf.o fd.o bspline.o dvr.o bps.o mat.o pot.o scale.o
+OBJ_FEM= fem_inf.o fd.o bspline.o dvr.o bps.o mat.o pot.o scale.o viewerfunc.o
 
 include $(subst .c,.d,${SOURCE_LIST})
 include ${RESCOL_DIR}/test/make.mk
+include ${RESCOL_DIR}/test/training/make.mk
 include ${RESCOL_DIR}/src/bin/make.mk
+
 
 ${BIN_DIR}:
 	mkdir -p ${BIN_DIR}
@@ -26,10 +29,10 @@ ${TEST_BIN_DIR}:
 
 %.o: %.c ${OBJ_DIR}
 	@echo [compile] $(notdir $<)
-	${PCC} -c ${PCC_FLAGS} ${CFLAGS} ${CCPPFLAGS} ${CPPFLAGS} -o $@ $< 
+	@${PCC} -c ${PCC_FLAGS} ${CFLAGS} ${CCPPFLAGS} ${CPPFLAGS} -o $@ $< 
 %.o : %.cpp ${OBJ_DIR}
 	@echo [compile] $(notdir $<)
-	${CXX} -c ${PCC_FLAGS}  ${CXXFLAGS} ${CCPPFLAGS} ${CPPFLAGS} -o $@ $< 
+	@${CXX} -c ${PCC_FLAGS}  ${CXXFLAGS} ${CCPPFLAGS} ${CPPFLAGS} -o $@ $< 
 %.d: %.c
 	${PCC} -M ${CPPFLAGS} ${CCPPFLAGS}$< > $@.$$$$;                  \
 	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \

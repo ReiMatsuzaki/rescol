@@ -9,16 +9,21 @@
 
 struct _p_WFWriter {
   MPI_Comm comm;
+  PetscBool active;
   PetscInt num;
   PetscReal xmax;
+  FILE *fp;
 };
 typedef struct _p_WFWriter* WFWriter;
 
 PetscErrorCode WFWriterCreate(WFWriter *writer, MPI_Comm comm);
 PetscErrorCode WFWriterSet(WFWriter self, PetscInt num, PetscReal xmax);
-PetscErrorCode WFWriterCreateFromOptions(WFWriter *p_self, MPI_Comm comm);
+PetscErrorCode WFWriterSetPath(WFWriter self, char path[]);
+PetscErrorCode WFWriterSetFromOptions(WFWriter self);
+//PetscErrorCode WFWriterCreateFromOptions(WFWriter *p_self, MPI_Comm comm);
 PetscErrorCode WFWriterDestroy(WFWriter *p_self);
 PetscErrorCode WFWriterView(WFWriter self);
+PetscBool WFWriterIsActive(WFWriter self);
 
 PetscErrorCode WFWriterWrite(WFWriter self, FILE *fp, FEMInf fem, Vec c);
 PetscErrorCode WFWriterWriteFile(WFWriter self, char *fn, FEMInf fem, Vec c);

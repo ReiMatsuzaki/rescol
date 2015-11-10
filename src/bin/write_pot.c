@@ -1,35 +1,41 @@
 #include <rescol/pot.h>
-#include <rescol/writer.h>
+#include <rescol/viewerfunc.h>
 
 static char help[] = "write potential curve";
 
 int main(int argc, char **args) {
   PetscErrorCode ierr;
   MPI_Comm comm = MPI_COMM_SELF;
-  WFWriter writer;
+
   POT pot;
-  char out[100] = "pot.dat";
+  ViewerFunc  viewer; ViewerFuncCreate(&viewer, comm);
   int J = 0;
   PetscReal mu = 1.0;
 
-  ierr = SlepcInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);
+  ierr = PetscInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);
+  ierr = PetscOptionsBegin(comm, "", "write_pot options", "none");
 
-  ierr = WFWriterCreateFromOptions(&writer, comm); CHKERRQ(ierr);
   ierr = POTCreateFromOptions(&pot, comm); CHKERRQ(ierr);
-  ierr = PetscOptionsGetString(NULL, "-out", out, 100, NULL);
-  ierr = PetscOptionsGetInt(NULL, "-J", &J, NULL);
-  ierr = PetscOptionsGetReal(NULL, "-mu", &mu, NULL);
+  ierr = ViewerFuncSetFromOptions(viewer); CHKERRQ(ierr);
+  ierr = PetscOptionsGetInt(NULL, "-J", &J, NULL); CHKERRQ(ierr);
+  ierr = PetscOptionsGetReal(NULL, "-mu", &mu, NULL); CHKERRQ(ierr);
 
-  ierr = WFWriterWriteFilePOT(writer, out, pot, J, mu);
+  ierr = PetscOptionsEnd(); CHKERRQ(ierr);
 
-  PetscPrintf(comm, "J=%d", J);
-  PetscPrintf(comm, "mu=%f", mu);
-  WFWriterView(writer);
+  if(!ViewerFuncIsActive(viewer))
+    SETERRQ(comm, 1, "ViewerFunc is bad state");
+
+  PetscPrintf(comm, "J=%d\n", J);
+  PetscPrintf(comm, "mu=%f\n", mu);
   POTView(pot); 
+  ViewerFuncView(viewer, PETSC_VIEWER_STDOUT_SELF);
 
-  WFWriterDestroy(&writer);
-  POTDestroy(&pot);
-  ierr = SlepcFinalize(); CHKERRQ(ierr);
+  if(!ViewerFuncIsActive(viewer))
+    POTViewFunc(pot, viewer);
+
+  ierr = POTDestroy(&pot); CHKERRQ(ierr);
+  ierr = ViewerFuncDestroy(&viewer); CHKERRQ(ierr);
+  ierr = PetscFinalize(); CHKERRQ(ierr);
   return 0;
 }
 

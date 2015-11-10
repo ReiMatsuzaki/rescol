@@ -5,6 +5,7 @@
 extern "C" {
 #endif 
 #include <petscmat.h>
+#include <rescol/viewerfunc.h>
 
 /*
   describing potential 
@@ -21,6 +22,7 @@ struct _p_POT {
 typedef struct _p_POT* POT;
 PetscErrorCode POTCalc(POT pot, PetscScalar x, PetscScalar *y);
 PetscErrorCode POTView(POT pot);
+PetscErrorCode POTViewFunc(POT pot, ViewerFunc viewer);
 PetscErrorCode POTDestroy(POT *pot);
 PetscBool POTIsType(POT pot, char *name);
 

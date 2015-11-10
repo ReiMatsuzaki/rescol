@@ -2,8 +2,8 @@ h2mole.out: h2mole.o ${OBJ_FEM} oce2.o angmoment.o
 h2plus.out: h2plus.o ${OBJ_FEM} oce1.o angmoment.o
 he_guess.out: he_guess.o ${OBJ_FEM} oce2.o angmoment.o
 h_pi.out: h_pi.o ${OBJ_FEM} angmoment.o
-eig_one.out: eig_one.o ${OBJ_FEM} oce1.o angmoment.o writer.o
-write_pot.out: ${OBJ_FEM} oce1.o angmoment.o writer.o pot.o
+
+eps_help.out:
 
 .PHONY: check_h2mole_bss
 check_h2mole_bss: he_guess.out h2mole.out
@@ -32,17 +32,28 @@ check_h_pi: h_pi.out
 	-bps_num_zs 101 -bps_zmax 100.0 -bps_type line \
 	-scaler_type secs -scaler_r0 70.0 -scaler_theta 20.0
 
-.PHONY: check_eig_r1
+
+write_pot.out: ${OBJ_FEM} oce1.o angmoment.o pot.o viewerfunc.o
+.PHONY: check_write_pot
+check_write_pot: write_pot.out
+	./$< -pot_type slater -pot_v0 3.5 -pot_z 1.0 \
+	-viewerfunc_view ascii:stdout -viewerfunc_num 20 -viewerfunc_xmax 20.0 \
+	-malloc_dump
+
+
+eig_one.out: eig_one.o ${OBJ_FEM} oce1.o angmoment.o writer.o eeps.o
+.PHONY: check_eig_one
 check_eig_one: eig_one.out
 	./$< -fem_type bss -bss_order 4 \
-	-out_dir tmp \
 	-bps_num_zs 51 -bps_zmax 51.0 -bps_type line \
 	-scaler_type secs -scaler_r0 40.0 -scaler_theta 25.0 \
 	-y1s_L 0 \
 	-pot_type slater -pot_v0 3.5 -pot_z 1.0 \
-	-wfwriter_num 100 -wfwriter_xmax 100.0 \
-	-eps_nev 2
-	cat tmp/eig.dat
+	-eps_nev 2 \
+	-eps_converged_reason \
+	-eeps_view_values ::ascii_info_detail
+
+
 
 .PHONY: check_h2plus
 check_h2plus: h2plus.out

@@ -1,34 +1,61 @@
 #include <rescol/writer.h>
 
-PetscErrorCode WFWriterCreate(WFWriter *self, MPI_Comm comm) {
-  WFWriter _self;
-  PetscNew(&_self);
-  _self->comm = comm;
-  *self = _self;
+PetscErrorCode WFWriterCreate(WFWriter *p_self, MPI_Comm comm) {
+  WFWriter self;
+  PetscNew(&self);
+  self->comm = comm;
+  self->active = PETSC_FALSE;
+  self->num = 0;
+  self->xmax = 0.0;
+  self->fp = NULL;
+  *p_self = self;
   return 0;
 }
 PetscErrorCode WFWriterSet(WFWriter self, PetscInt num, PetscReal xmax) {
-  self->num = num; self->xmax=xmax;
+  self->active = PETSC_TRUE;
+  self->num = num; self->xmax=xmax; 
   return 0;
 }
-PetscErrorCode WFWriterCreateFromOptions(WFWriter *p_self, MPI_Comm comm) {
-  PetscBool find_num, find_xmax;
+PetscErrorCode WFWriterSetPath(WFWriter self, char path[]) {
+  PetscErrorCode ierr;
+  ierr = PetscFOpen(self->comm, path, "w", &self->fp); CHKERRQ(ierr);
+  return 0;
+}
+PetscErrorCode WFWriterSetFromOptions(WFWriter self) {
+
+  PetscBool find_num, find_xmax, find_path;
   PetscInt num;
   PetscReal xmax;
+  char path[256];
 
   PetscOptionsGetInt(NULL, "-wfwriter_num", &num, &find_num);
   PetscOptionsGetReal(NULL, "-wfwriter_xmax", &xmax, &find_xmax);
+  PetscOptionsGetString(NULL, "-wfwriter_view", path, 256, &find_path);
 
-  if(!find_num || !find_xmax) {
-    *p_self = NULL;
+  if(!find_num || !find_xmax || !find_path) {
     return 0;
   }
 
-  WFWriterCreate(p_self, comm);
-  WFWriterSet(*p_self, num, xmax);
+  PetscErrorCode ierr;
+  ierr = WFWriterSet(self, num, xmax); CHKERRQ(ierr);
+  ierr = WFWriterSetPath(self, path); CHKERRQ(ierr);
+
   return 0;
 }
+/*
+PetscErrorCode WFWriterCreateFromOptions(WFWriter *p_self, MPI_Comm comm) {
+  PetscErrorCode ierr;
+  ierr = WFWriterCreate(p_self, comm); CHKERRQ(ierr);
+  ierr = WFWriterSetFromOptions(*p_self); CHKERRQ(ierr);
+  return 0;
+}
+*/
 PetscErrorCode WFWriterDestroy(WFWriter *p_self) {
+  PetscErrorCode ierr;
+  WFWriter self = *p_self;
+  if(self->fp != NULL) {
+    ierr = PetscFClose(self->comm, self->fp); CHKERRQ(ierr);
+  }
   PetscFree(*p_self);
   return 0;
 }
@@ -45,10 +72,14 @@ PetscErrorCode WFWriterView(WFWriter self) {
 
   PetscPrintf(self->comm, ">>>> WFWriter >>>>\n");
   PetscPrintf(self->comm, "num: %d\n", self->num);
-  PetscPrintf(self->comm, "xmax: %f\n", self->xmax);  
+  PetscPrintf(self->comm, "xmax: %f\n", self->xmax);
+  PetscPrintf(self->comm, "f: %f\n", self->xmax);  
   PetscPrintf(self->comm, "<<<< WFWriter <<<<\n");
 
   return 0;
+}
+PetscBool WFWriterIsActive(WFWriter self) {
+  return self->active;
 }
 
 PetscErrorCode WFWriterWrite(WFWriter self, FILE *fp, FEMInf fem, Vec c) {

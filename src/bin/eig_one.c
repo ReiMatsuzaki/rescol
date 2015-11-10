@@ -1,5 +1,6 @@
 #include <rescol/oce1.h>
 #include <rescol/writer.h>
+#include <rescol/eeps.h>
 
 static char help[] = "solve one particle eigen energy problem";
 
@@ -61,7 +62,7 @@ PetscErrorCode GuessCreateFromOptions(Guess *p_self, MPI_Comm comm) {
     }
   } else {
     
-    SETERRQ(comm, 1, "guess_type <- {read, none}");
+    SETERRQ(comm, 1, "guess <- {read, none}");
 
   }
 
@@ -109,22 +110,23 @@ PetscErrorCode GuessSetInitSpace(Guess self, EPS eps) {
 
 int main(int argc, char **args) {
   PetscErrorCode ierr;
+  ierr = SlepcInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);
+
   MPI_Comm comm = MPI_COMM_SELF;
-  char out_dir[100] = ".";
   OCE1 oce;
   POT pot;
-  WFWriter writer;
-  Guess guess;
+  //  WFWriter writer;
+  EEPS eeps; EEPSCreate(&eeps, comm);
   
-  ierr = SlepcInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);
+  
 
   PrintTimeStamp(comm, "Init", NULL);
   ierr = PetscOptionsBegin(comm, "", "traj_one.c options", "none");
-  PetscOptionsGetString(NULL, "-out_dir", out_dir, 100, NULL);
+  
   ierr = OCE1CreateFromOptions(&oce, comm); CHKERRQ(ierr);
   ierr = POTCreateFromOptions(&pot, comm); CHKERRQ(ierr);  
-  ierr = WFWriterCreateFromOptions(&writer, comm); CHKERRQ(ierr);
-  ierr = GuessCreateFromOptions(&guess, comm); CHKERRQ(ierr);
+  ierr = EEPSSetFromOptions(eeps); CHKERRQ(ierr);
+  //  ierr = WFWriterCreateFromOptions(&writer, comm); CHKERRQ(ierr);
   PetscOptionsEnd();
 
   PrintTimeStamp(comm, "Mat", NULL);
@@ -135,53 +137,28 @@ int main(int argc, char **args) {
 
 
   PrintTimeStamp(comm, "EPS", NULL);
-  EPS eps; 
-  EPSCreateForBoundState(&eps, comm, H, S, 0.1);
-  GuessSetInitSpace(guess, eps);
-  EPSSolve(eps);
-
+  EEPSSetOperators(eeps, H, S);
+  EEPSSetTarget(eeps, 0.1);
+  EEPSSetFromOptions(eeps);
+  EEPSSolve(eeps);
 
   PrintTimeStamp(comm, "Output", NULL);
   OCE1View(oce);   
-  int nconv;
-  EPSGetConverged(eps, &nconv);
-  char eig_path[200];  sprintf(eig_path, "%s/eig.dat", out_dir);
-  FILE* fp_eig; 
-  ierr = PetscFOpen(comm, eig_path, "w", &fp_eig); CHKERRQ(ierr);
-  for(int i = 0; i < nconv; i++) {
-    PetscScalar k;
-    Vec c;
-    MatCreateVecs(H, &c, NULL);
-    EPSGetEigenpair(eps, i, &k, NULL, c, NULL);
-#if defined(PETSC_USE_COMPLEX)
-    PetscReal kr = PetscRealPart(k); 
-    PetscReal ki = PetscImaginaryPart(k);
-    PetscFPrintf(comm, fp_eig, "%d %f %f\n", i, kr, ki);
-#else
-    PetscFPrintf(comm, fp_eig, "%d %f\n", i, k);
-#endif
-    if(writer != NULL) {
-      VecNormalizeForS(S, c);
-      char wf_path[200]; sprintf(wf_path, "%s/wf%d.dat", out_dir, i);
-      ierr = WFWriterWriteFileOCE1(writer, wf_path, oce, c); CHKERRQ(ierr);
-    }
-    VecDestroy(&c);
-    
-  }
-  PetscFClose(comm, fp_eig);
-
-  OCE1View(oce);   
   POTView(pot);   
+
+  /*
   if(writer)
     WFWriterView(writer);
-  PetscPrintf(comm, "out_dir: %s\n", out_dir);
-  PetscPrintf(comm, "eig_path: %s\n", eig_path);
-  PetscPrintf(comm, "nconv: %d\n", nconv);
+  if(write_eig_vec)
+    PetscPrintf(comm, "write_eig_vec: True \n");
+  else
+    PetscPrintf(comm, "write_eig_vec: False \n");
+  */
 
   PrintTimeStamp(comm, "Destroy", NULL);
-  if(writer)
-    WFWriterDestroy(&writer);
-  EPSDestroy(&eps);
+  //  if(writer)
+  //    WFWriterDestroy(&writer);
+  EEPSDestroy(&eeps);
   OCE1Destroy(&oce);
   ierr = SlepcFinalize(); CHKERRQ(ierr);
   return 0;
