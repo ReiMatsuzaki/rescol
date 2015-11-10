@@ -20,15 +20,16 @@ struct _p_BPS {
 typedef struct _p_BPS* BPS;
 
 // ------- Basic ----------
-PetscErrorCode BPSCreate(BPS *bps, MPI_Comm comm);
+PetscErrorCode BPSCreate(MPI_Comm comm, BPS *p_self);
+PetscErrorCode BPSDestroy(BPS *p_self);
+
+PetscErrorCode BPSView(BPS self, PetscViewer v);
+PetscErrorCode BPSCheckState(BPS self);
+
 PetscErrorCode BPSSetExp(BPS self, PetscReal zmax, PetscInt num_zs, PetscReal gamma);
 PetscErrorCode BPSSetLine(BPS self, PetscReal zmax, PetscInt num_zs);
 PetscErrorCode BPSSetFromOptions(BPS self);
-PetscErrorCode BPSDestroy(BPS *bpd);
-PetscErrorCode BPSCheckPreallocated(BPS self);
-PetscErrorCode BPSFPrintf(BPS self, FILE *file, int lvl);
 
-// ------ Getter ---------
 PetscErrorCode BPSGetZs(BPS self, PetscReal **zs, PetscInt *num_zs);
 PetscErrorCode BPSGetNumEle(BPS self, PetscInt *num_ele);
 PetscErrorCode BPSGetZMax(BPS self, PetscReal *zmax);
