@@ -14,7 +14,7 @@ struct _p_ViewerFunc {
   PetscBool active_range;
 };
 typedef struct _p_ViewerFunc* ViewerFunc;
-PetscErrorCode ViewerFuncCreate(ViewerFunc *p_self, MPI_Comm comm);
+PetscErrorCode ViewerFuncCreate(MPI_Comm comm, ViewerFunc *p_self);
 PetscErrorCode ViewerFuncDestroy(ViewerFunc *p_self);
 
 PetscErrorCode ViewerFuncView(ViewerFunc self, PetscViewer viewer);

@@ -1,6 +1,6 @@
 #include <rescol/viewerfunc.h>
 
-PetscErrorCode ViewerFuncCreate(ViewerFunc *p_self, MPI_Comm comm) {
+PetscErrorCode ViewerFuncCreate(MPI_Comm comm, ViewerFunc *p_self) {
   PetscErrorCode ierr;
   ViewerFunc self;
   ierr = PetscNew(&self); CHKERRQ(ierr);

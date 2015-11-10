@@ -13,36 +13,41 @@ extern "C" {
 
 // ---- Potential Class ----
 struct _p_POT {
+  MPI_Comm comm;
   char name[20];
   int num;
   PetscScalar *vs;
   PetscScalar (*Calc)(PetscScalar, PetscScalar*);  
-  PetscErrorCode (*View)(PetscScalar*);
+  PetscErrorCode (*View)(PetscScalar*, PetscViewer);
 };
 typedef struct _p_POT* POT;
-PetscErrorCode POTCalc(POT pot, PetscScalar x, PetscScalar *y);
-PetscErrorCode POTView(POT pot);
-PetscErrorCode POTViewFunc(POT pot, ViewerFunc viewer);
-PetscErrorCode POTDestroy(POT *pot);
+
+PetscErrorCode POTCreate(MPI_Comm comm, POT *p_self);
+PetscErrorCode POTDestroy(POT *p_self);
+
+PetscErrorCode POTView(POT self, PetscViewer v);
+PetscErrorCode POTViewFunc(POT self, ViewerFunc viewer);
+
+PetscErrorCode POTCalc(POT self, PetscScalar x, PetscScalar *y);
 PetscBool POTIsType(POT pot, char *name);
 
 // ---- Harmonic Potential ----
-PetscErrorCode POTHarmCreate(POT *pot, PetscScalar a);
+PetscErrorCode POTSetHarm(POT self, PetscScalar a);
 
 // ---- Power Potential ----
-PetscErrorCode POTPowerCreate(POT *pot, PetscScalar a, PetscScalar n);
+PetscErrorCode POTSetPower(POT self, PetscScalar a, PetscScalar n);
 
 // ---- Coulomb Potential ----
-PetscErrorCode POTCoulombCreate(POT *pot, PetscScalar q, PetscScalar a);
+PetscErrorCode POTSetCoulomb(POT self, PetscScalar q, PetscScalar a);
 
 // ---- Slater Potential ----
-PetscErrorCode POTSlaterCreate(POT *pot, PetscScalar v0, PetscScalar z);
+PetscErrorCode POTSetSlater(POT self, PetscScalar v0, PetscScalar z);
 
 // ---- Mourse ----
-PetscErrorCode POTMorse(POT *p_self, PetscScalar D0, PetscScalar a, PetscScalar Re);
+PetscErrorCode POTSetMorse(POT self, PetscScalar D0, PetscScalar a, PetscScalar Re);
 
 // ---- Create from options ----
-PetscErrorCode POTCreateFromOptions(POT *pot, MPI_Comm comm);
+PetscErrorCode POTSetFromOptions(POT self);
 
 #ifdef __cplusplus
 }
