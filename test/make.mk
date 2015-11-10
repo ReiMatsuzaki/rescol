@@ -1,4 +1,4 @@
-test_angmoment.out:test_angmoment.o angmoment.o
+test_angmoment.out:test_angmoment.o angmoment.o y1s.o y2s.o
 test_bps.out: test_bps.o bps.o
 test_bspline.out: test_bspline.o bspline.o bps.o pot.o mat.o scale.o viewerfunc.o
 test_dvr.out: test_dvr.o dvr.o bps.o mat.o viewerfunc.o

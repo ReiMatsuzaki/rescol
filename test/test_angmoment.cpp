@@ -2,6 +2,8 @@
 #include <gsl/gsl_sf_coupling.h>
 #include <gtest/gtest.h>
 #include <rescol/angmoment.h>
+#include <rescol/y1s.h>
+#include <rescol/y2s.h>
 
 static char help[] = "Unit test for angmoment.c \n\n";
 
@@ -43,7 +45,7 @@ TEST(Y1, Pq) {
 }
 TEST(Y1, Y1s) {
   Y1s y1s;
-  Y1sCreate(&y1s, PETSC_COMM_SELF);
+  Y1sCreate(PETSC_COMM_SELF, &y1s);
   Y1sSet(y1s, SIGMA, GERADE, 5);
   int n; Y1sGetSize(y1s, &n);
   ASSERT_EQ(3, n);
@@ -66,7 +68,7 @@ TEST(Y2, Pq) {
 }
 TEST(Y2, Set) {
   Y2s y2s;
-  Y2sCreate(&y2s, PETSC_COMM_SELF);
+  Y2sCreate(PETSC_COMM_SELF, &y2s);
   Y2sSet(y2s, SIGMA, GERADE, PLUS, 2);
   int n; Y2sGetSize(y2s, &n);
   ASSERT_EQ(5, n);
@@ -78,7 +80,7 @@ public:
   Y2s y2s;
   
   virtual void SetUp() {
-    Y2sCreate(&y2s, PETSC_COMM_SELF);
+    Y2sCreate(PETSC_COMM_SELF, &y2s);
     Y2sSet(y2s, SIGMA, GERADE, PLUS, 2);
     /*
       (L1,L2,L, M)
@@ -101,8 +103,8 @@ TEST_F(TestY2s, LMax) {
   ASSERT_EQ(2, LMax);
 }
 TEST_F(TestY2s, S) {
-  Mat M;
-  Y2sSetSY2Mat(y2s, &M);
+  Mat M; Y2sCreateY2Mat(y2s, &M);
+  Y2sSY2Mat(y2s, M);
   const PetscScalar *row;
   PetscInt ncols;
   const PetscInt *cols;
@@ -113,8 +115,8 @@ TEST_F(TestY2s, S) {
   MatDestroy(&M);
 }
 TEST_F(TestY2s, Guess) {
-  Vec v;
-  Y2sSetGuessY2Vec(y2s, 0, 0, &v);
+  Vec v; Y2sCreateY2Vec(y2s, &v);
+  Y2sGuessY2Vec(y2s, 0, 0, v);
   
   PetscScalar y[1];
   const PetscInt ix[1] = {0};
@@ -124,9 +126,9 @@ TEST_F(TestY2s, Guess) {
   VecDestroy(&v);
 }
 TEST_F(TestY2s, Pq12) {
-  Mat M;
-  Y2sSetPq12Y2Mat(y2s, 1, &M);
-  //  Y2sView(y2s);
+  Mat M; Y2sCreateY2Mat(y2s, &M);
+  PetscBool find;
+  Y2sPq12Y2Mat(y2s, 1, M, &find);
   const PetscScalar *row;
   PetscInt ncols;
   const PetscInt *cols;
@@ -137,8 +139,9 @@ TEST_F(TestY2s, Pq12) {
   MatDestroy(&M);
 }
 TEST_F(TestY2s, Pq1A) {
-  Mat M;
-  Y2sSetPq1AY2Mat(y2s, 2, &M);
+  Mat M; Y2sCreateY2Mat(y2s, &M);
+  PetscBool find;
+  Y2sPq1AY2Mat(y2s, 2, M, &find);
   const PetscScalar *row;
   PetscInt ncols;
   const PetscInt *cols;
@@ -148,13 +151,14 @@ TEST_F(TestY2s, Pq1A) {
   ASSERT_DOUBLE_EQ(0.44721359549995793, PetscRealPart(row[0]));
   MatDestroy(&M);  
 
-  Mat MM;
-  Y2sSetPq1AY2Mat(y2s, 1, &MM);
-  ASSERT_TRUE(MM==NULL);
+  Mat MM; Y2sCreateY2Mat(y2s, &MM);
+  Y2sPq1AY2Mat(y2s, 1, MM, &find);
+  ASSERT_FALSE(find);
 }
 TEST_F(TestY2s, Pq2A) {
-  Mat M;
-  Y2sSetPq2AY2Mat(y2s, 2, &M);
+  Mat M; Y2sCreateY2Mat(y2s, &M);
+  PetscBool find;
+  Y2sPq2AY2Mat(y2s, 2, M, &find);
   const PetscScalar *row;
   PetscInt ncols;
   const PetscInt *cols;
@@ -165,149 +169,11 @@ TEST_F(TestY2s, Pq2A) {
   MatDestroy(&M);  
 }
 
-/*
-PetscErrorCode testY2ElePq() {
-
-  PetscErrorCode ierr;
-  CoupledY a = {1, 1, 1, 0};
-  CoupledY b = {1, 1, 1, 0};
-  ASSERT_DOUBLE_EQ(1.0, Y2ElePqR12(a, 0, b));
-  ASSERT_DOUBLE_EQ(-0.2, Y2ElePqR12(a, 2, b));
-  ASSERT_DOUBLE_EQ(-0.2, Y2ElePqR1A(a, 0, b));
-  ASSERT_DOUBLE_EQ(-0.2, Y2ElePqR2A(a, 2, b));
-  return 0;
-
-}
-
-
-petscErrorCode testY2Set() {
-
-  PetscErrorCode ierr;
-  Y2 y2s;
-  ierr = Y2SetCreate(&y2s, PETSC_COMM_SELF); CHKERRQ(ierr);
-  ierr = Y2SetSet(y2s, 0, Y2GERADE, Y2PLUS, 2); CHKERRQ(ierr);
-  int n;
-  ierr = Y2SetGetSize(y2s, &n); CHKERRQ(ierr);
-  ASSERT_EQ(5, n);
-  ierr = Y2SetDestroy(&y2s); CHKERRQ(ierr);
-  return 0;
-
-}
-
-
-PetscErrorCode testY1s_Pq() {
-  Y1s ys;
-  PetscErrorCode ierr;
-
-  ierr = Y1sCreate(&ys, 0, 4, GERADE, 1); CHKERRQ(ierr);
-
-  Mat A;
-  Y1sCreateY1Mat(ys, PETSC_COMM_WORLD, &A);
-  Y1sCalcPqY1Mat(ys, 1, A, INSERT_VALUES);
-  MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY); MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
-
-  const PetscScalar *row;
-  PetscInt ncols;
-  const PetscInt *cols;
-  ierr =   MatGetRow(A, 1, &ncols, &cols, &row); CHKERRQ(ierr);
-  ASSERT_EQ(1, ncols);
-  ASSERT_EQ(1, cols[0]);
-  ASSERT_DOUBLE_EQ(0.4886025119029199, row[0])
-  ierr = MatRestoreRow(A, 0, &ncols, &cols, &row); CHKERRQ(ierr);
-
-  ierr =   MatGetRow(A, 1, &ncols, &cols, &row); CHKERRQ(ierr);
-  ASSERT_EQ(1, ncols);
-  ASSERT_EQ(2, cols[0]);
-  ASSERT_DOUBLE_EQ(0.4886025119029199, row[0])
-  ierr = MatRestoreRow(A, 0, &ncols, &cols, &row); CHKERRQ(ierr);
-
-  Mat B;
-  Y1sCreateY1Mat(ys, PETSC_COMM_WORLD, &B);
-  Y1sCalcPqY1Mat(ys, 1, B, INSERT_VALUES);
-  MatAssemblyBegin(B, MAT_FINAL_ASSEMBLY); MatAssemblyEnd(B, MAT_FINAL_ASSEMBLY);
-
-  ierr =   MatGetRow(B, 1, &ncols, &cols, &row); CHKERRQ(ierr);
-  ASSERT_EQ(2, ncols);
-  ASSERT_EQ(1, cols[0]); ASSERT_EQ(2, cols[1]);
-  ASSERT_DOUBLE_EQ(-0.09011187578643429, row[0]);
-  ASSERT_DOUBLE_EQ(-0.2207281154418226, row[1]);
-  ierr = MatRestoreRow(B, 0, &ncols, &cols, &row); CHKERRQ(ierr);
-
-  ierr =   MatGetRow(B, 1, &ncols, &cols, &row); CHKERRQ(ierr);
-  ASSERT_EQ(2, ncols);
-  ASSERT_EQ(1, cols[0]); ASSERT_EQ(2, cols[1]);
-  ASSERT_DOUBLE_EQ(-0.2207281154418226, row[0]);
-  ASSERT_DOUBLE_EQ(-0.13926380803358027, row[1]);
-  ierr = MatRestoreRow(B, 0, &ncols, &cols, &row); CHKERRQ(ierr);
-
-  //q == 1 =>
-  //[[0.0, 0.0, 0.0], 
-  // [0.0, 0.4886025119029199, 0.0], 
-  // [0.0, 0.0, 0.4886025119029199]]
-
-  // q == 2 =>
-  // [[0.0, 0.0, 0.0], 
-  // [0.0, -0.09011187578643429, -0.2207281154418226], 
-  // [0.0, -0.2207281154418226, -0.13926380803358027]]  
-  return 0;
-}
-PetscErrorCode testY1s_Lambda() {
-  PetscErrorCode ierr;
-  Y1s ys;
-  // l0=0, L1=5, Gerade sym, M=0
-  ierr = Y1sCreate(&ys, 0, 6, GERADE, 0); CHKERRQ(ierr);
-
-  ASSERT_EQ(3, ys->num);
-  ASSERT_EQ(0, ys->ls[0]);
-  ASSERT_EQ(2, ys->ls[1]);
-  ASSERT_EQ(4, ys->ls[2]);
-
-  Mat M;
-  Y1sCreateY1Mat(ys, PETSC_COMM_WORLD, &M);
-  Y1sCalcLambdaY1Mat(ys, M, INSERT_VALUES);
-  MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
-
-  int n, m;
-  MatGetSize(M, &n, &m);
-  ASSERT_EQ(3, n);
-  ASSERT_EQ(3, m);
-
-  const PetscScalar *row;
-  PetscInt ncols;
-  const PetscInt *cols;
-  MatGetRow(M, 0, &ncols, &cols, &row);
-  ASSERT_EQ(0, ncols);
-  MatRestoreRow(M, 0, &ncols, &cols, &row);
-
-  MatGetRow(M, 1, &ncols, &cols, &row);
-  ASSERT_EQ(1, ncols);
-  ASSERT_EQ(1, cols[0]);
-  ASSERT_DOUBLE_EQ(6.0, row[0]);
-  MatRestoreRow(M, 0, &ncols, &cols, &row);
-  
-  MatDestroy(&M);
-  Y1sDestroy(&ys);
-  
-  return 0;
-}
-*/
 int main(int argc, char **args) {
 
   SlepcInitialize(&argc, &args, (char*)0, help);
   ::testing::InitGoogleTest(&argc, args);
   return RUN_ALL_TESTS();
-  
-  /*
-  testY1ElePq();
-  testY1s();
-  testY2ElePq();
-  testY2s();
-  */
-
-  // ierr = testY2ElePq(); CHKERRQ(ierr);
-  // ierr = testY1s_Lambda(); CHKERRQ(ierr);
-
   SlepcFinalize();
   return 0;
   
