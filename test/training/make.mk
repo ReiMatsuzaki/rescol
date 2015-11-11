@@ -6,4 +6,4 @@ check_train_viewer: train_viewer.out
 
 train_pf.out: train_pf.o
 check_train_pf: train_pf.out
-	./train_pf.out 
+	./train_pf.out -malloc_dump

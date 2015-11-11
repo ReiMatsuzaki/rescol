@@ -7,6 +7,7 @@ extern "C" {
   arbitary complex scaling 
 */
 #include <petscmat.h>
+
 struct _p_Scaler {
   MPI_Comm comm;
   char name[20];
@@ -28,9 +29,6 @@ PetscErrorCode ScalerSetNone(Scaler self);
 PetscErrorCode ScalerSetUniformCS(Scaler self, PetscReal theta);
 PetscErrorCode ScalerSetSharpECS(Scaler self, PetscReal r0, PetscReal theta);
 PetscErrorCode ScalerSetFromOptions(Scaler self);
-
-  // PetscBool ScalerIsType(Scaler pot, char *name);
-
 
 #ifdef __cplusplus
 }

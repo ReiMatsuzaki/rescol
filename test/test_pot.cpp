@@ -5,14 +5,15 @@
 static char help[] = "unit test for pot.c";
 
 TEST(TestPOT, Harmonic) {
-  POT harm; POTCreate(MPI_COMM_SELF, &harm); POTSetHarm(harm, 2.5);
+  PF harm; PFCreate(MPI_COMM_SELF, 1, 1, &harm); PFSetHarm(harm, 2.5);
 
   if(getenv("SHOW_DEBUG"))
-    POTView(harm, PETSC_VIEWER_STDOUT_SELF);
+    PFView(harm, PETSC_VIEWER_STDOUT_SELF);
 
-  PetscScalar y;
-  POTCalc(harm, 0.2, &y);
-  ASSERT_DOUBLE_EQ(2.5*0.5*0.2*0.2, PetscRealPart(y));
+  PetscScalar y[1];
+  PetscScalar x[1] = {0.2};
+  PFApply(harm, 1, x, y);
+  ASSERT_DOUBLE_EQ(2.5*0.5*0.2*0.2, PetscRealPart(y[0]));
 		   
 }
 

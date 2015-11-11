@@ -1,6 +1,6 @@
 #include <slepceps.h>
 #include <gtest/gtest.h>
-#include <rescol/scaler.h>
+#include <rescol/cscaling.h>
 
 static char help[] = "Unit test for scale.c";
 
@@ -8,11 +8,11 @@ TEST(TestScaling, Uniform) {
 
   MPI_Comm comm = MPI_COMM_SELF;
   PetscReal theta = M_PI*10.0/18.0;
-  Scaler scaler; ScalerCreate(comm, &scaler);
-  ScalerSetUniformCS(scaler, theta);
+  CScaling cscaling; CScalingCreate(comm, &cscaling);
+  CScalingSetUniformCS(cscaling, theta);
 
   if(getenv("SHOW_DEBUG"))
-    ScalerView(scaler, PETSC_VIEWER_STDOUT_SELF);
+    PFView(cscaling, PETSC_VIEWER_STDOUT_SELF);
 
   PetscReal xs[10];
   PetscScalar Rr[10];
@@ -22,7 +22,7 @@ TEST(TestScaling, Uniform) {
   }
 
   PetscErrorCode ierr;
-  ierr = ScalerCalc(scaler, xs, 10, qr, Rr); ASSERT_EQ(0, ierr);  
+  ierr = CScalingCalc(cscaling, xs, 10, qr, Rr); ASSERT_EQ(0, ierr);  
 
   double eps = 0.00000000001;
 #if defined(PETSC_USE_COMPLEX)
@@ -38,18 +38,18 @@ TEST(TestScaling, Uniform) {
   ASSERT_NEAR(qr[2], cos(-theta), eps);
 #endif
 
-  ierr = ScalerDestroy(&scaler); ASSERT_EQ(0, ierr);
+  ierr = PFDestroy(&cscaling); ASSERT_EQ(0, ierr);
 }
 TEST(TestScaling, SharpECS) {
   
   MPI_Comm comm = MPI_COMM_SELF;
   PetscReal theta = M_PI*10.0/180.0;
   PetscReal r0 = 4.0;
-  Scaler scaler; ScalerCreate(comm, &scaler);
-  ScalerSetSharpECS(scaler, r0, theta);
+  CScaling cscaling; CScalingCreate(comm, &cscaling);
+  CScalingSetSharpECS(cscaling, r0, theta);
 
   if(getenv("SHOW_DEBUG"))
-    ScalerView(scaler, PETSC_VIEWER_STDOUT_SELF);
+    PFView(cscaling, PETSC_VIEWER_STDOUT_SELF);
 
   PetscReal xs[10];
   PetscScalar Rr[10];
@@ -59,7 +59,7 @@ TEST(TestScaling, SharpECS) {
   }
 
   PetscErrorCode ierr;
-  ierr = ScalerCalc(scaler, xs, 10, qr, Rr);  ASSERT_EQ(0, ierr);  
+  ierr = CScalingCalc(cscaling, xs, 10, qr, Rr);  ASSERT_EQ(0, ierr);  
 
   double eps = 0.00000000001;
 
@@ -81,15 +81,15 @@ TEST(TestScaling, SharpECS) {
   ASSERT_NEAR(qr[6], cos(theta), eps);
 #endif  
 
-  ierr = ScalerDestroy(&scaler); ASSERT_EQ(0, ierr);  
+  ierr = PFDestroy(&cscaling); ASSERT_EQ(0, ierr);  
 }
 TEST(TestScaling, none) {
   
   MPI_Comm comm = MPI_COMM_SELF;
-  Scaler scaler; ScalerCreate(comm, &scaler); ScalerSetNone(scaler);
+  CScaling cscaling; CScalingCreate(comm, &cscaling); CScalingSetNone(cscaling);
 
   if(getenv("SHOW_DEBUG"))
-    ScalerView(scaler, PETSC_VIEWER_STDOUT_SELF);
+    PFView(cscaling, PETSC_VIEWER_STDOUT_SELF);
 
   PetscReal xs[10];
   PetscScalar Rr[10];
@@ -99,7 +99,7 @@ TEST(TestScaling, none) {
   }
 
   PetscErrorCode ierr;
-  ierr = ScalerCalc(scaler, xs, 10, qr, Rr);  ASSERT_EQ(0, ierr);  
+  ierr = CScalingCalc(cscaling, xs, 10, qr, Rr);  ASSERT_EQ(0, ierr);  
 
   double eps = 0.00000000001;
  
@@ -110,7 +110,7 @@ TEST(TestScaling, none) {
   ASSERT_NEAR(PetscRealPart(qr[2]), 1.0, eps);
   ASSERT_NEAR(PetscRealPart(qr[6]), 1.0, eps);
 
-  ierr = ScalerDestroy(&scaler); ASSERT_EQ(0, ierr);  
+  ierr = PFDestroy(&cscaling); ASSERT_EQ(0, ierr);  
 
 }
 int main (int argc, char **args) {

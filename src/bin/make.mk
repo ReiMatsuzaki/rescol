@@ -29,7 +29,7 @@ check_he_guess: he_guess.out
 check_h_pi: h_pi.out
 	./$< -fem_type bss -bss_order 4 \
 	-bps_num_zs 101 -bps_zmax 100.0 -bps_type line \
-	-scaler_type secs -scaler_r0 70.0 -scaler_theta 20.0
+	-cscaling_type secs -cscaling_r0 70.0 -cscaling_theta 20.0
 
 
 write_pot.out: ${OBJ_FEM} oce1.o angmoment.o pot.o viewerfunc.o
@@ -45,7 +45,7 @@ eig_one.out: eig_one.o ${OBJ_FEM} oce1.o angmoment.o y1s.o eeps.o viewerfunc.o
 check_eig_one: eig_one.out
 	./$< -fem_type bss -bss_order 4 \
 	-bps_num_zs 51 -bps_zmax 51.0 -bps_type line \
-	-scaler_type sharpECS -scaler_r0 40.0 -scaler_theta 25.0 \
+	-cscaling_type sharpECS -cscaling_r0 40.0 -cscaling_theta 25.0 \
 	-y1s_L 0 \
 	-pot_type slater -pot_v0 3.5 -pot_z 1.0 \
 	-eps_nev 2 \

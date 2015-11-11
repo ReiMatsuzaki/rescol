@@ -1,226 +1,195 @@
 #include <rescol/pot.h>
 
-// ---- Potential Object ----
-PetscErrorCode POTCreate(MPI_Comm comm, POT *p_self) {
-  POT self;
-  PetscNew(&self);
-  self->comm = comm;
-  *p_self = self;
+typedef struct {
+  PetscScalar a;
+} Harm;
+PetscErrorCode HarmApply(void *ctx, int n, const PetscScalar *x, PetscScalar *y) {
+  Harm *harm = (Harm*)ctx;
+  for(int i = 0; i < n; i++)
+    y[i] = harm->a * 0.5 * x[i] * x[i];
   return 0;
 }
-PetscErrorCode POTDestroy(POT *p_self) {
+PetscErrorCode HarmView(void *ctx, PetscViewer v) {
+  Harm *self = (Harm*)ctx;
+  PetscViewerASCIIPrintf(v, "<<< POT(harm) <<<\n");  
+  PetscViewerASCIIPrintf(v, "       a  2 \n");
+  PetscViewerASCIIPrintf(v, "v(x) = - x  \n");
+  PetscViewerASCIIPrintf(v, "       2    \n");
+  PetscViewerASCIIPrintf(v, "a = %f\n", self->a);
+  PetscViewerASCIIPrintf(v, "<<< POT(harm) <<<\n");  
+  return 0;
+}
+PetscErrorCode HarmDestroy(void *ctx) {
   PetscErrorCode ierr;
-  ierr = PetscFree((*p_self)->vs); CHKERRQ(ierr);
-  ierr = PetscFree(*p_self); CHKERRQ(ierr);
+  Harm *self = (Harm*)ctx;
+  ierr = PetscFree(self); CHKERRQ(ierr);
   return 0;
 }
 
-PetscErrorCode POTView(POT self, PetscViewer v) {
-  PetscErrorCode ierr;
-
-  PetscViewerType type;
-  PetscViewerGetType(v, &type);
-  if(strcmp(type, "ascii") != 0) 
-    SETERRQ(self->comm, 1, "only ascii is supported");
-
-  ierr = self->View(self->vs, v);
+typedef struct {
+  PetscScalar a;
+  PetscInt n;
+} Power;
+PetscErrorCode PowerApply(void *ctx, int n, const PetscScalar *x, PetscScalar *y) {
+  Power *self = (Power*)ctx;
+  for(int i = 0; i < n; i++)
+    y[i] = self->a * pow(x[i], self->n);
   return 0;
 }
-PetscErrorCode POTViewFunc(POT self, ViewerFunc viewer) {
-
+PetscErrorCode PowerView(void *ctx, PetscViewer v) {
+  Power *self = (Power*)ctx;
+  PetscViewerASCIIPrintf(v, ">>> POT(Power) >>>\n");
+  PetscViewerASCIIPrintf(v, "          n \n");
+  PetscViewerASCIIPrintf(v, "v(x) = A x  \n");
+  PetscViewerASCIIPrintf(v, "            \n");
+  PetscViewerASCIIPrintf(v, "A = %f\n", self->a);
+  PetscViewerASCIIPrintf(v, "n = %d\n", self->n);
+  PetscViewerASCIIPrintf(v, "<<< POT(Power) <<<\n");  
+  return 0;
+}
+PetscErrorCode PowerDestroy(void *ctx) {
   PetscErrorCode ierr;
-  MPI_Comm comm = PETSC_COMM_WORLD;
-  ierr = ViewerFuncCheckAcrive(viewer); CHKERRQ(ierr);
+  Power *self = (Power*)ctx;
+  ierr = PetscFree(self); CHKERRQ(ierr);
+  return 0;
+}
 
-  PetscViewerType type;
-  PetscViewerGetType(viewer->base, &type);
-  if(strcmp(type, "ascii") != 0) {
-    char msg[100]; sprintf(msg, "unsupported type: %s", type);
-    SETERRQ(comm, 1, msg);
+typedef struct {
+  PetscInt q;
+  PetscScalar a;
+} CoulombNE;
+PetscErrorCode CoulombNEApply(void *ctx, int n, const PetscScalar *x, PetscScalar *y) {
+  CoulombNE *self = (CoulombNE*)ctx;
+  PetscScalar a = self->a;
+  PetscReal ra = PetscRealPart(a);
+  for(int i = 0; i < n; i++) {
+    PetscScalar s, g;
+    if(ra < PetscRealPart(x[i])) {
+      s = a; 
+      g = x[i];
+    } else {
+      s = x[i];
+      g = a;
+    }
+    y[i] = pow(s/g, self->q) / g;
   }
+  return 0;
+}
+PetscErrorCode CoulombNEView(void *ctx, PetscViewer v) {
+  CoulombNE *self = (CoulombNE*)ctx;
+  PetscViewerASCIIPrintf(v, ">>> POT(CoulombNE) >>>\n");
+  PetscViewerASCIIPrintf(v, "          s^q   \n");
+  PetscViewerASCIIPrintf(v, "v(x) = ---------\n");
+  PetscViewerASCIIPrintf(v, "        g^{q+1} \n");
+  PetscViewerASCIIPrintf(v, "s = min{a, x}\n");
+  PetscViewerASCIIPrintf(v, "g = max{a, x}\n");
+  PetscViewerASCIIPrintf(v, "a = %f\n", self->a);
+  PetscViewerASCIIPrintf(v, "q = %d\n", self->q);
+  PetscViewerASCIIPrintf(v, "<<< POT(CoulombNE) <<<\n");  
+  return 0;
+}
+PetscErrorCode CoulombNEDestroy(void *ctx) {
+  PetscErrorCode ierr;
+  CoulombNE *self = (CoulombNE*)ctx;
+  ierr = PetscFree(self); CHKERRQ(ierr);
+  return 0;
+}
 
-  PetscInt num;
-  PetscReal *xs; 
-  ViewerFuncGetXs(viewer, &num, &xs);
-
-  for(int i = 0; i < num; i++) {
-    PetscScalar y;
-    POTCalc(self, xs[i], &y);
-    PetscReal re, im;
-#if defined(PETSC_USE_COMPLEX)
-    re = PetscRealPart(y);
-    im  =PetscImaginaryPart(y);
-#else
-    re = y;
-    im = 0.0;
-#endif
-    PetscViewerASCIIPrintf(viewer->base, "%lf %lf %lf\n", xs[i], re, im);
+typedef struct {
+  PetscScalar a;
+  PetscInt n;
+  PetscScalar z;
+} Slater;
+PetscErrorCode SlaterApply(void *ctx, int n, const PetscScalar *x, PetscScalar *y) {
+  Slater *self = (Slater*)ctx;
+  for(int i = 0; i < n; i++) {
+    y[i] = self->a * pow(x[i], self->n) * exp(-self->z*x[i]);
   }
-  
+  return 0;
+}
+PetscErrorCode SlaterView(void *ctx, PetscViewer v) {
+  Slater *self = (Slater*)ctx;
+  PetscViewerASCIIPrintf(v, ">>> POT(Slater) >>>\n");
+  PetscViewerASCIIPrintf(v, "         n -zx \n");
+  PetscViewerASCIIPrintf(v, "v(x) = Ax e    \n");
+  PetscViewerASCIIPrintf(v, "A = %f\n", self->a);
+  PetscViewerASCIIPrintf(v, "n = %d\n", self->n);
+  PetscViewerASCIIPrintf(v, "z = %f\n", self->z);
+  PetscViewerASCIIPrintf(v, "<<< POT(Slater) <<<\n");  
+  return 0;
+}
+PetscErrorCode SlaterDestroy(void *ctx) {
+  PetscErrorCode ierr;
+  Slater *self = (Slater*)ctx;
+  ierr = PetscFree(self); CHKERRQ(ierr);
   return 0;
 }
 
-PetscErrorCode POTCalc(POT self, PetscScalar x, PetscScalar *y) {
-  *y = self->Calc(x, self->vs);
+typedef struct {
+  PetscScalar D0;
+  PetscScalar a;
+  PetscScalar Re;
+} Morse;
+PetscErrorCode MorseApply(void *ctx, int n, const PetscScalar *x, PetscScalar *y) {
+  Morse *self = (Morse*)ctx;
+  for(int i = 0; i < n; i++) {
+    PetscScalar t = 1.0 - exp(-self->a*(x[i]-self->Re));
+    y[i] = self->D0 * t * t;
+  }
   return 0;
 }
-PetscBool POTIsType(POT self, char *name) {
-  return (strcmp(self->name, name) == 0);
-}
-
-// ---- Harmonic Potential ----
-PetscScalar POTHarmCalc(PetscScalar x, PetscScalar *vs) {
-  return vs[0] * 0.5 * x * x;
-}
-PetscErrorCode POTHarmView(PetscScalar *vs, PetscViewer v ) {
-
-  PetscViewerASCIIPrintf(v, ">>> POT harm >>>\n");  
-  PetscViewerASCIIPrintf(v, "       a  2 \n", vs[0]);
-  PetscViewerASCIIPrintf(v, "v(x) = - x  \n", vs[0]);
-  PetscViewerASCIIPrintf(v, "       2    \n", vs[0]);
-  PetscViewerASCIIPrintf(v, "a = %f\n", vs[0]);
-  PetscViewerASCIIPrintf(v, "<<< POT harm <<<\n");
+PetscErrorCode MorseView(void *ctx, PetscViewer v) {
+  Morse *self = (Morse*)ctx;
+  PetscViewerASCIIPrintf(v, ">>> POT(Morse) >>>\n");
+  PetscViewerASCIIPrintf(v, "                           2\n");
+  PetscViewerASCIIPrintf(v, "v(x) = D0 (1-exp[-a(x-Re)]) \n");
+  PetscViewerASCIIPrintf(v, "D0 = %f\n", self->D0);
+  PetscViewerASCIIPrintf(v, "a = %f\n", self->a);
+  PetscViewerASCIIPrintf(v, "Re = %f\n", self->Re);
+  PetscViewerASCIIPrintf(v, "<<< POT(Morse) <<<\n");  
   return 0;
 }
-PetscErrorCode POTSetHarm(POT self, PetscScalar a) {
-
-  PetscScalar *vs; 
-  PetscMalloc1(1, &vs); vs[0] = a;
-
-  strcpy(self->name, "harm");
-  self->num = 1;
-  self->vs = vs;
-  self->Calc = POTHarmCalc;
-  self->View = POTHarmView;
-
+PetscErrorCode MorseDestroy(void *ctx) {
+  PetscErrorCode ierr;
+  Morse *self = (Morse*)ctx;
+  ierr = PetscFree(self); CHKERRQ(ierr);
   return 0;
 }
 
-// ---- Power Potential ----
-PetscScalar POTPowerCalc(PetscScalar x, PetscScalar *vs) {
-  return vs[0] * pow(x, vs[1]);
-}
-PetscErrorCode POTPowerView(PetscScalar *vs, PetscViewer v) {
 
-  PetscViewerASCIIPrintf(v, ">>> POT Power >>>\n");
-  PetscViewerASCIIPrintf(v, "          n \n", vs[0]);
-  PetscViewerASCIIPrintf(v, "v(x) = A x  \n", vs[0]);
-  PetscViewerASCIIPrintf(v, "            \n", vs[0]);
-  PetscViewerASCIIPrintf(v, "A = %f\n", vs[0]);
-  PetscViewerASCIIPrintf(v, "n = %f\n", vs[1]);
-  PetscViewerASCIIPrintf(v, "<<< POT Power <<<\n");
+PetscErrorCode PFSetHarm(PF self, PetscScalar a) {
+  Harm *ctx; PetscNew(&ctx);
+  ctx->a = a;
+  PFSet(self, HarmApply, NULL, HarmView, HarmDestroy, ctx);
   return 0;
 }
-PetscErrorCode POTSetPower(POT self, PetscScalar a, PetscScalar n) {
-
-  PetscScalar *vs; 
-  PetscMalloc1(2, &vs); 
-  vs[0] = a;
-  vs[1] = n;
-  strcpy(self->name, "power");
-  self->num = 2;
-  self->vs = vs;
-  self->Calc = POTPowerCalc;
-  self->View = POTPowerView;
-  return 0;
-
-}
-
-// ---- Coulomb Potential ----
-PetscScalar POTCoulombCalc(PetscScalar x, PetscScalar *vs) {
-
-  PetscReal a_r = PetscRealPart(vs[1]);
-  PetscReal x_r = PetscRealPart(x);
-  PetscScalar g = a_r > x_r ? vs[1] : x;
-  PetscScalar s = a_r < x_r ? vs[1] : x;
-  return pow(s/g, vs[0])/g;
-}
-PetscErrorCode POTCoulombView(PetscScalar *vs, PetscViewer v) {
-  PetscViewerASCIIPrintf(v, ">>> POT Coulomb >>>\n");
-  PetscViewerASCIIPrintf(v, "          min[a,x]^q   \n", vs[0]);
-  PetscViewerASCIIPrintf(v, "v(x) =  -------------- \n", vs[0]);
-  PetscViewerASCIIPrintf(v, "        max[a,x]^{q+1} \n", vs[0]);
-  PetscViewerASCIIPrintf(v, "q = %f\n", vs[0]);
-  PetscViewerASCIIPrintf(v, "a = %f\n", vs[1]);
-  PetscViewerASCIIPrintf(v, "<<< POT Coulomb <<<\n");
+PetscErrorCode PFSetPower(PF self, PetscScalar a, PetscInt n) {
+  Power *ctx; PetscNew(&ctx);
+  ctx->a = a; ctx->n = n;
+  PFSet(self, PowerApply, NULL, PowerView, PowerDestroy, ctx);
   return 0;
 }
-PetscErrorCode POTSetCoulomb(POT self, PetscScalar q, PetscScalar a) {
-
-  PetscScalar *vs; 
-  PetscMalloc1(2, &vs); 
-  vs[0] = q;
-  vs[1] = a;
-  strcpy(self->name, "coulomb");
-  self->num = 2;
-  self->vs = vs;
-  self->Calc = POTCoulombCalc;
-  self->View = POTCoulombView;
+PetscErrorCode PFSetCoulombNE(PF self, int q, PetscScalar a) {
+  CoulombNE *ctx; PetscNew(&ctx);
+  ctx->q = q; ctx->a = a;
+  PFSet(self, CoulombNEApply, NULL, CoulombNEView, CoulombNEDestroy, ctx);
   return 0;
 }
-
-// ---- Slater Potential ----
-PetscScalar POTSlaterCalc(PetscScalar x, PetscScalar *vs) {
-  return vs[0] * x * x * exp(-vs[1]*x);
-}
-PetscErrorCode POTSlaterView(PetscScalar *vs, PetscViewer v) {
-  PetscViewerASCIIPrintf(v, ">>> POT Slater >>>\n");
-  PetscViewerASCIIPrintf(v, "             2  -zx \n", vs[0]);
-  PetscViewerASCIIPrintf(v, "v(x) =  V_0 x  e    \n", vs[0]);
-  PetscViewerASCIIPrintf(v, "V_0 = %f\n", vs[0]);
-  PetscViewerASCIIPrintf(v, "z   = %f\n", vs[1]);
-  PetscViewerASCIIPrintf(v, "<<< POT Slater <<<\n");  
+PetscErrorCode PFSetSlater(PF self, PetscScalar a, int n, PetscScalar z) {
+  Slater *ctx; PetscNew(&ctx);
+  ctx->a = a; ctx->n = n; ctx->z = z;
+  PFSet(self, SlaterApply, NULL, SlaterView, SlaterDestroy, ctx);
   return 0;
 }
-PetscErrorCode POTSetSlater(POT self, PetscScalar v0, PetscScalar z) {
-
-  PetscScalar *vs; 
-  PetscMalloc1(2, &vs); 
-  vs[0] = v0;
-  vs[1] = z;
-  strcpy(self->name, "slater");
-  self->num = 2;
-  self->vs = vs;
-  self->Calc = POTSlaterCalc;
-  self->View = POTSlaterView;
+PetscErrorCode PFSetMorse(PF self, PetscScalar D0, PetscScalar a, PetscScalar Re){
+  Morse *ctx; PetscNew(&ctx);
+  ctx->D0 = D0; ctx->a = a; ctx->Re = Re;
+  PFSet(self, MorseApply, NULL, MorseView, MorseDestroy, ctx);
   return 0;
 }
+PetscErrorCode PFSetPotentialFromOptions(PF self) {
 
-// ---- Morse Potential ----
-PetscScalar POTMorseCalc(PetscScalar x, PetscScalar *vs) {
-  PetscScalar D0 = vs[0];
-  PetscScalar a = vs[1];
-  PetscScalar Re = vs[2];
-  PetscScalar t = 1.0 - exp(-a*(x-Re));
-  return D0 * t * t;
-}
-PetscErrorCode POTMorseView(PetscScalar *vs, PetscViewer v) {
-  PetscViewerASCIIPrintf(v, ">>> POT Morse >>>\n");
-  PetscViewerASCIIPrintf(v, "                             2 \n", vs[0]);
-  PetscViewerASCIIPrintf(v, "v(x) =  D_0 (1-exp[-a(x-Re)])  \n", vs[0]);
-  PetscViewerASCIIPrintf(v, "D_0 = %f\n", vs[0]);
-  PetscViewerASCIIPrintf(v, "a   = %f\n", vs[1]);
-  PetscViewerASCIIPrintf(v, "Re  = %f\n", vs[2]);
-  PetscViewerASCIIPrintf(v, "<<< POT Morse <<<\n");  
-  return 0;
-}
-PetscErrorCode POTSetMorse(POT self, PetscScalar D0, PetscScalar a, PetscScalar Re) {
-
-  PetscScalar *vs; 
-  PetscMalloc1(3, &vs); 
-  vs[0] = D0;
-  vs[1] = a;
-  vs[2] = Re;
-  strcpy(self->name, "morse");
-  self->num = 3;
-  self->vs = vs;
-  self->Calc = POTMorseCalc;
-  self->View = POTMorseView;
-  return 0;
-}
-
-// ---- Create from options ----
-PetscErrorCode POTSetFromOptions(POT self) {
+  MPI_Comm comm; PetscObjectGetComm((PetscObject)self, &comm);
   
   char type[10];
   PetscErrorCode ierr;
@@ -229,43 +198,47 @@ PetscErrorCode POTSetFromOptions(POT self) {
   ierr = PetscOptionsGetString(NULL, "-pot_type", type, 10, &find); CHKERRQ(ierr);
 
   if(!find) 
-    SETERRQ(self->comm, 1, "options -pot_type is not found");
+    SETERRQ(comm, 1, "options -pot_type is not found");
   
   if(strcmp(type, "harm") == 0) {
     PetscReal a;
     ierr = PetscOptionsGetReal(NULL, "-pot_a", &a, &find); CHKERRQ(ierr);
     if(!find)
-      SETERRQ(self->comm, 1, "-pot_a is not found");
-    POTSetHarm(self, a);
+      SETERRQ(comm, 1, "-pot_a is not found");
+    PFSetHarm(self, a);
 
   } else if(strcmp(type, "slater") == 0) {
     PetscReal v0, z;
+    PetscInt n;
     ierr = PetscOptionsGetReal(NULL, "-pot_v0", &v0, &find); CHKERRQ(ierr);
     if(!find)
-      SETERRQ(self->comm, 1, "-pot_v0 is not found");
+      SETERRQ(comm, 1, "-pot_v0 is not found");
     ierr = PetscOptionsGetReal(NULL, "-pot_z", &z, &find); CHKERRQ(ierr);
     if(!find)
-      SETERRQ(self->comm, 1, "-pot_z is not found");
-    POTSetSlater(self, v0, z);
+      SETERRQ(comm, 1, "-pot_z is not found");
+    ierr = PetscOptionsGetInt(NULL, "-pot_n", &n, &find); CHKERRQ(ierr);
+    if(!find)
+      SETERRQ(comm, 1, "-pot_n is not found");
+    PFSetSlater(self, v0, n, z);
 
   } else if(strcmp(type, "morse") == 0) {
     PetscReal D0, a, Re;
     ierr = PetscOptionsGetReal(NULL, "-pot_D0", &D0, &find); CHKERRQ(ierr);
     if(!find)
-      SETERRQ(self->comm, 1, "-pot_D0 is not found");
+      SETERRQ(comm, 1, "-pot_D0 is not found");
     ierr = PetscOptionsGetReal(NULL, "-pot_a", &a, &find); CHKERRQ(ierr);
     if(!find)
-      SETERRQ(self->comm, 1, "-pot_z is not found");
+      SETERRQ(comm, 1, "-pot_z is not found");
     ierr = PetscOptionsGetReal(NULL, "-pot_Re", &Re, &find); CHKERRQ(ierr);
     if(!find)
-      SETERRQ(self->comm, 1, "-pot_Re is not found");
+      SETERRQ(comm, 1, "-pot_Re is not found");
 
-    POTSetMorse(self, D0, a, Re);
+    PFSetMorse(self, D0, a, Re);
 
   } else {
     char msg[100]; sprintf(msg, "unsupported pot_type: %s", type);
-    SETERRQ(self->comm, 1, msg);
+    SETERRQ(comm, 1, msg);
   }
-
   return 0;
 }
+
