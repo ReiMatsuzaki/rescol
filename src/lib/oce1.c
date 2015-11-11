@@ -1,43 +1,58 @@
 #include <rescol/oce1.h>
 
-PetscErrorCode OCE1Create(OCE1 *oce1, MPI_Comm comm) {
+PetscErrorCode OCE1Create(MPI_Comm comm, OCE1 *p_self) {
 
   PetscErrorCode ierr;
-  
-  OCE1 _oce1;
+  OCE1 self;
 
-  ierr = PetscNew(&_oce1); CHKERRQ(ierr);
-  *oce1 = NULL;
+  ierr = PetscNew(&self); CHKERRQ(ierr);
 
-  _oce1->comm = comm;
-  _oce1->mu = 1.0;
-  _oce1->fem = NULL;
-  _oce1->y1s = NULL;
-  _oce1->s_r = NULL;
-  _oce1->s_y = NULL;
+  self->comm = comm;
+  self->mu = 1.0;
+  self->fem = NULL;
+  self->y1s = NULL;
+  self->s_r = NULL;
+  self->s_y = NULL;
   
-  *oce1 = _oce1;
+  *p_self = self;
   return 0;
   
 }
-PetscErrorCode OCE1Destroy(OCE1 *oce1) {
+PetscErrorCode OCE1Destroy(OCE1 *p_self) {
 
-  if((*oce1)->fem)
-    FEMInfDestroy(&(*oce1)->fem);
+  if((*p_self)->fem)
+    FEMInfDestroy(&(*p_self)->fem);
 
-  if((*oce1)->y1s)
-    Y1sDestroy(&(*oce1)->y1s);  
+  if((*p_self)->y1s)
+    Y1sDestroy(&(*p_self)->y1s);  
 
-  if((*oce1)->s_r)
-    MatDestroy(&(*oce1)->s_r);  
+  if((*p_self)->s_r)
+    MatDestroy(&(*p_self)->s_r);  
 
-  if((*oce1)->s_y)
-    MatDestroy(&(*oce1)->s_y);  
+  if((*p_self)->s_y)
+    MatDestroy(&(*p_self)->s_y);  
 
-  PetscFree(*oce1);
+  PetscFree(*p_self);
   return 0;
 
 }
+
+PetscErrorCode OCE1View(OCE1 self, PetscViewer v) {
+
+  PetscViewerType type;
+  PetscViewerGetType(v, &type);
+
+  if(strcmp(type, "ascii") != 0) 
+    SETERRQ(self->comm, 1, "unsupported type");
+
+  PetscViewerASCIIPrintf(v, ">>>> One Center Expansion 1 >>>>\n");
+  PetscViewerASCIIPrintf(v, "mu: %f\n", self->mu);
+  FEMInfView(self->fem, v);
+  Y1sView(self->y1s, v);
+  PetscViewerASCIIPrintf(v, "<<<< One Center Expansion 1 <<<<\n");
+  return 0;
+}
+
 PetscErrorCode OCE1Set(OCE1 self, FEMInf fem, Y1s y1s) {
 
   self->fem = fem;
@@ -49,31 +64,24 @@ PetscErrorCode OCE1SetMu(OCE1 self, PetscReal mu) {
   self->mu = mu;
   return 0;
 }
-PetscErrorCode OCE1CreateFromOptions(OCE1 *oce1, MPI_Comm comm) {
+PetscErrorCode OCE1SetFromOptions(OCE1 self) {
 
   PetscErrorCode ierr;
-  ierr = OCE1Create(oce1, comm); CHKERRQ(ierr);
-
   PetscBool find;
   PetscReal mu;
+
   PetscOptionsGetReal(NULL, "-oce1_mu", &mu, &find); 
   if(find)
-    OCE1SetMu(*oce1, mu);
+    OCE1SetMu(self, mu);
 
-  FEMInf fem;
-  ierr = FEMInfCreateFromOptions(&fem, comm); CHKERRQ(ierr);
+  FEMInf fem; FEMInfCreate(self->comm, &fem);
+  ierr = FEMInfSetFromOptions(fem); CHKERRQ(ierr);
 
-  Y1s y1s;
-  ierr = Y1sCreateFromOptions(&y1s, comm); CHKERRQ(ierr);
+  Y1s y1s; Y1sCreate(self->comm, &y1s);
+  ierr = Y1sSetFromOptions(y1s); CHKERRQ(ierr);
 
-  ierr = OCE1Set(*oce1, fem, y1s); CHKERRQ(ierr);
+  ierr = OCE1Set(self, fem, y1s); CHKERRQ(ierr);
 
-  return 0;
-}
-PetscErrorCode OCE1View(OCE1 self) {
-  PetscPrintf(self->comm, "mu: %f\n", self->mu);
-  FEMInfView(self->fem);
-  Y1sView(self->y1s);
   return 0;
 }
 
@@ -84,22 +92,29 @@ PetscErrorCode OCE1GetSizes(OCE1 self, int *n_r, int *n_y) {
 }
 
 PetscErrorCode OCE1SetSr(OCE1 self) {
-  FEMInfSetSR1Mat(self->fem, &self->s_r);
+  PetscErrorCode ierr;
+  ierr = FEMInfCreateMat(self->fem, 1, &self->s_r);CHKERRQ(ierr);
+  ierr = FEMInfSR1Mat(self->fem, self->s_r);CHKERRQ(ierr);
   return 0;
 }
 PetscErrorCode OCE1SetSy(OCE1 self) {
-  Y1sSetSY1Mat(self->y1s, &self->s_y);
+  PetscErrorCode ierr;
+  ierr = Y1sCreateY1Mat(self->y1s, &self->s_y); CHKERRQ(ierr);
+  ierr = Y1sSY1Mat(self->y1s, self->s_y);CHKERRQ(ierr);  
   return 0;
 }
 
 PetscErrorCode OCE1SetSMat(OCE1 self, Mat *M) {
 
-  if(self->s_r == NULL)
-    OCE1SetSr(self);
-  if(self->s_y == NULL)
-    OCE1SetSy(self);
-
   PetscErrorCode ierr;
+
+  if(self->s_r == NULL) {
+    ierr = OCE1SetSr(self); CHKERRQ(ierr);
+  }
+  if(self->s_y == NULL) {
+    ierr = OCE1SetSy(self); CHKERRQ(ierr);
+  }
+
   ierr = MatSetSynthesizeFast(self->s_r, self->s_y, self->comm, M);
   CHKERRQ(ierr);
 

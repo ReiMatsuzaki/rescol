@@ -10,11 +10,10 @@ int dgetri_(long*, double*, long*, long*, double*, long*, long*);
 static char help[] = "Unit test for dvr.c \n\n";
 
 int testXS() {
-
-  DVR dvr;
+  MPI_Comm comm = PETSC_COMM_SELF;
   int nq = 3;
-  BPS bps; BPSCreate(&bps, PETSC_COMM_SELF); BPSSetLine(bps, 5.0, 6);
-  DVRCreate(&dvr, nq, bps, PETSC_COMM_SELF);
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 6);
+  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, nq, bps); DVRSetUp(dvr);
 
   ASSERT_DOUBLE_EQ(0.0, dvr->xs[0]);
   ASSERT_DOUBLE_EQ(0.5, dvr->xs[1]);  
@@ -34,13 +33,13 @@ int testXS() {
 }
 int testSR1LSMat() {
   PetscErrorCode ierr;
-  DVR dvr;
+  MPI_Comm comm = PETSC_COMM_SELF;
+  
   int nq = 3;
-  BPS bps; BPSCreate(&bps, PETSC_COMM_SELF); BPSSetLine(bps, 5.0, 6);
-  DVRCreate(&dvr, nq, bps, PETSC_COMM_SELF);
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 6);
+  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, nq, bps); DVRSetUp(dvr);
 
-  Mat S;
-  DVRSetSR1LSMat(dvr, &S);
+  Mat S; DVRCreateR1LSMat(dvr, &S); DVRSR1LSMat(dvr, S);
   
   PetscInt n, m;
   MatGetSize(S, &n, &m);
@@ -71,14 +70,13 @@ int testD2R1LSMat() {
     1: 2.66666667 -5.33333333  2.66666667
    */
   PetscErrorCode ierr;
-
-  DVR dvr;
+  MPI_Comm comm = PETSC_COMM_SELF;
   int nq = 3;
-  BPS bps; BPSCreate(&bps, PETSC_COMM_SELF); BPSSetLine(bps, 5.0, 6);
-  DVRCreate(&dvr, nq, bps, PETSC_COMM_SELF);
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 6);
+  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, nq, bps); DVRSetUp(dvr);
 
-  Mat D;
-  DVRSetD2R1LSMat(dvr, &D);
+  Mat D; DVRCreateR1LSMat(dvr, &D); DVRD2R1LSMat(dvr, D);
+
   const PetscScalar *row;
   PetscInt ncols;
   const PetscInt *cols;
@@ -108,14 +106,15 @@ int testENR1LSMat() {
     |...|...|...|... |
    */
   PetscErrorCode ierr;
-
-  DVR dvr;
+  MPI_Comm comm = PETSC_COMM_SELF;
   int nq = 3;
-  BPS bps; BPSCreate(&bps, PETSC_COMM_SELF); BPSSetLine(bps, 5.0, 6);
-  DVRCreate(&dvr, nq, bps, PETSC_COMM_SELF);
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 6);
+  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, nq, bps); DVRSetUp(dvr);
 
-  Mat V;
-  DVRSetENR1LSMat(dvr, 0, 0.0, &V);
+  Mat S; DVRCreateR1LSMat(dvr, &S); DVRSR1LSMat(dvr, S);
+
+
+  Mat V; DVRCreateR1LSMat(dvr, &V); DVRENR1LSMat(dvr, 0, 0.0, V);
   
   PetscInt n, m;
   MatGetSize(V, &n, &m);
@@ -144,14 +143,12 @@ int testENR1Mat() {
     |...|...|...|... |
    */
 
-  DVR dvr;
+  MPI_Comm comm = PETSC_COMM_SELF;
   int nq = 3;
-  BPS bps; BPSCreate(&bps, PETSC_COMM_SELF); BPSSetLine(bps, 5.0, 5);
-  DVRCreate(&dvr, nq, bps, PETSC_COMM_SELF);
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 5);
+  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, nq, bps); DVRSetUp(dvr);
 
-
-  Mat V;
-  DVRSetENR1Mat(dvr, 0, 1.2, &V);
+  Mat V; DVRCreateR1Mat(dvr, &V); DVRENR1Mat(dvr, 0, 0.0, V);
   
   PetscInt n, m;
   MatGetSize(V, &n, &m);
@@ -163,14 +160,13 @@ int testENR1Mat() {
 int testLSMat_to_Mat() {
   PetscErrorCode ierr;
 
-  DVR dvr;
+  MPI_Comm comm = PETSC_COMM_SELF;
   int nq = 4;
-  BPS bps; BPSCreate(&bps, PETSC_COMM_SELF); BPSSetLine(bps, 10.0, 4);
-  DVRCreate(&dvr, nq, bps, PETSC_COMM_SELF);
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 10.0, 4);
+  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, nq, bps); DVRSetUp(dvr);
 
-  Mat S;
+  Mat S; DVRCreateR1LSMat(dvr, &S);
   int ne; BPSGetNumEle(bps, &ne);
-  DVRInitR1LSMat(dvr, &S);
   for(int i = 0; i < 12; i++)
     for(int j = 0; j < 12; j++) {
       PetscScalar v = i/nq+ne*(j/nq);
@@ -180,7 +176,7 @@ int testLSMat_to_Mat() {
   MatAssemblyEnd(S, MAT_FINAL_ASSEMBLY);
 
   Mat SS;
-  DVRLSMatToMat(dvr, S, &SS);
+  DVRLSMatToMat(dvr, S, MAT_INITIAL_MATRIX, &SS);
 
   PetscInt n, m;
   MatGetSize(SS, &n, &m);
@@ -202,24 +198,19 @@ int testLSMat_to_Mat() {
 }
 int testHAtom() {
 
-  DVR dvr;
+  MPI_Comm comm = PETSC_COMM_SELF;
   int nq = 5;
-  BPS bps; BPSCreate(&bps, PETSC_COMM_SELF); BPSSetExp(bps, 20.0, 20, 5.0);
-  DVRCreate(&dvr, nq, bps, PETSC_COMM_SELF);
+  BPS bps; BPSCreate(comm, &bps); BPSSetExp(bps, 20.0, 20, 5.0);
+  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, nq, bps); DVRSetUp(dvr);
 
-  Mat H;
-  DVRSetD2R1LSMat(dvr, &H); MatScale(H, -0.5);
-
-  Mat V;
-  DVRSetENR1LSMat(dvr, 0, 0.0, &V);
+  Mat H; DVRCreateR1LSMat(dvr, &H); DVRD2R1LSMat(dvr, H); MatScale(H, -0.5);
+  Mat V; DVRCreateR1LSMat(dvr, &V); DVRENR1LSMat(dvr, 0, 0.0, V);
   MatAXPY(H, -1.0, V, DIFFERENT_NONZERO_PATTERN);
 
-  Mat S;
-  DVRSetSR1LSMat(dvr, &S);
+  Mat S; DVRCreateR1LSMat(dvr, &S); DVRSR1LSMat(dvr, S);
 
-  Mat HH, SS;
-  DVRLSMatToMat(dvr, H, &HH);
-  DVRLSMatToMat(dvr, S, &SS);
+  Mat HH; DVRCreateR1Mat(dvr, &HH); DVRLSMatToMat(dvr, H, MAT_INITIAL_MATRIX, &HH);
+  Mat SS; DVRCreateR1Mat(dvr, &SS); DVRLSMatToMat(dvr, S, MAT_INITIAL_MATRIX, &SS);
 
   EPS eps; 
   EPSCreate(PETSC_COMM_SELF, &eps);
@@ -232,35 +223,27 @@ int testHAtom() {
   EPSSolve(eps);
 
   int nconv;
-  PetscScalar kr, ki;
-  //  Vec xr, xi;
-  //  MatCreateVecs(HH, NULL, &xr); MatCreateVecs(H, NULL, &xi);
+  PetscScalar kr;
   EPSGetConverged(eps, &nconv);
   ASSERT_TRUE(nconv > 0);
-  EPSGetEigenpair(eps, 0, &kr, &ki, NULL, NULL);
+  EPSGetEigenpair(eps, 0, &kr, NULL, NULL, NULL);
   ASSERT_DOUBLE_NEAR(-0.5, kr, pow(10.0, -5.0));
 
   return 0;
 }
 int testHAtom2() {
 
-  DVR dvr;
+  MPI_Comm comm = PETSC_COMM_SELF;
   int nq = 5;
-  BPS bps; BPSCreate(&bps, PETSC_COMM_SELF); BPSSetExp(bps, 20.0, 20, 5.0);
-  DVRCreate(&dvr, nq, bps, PETSC_COMM_SELF);
+  BPS bps; BPSCreate(comm, &bps); BPSSetExp(bps, 20.0, 20, 5.0);
+  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, nq, bps); DVRSetUp(dvr);
 
-  Mat H;
-  DVRSetD2R1Mat(dvr, &H); MatScale(H, -0.5);
+  Mat H; DVRCreateR1Mat(dvr, &H); DVRD2R1Mat(dvr, H); MatScale(H, -0.5);
+  Mat V; DVRCreateR1Mat(dvr, &V); DVRENR1Mat(dvr, 0, 0.0, V);
+  Mat L; DVRCreateR1Mat(dvr, &L); DVRR2invR1Mat(dvr, L);
 
-  Mat V;
-  DVRSetENR1Mat(dvr, 0, 0.0, &V);
-  MatAXPY(H, -1.0, V, SUBSET_NONZERO_PATTERN);
-  MatDestroy(&V);
-
-  Mat L;
-  DVRSetR2invR1Mat(dvr, &L);
-  MatAXPY(H, 1*(1+1)/2.0, L, SUBSET_NONZERO_PATTERN);
-  MatDestroy(&L);
+  MatAXPY(H, -1.0, V, DIFFERENT_NONZERO_PATTERN);
+  MatAXPY(H, 1*(1+1)/2.0, L, DIFFERENT_NONZERO_PATTERN);
 
   EPS eps; 
   EPSCreate(PETSC_COMM_SELF, &eps);
@@ -276,14 +259,14 @@ int testHAtom2() {
   PetscScalar kr;
   EPSGetConverged(eps, &nconv);
   ASSERT_TRUE(nconv > 0);
-  
   EPSGetEigenpair(eps, 0, &kr, NULL, NULL, NULL);
   ASSERT_DOUBLE_NEAR(-1.0/8.0, kr, pow(10.0, -5.0));
 
   return 0;
-
 }
 int testHeAtom() {
+  ASSERT_EQ(2, 1);
+/*
 
   PetscErrorCode ierr;
 
@@ -345,6 +328,7 @@ int testHeAtom() {
   ASSERT_TRUE(nconv > 0);
   ierr = EPSGetEigenpair(eps, 0, &kr, NULL, NULL, NULL); CHKERRQ(ierr);
   ASSERT_DOUBLE_NEAR(-1.0/8.0, kr, pow(10.0, -5.0));
+  */
 
   return 0;  
 }
@@ -368,18 +352,25 @@ int testLapack() {
   ASSERT_DOUBLE_EQ(1.5, A[2]);  
   ASSERT_DOUBLE_EQ(-1.0, A[3]);    
 
+
   return 0;
 }
 
 int main(int argc, char **args) {
 
   SlepcInitialize(&argc, &args, (char*)0, help);
+  PrintTimeStamp(PETSC_COMM_SELF, "testXS", NULL);
   testXS();
+  PrintTimeStamp(PETSC_COMM_SELF, "testSR1LSMat", NULL);
   testSR1LSMat();
+  PrintTimeStamp(PETSC_COMM_SELF, "testD2R1LSMat", NULL);
   testD2R1LSMat();
+  PrintTimeStamp(PETSC_COMM_SELF, "testENR1LSMat", NULL);
   testENR1LSMat();
   //  testLSMat_to_Mat();
+  PrintTimeStamp(PETSC_COMM_SELF, "testHAtom", NULL);
   testHAtom();
+  PrintTimeStamp(PETSC_COMM_SELF, "testHAtom2", NULL);
   testHAtom2();
   //testHeAtom();
   //testLapack();

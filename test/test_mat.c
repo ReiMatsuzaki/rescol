@@ -5,6 +5,27 @@
 
 static char help[] = "Unit test for angmoment.c \n\n";
 
+PetscErrorCode testVecSynthesize2() {
+  MPI_Comm comm = PETSC_COMM_SELF;
+  Vec a; VecCreate(comm, &a); VecSetSizes(a, PETSC_DECIDE, 3); VecSetUp(a);
+  Vec b; VecCreate(comm, &b); VecSetSizes(b, PETSC_DECIDE, 2); VecSetUp(b);
+  for(int i = 0; i < 3; i++)
+    VecSetValue(a, i, (i+1)*1.0, INSERT_VALUES);
+  for(int i = 0; i < 2; i++)
+    VecSetValue(b, i, (i+1)*2.0, INSERT_VALUES);
+
+  Vec c; VecSynthesize(a, b, 1.1, MAT_INITIAL_MATRIX, &c);
+  PetscScalar *vs;
+  VecGetArray(c, &vs);
+  ASSERT_DOUBLE_EQ(vs[0], 2.2);
+  ASSERT_DOUBLE_EQ(vs[1], 4.4);
+  ASSERT_DOUBLE_EQ(vs[2], 6.6);
+  ASSERT_DOUBLE_EQ(vs[3], 4.4);
+  ASSERT_DOUBLE_EQ(vs[4], 8.8);
+  ASSERT_DOUBLE_EQ(vs[5], 13.2);
+  VecRestoreArray(c, &vs);
+  return 0;
+}
 PetscErrorCode testMat() {
 
   Mat A, B, C;
@@ -33,10 +54,8 @@ PetscErrorCode testMat() {
   MatAssemblyBegin(B, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(B, MAT_FINAL_ASSEMBLY);
 
-  MatInitSynthesize(A, B, PETSC_COMM_WORLD, &C);
-  MatSynthesize(A, B, 0.1, &C, INSERT_VALUES);
-  MatAssemblyBegin(C, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(C, MAT_FINAL_ASSEMBLY);
+  //  MatInitSynthesize(A, B, PETSC_COMM_WORLD, &C);
+  MatSynthesize(A, B, 0.1, MAT_INITIAL_MATRIX, &C);
 
   const PetscScalar *row;
   PetscInt ncols;
@@ -83,47 +102,6 @@ PetscErrorCode testMat() {
   
   return 0;
 }
-PetscErrorCode testMatSynthesize() {
-  Mat A, B, C0, C1;
-  MatCreate(PETSC_COMM_WORLD, &A);
-  MatCreate(PETSC_COMM_WORLD, &B);
-  MatSetSizes(A, PETSC_DECIDE, PETSC_DECIDE, 2, 3);
-  MatSetSizes(B, PETSC_DECIDE, PETSC_DECIDE, 4, 5);
-  MatSetFromOptions(A);
-  MatSetFromOptions(B);
-  MatSetUp(A);
-  MatSetUp(B);
-
-  MatSetValue(A, 0, 0, 1.0, INSERT_VALUES);
-  MatSetValue(A, 1, 0, 3.0, INSERT_VALUES);
-  MatSetValue(A, 1, 1, 1.0, INSERT_VALUES);
-  MatSetValue(A, 1, 2, 2.0, INSERT_VALUES);
-  MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
-
-  MatSetValue(B, 0, 0, 1.0, INSERT_VALUES);
-  MatSetValue(B, 1, 0, 3.0, INSERT_VALUES);
-  MatSetValue(B, 1, 1, 1.0, INSERT_VALUES);
-  MatSetValue(B, 1, 2, 2.0, INSERT_VALUES);
-  MatSetValue(B, 3, 4, 1.0, INSERT_VALUES);
-  MatSetValue(B, 0, 3, 2.0, INSERT_VALUES);
-  MatAssemblyBegin(B, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(B, MAT_FINAL_ASSEMBLY);
-
-  MatSetSynthesizeFast(A, B, PETSC_COMM_WORLD, &C0);
-  MatSetSynthesizeSlow(A, B, 1.0, PETSC_COMM_WORLD, &C1);
-
-  const PetscScalar *row0, *row1;
-  PetscInt ncols0, ncols1;
-  const PetscInt *cols0, *cols1;
-  MatGetRow(C0, 0, &ncols0, &cols0, &row0);
-  MatGetRow(C1, 0, &ncols1, &cols1, &row1);
-  ASSERT_EQ(ncols0, ncols1);
-  ASSERT_EQ(cols0[0], cols1[0]);
-  ASSERT_EQ(cols0[1], cols1[1]);
-
-  return 0;
-}
 PetscErrorCode testMatSynthesize3() {
   Mat A, B, C0, C1;
   MatCreate(PETSC_COMM_WORLD, &A);
@@ -151,8 +129,8 @@ PetscErrorCode testMatSynthesize3() {
   MatAssemblyBegin(B, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(B, MAT_FINAL_ASSEMBLY);
 
-  MatSetSynthesize3Fast(A, B, A, PETSC_COMM_WORLD, &C0);
-  MatSetSynthesize3(A, B, A, 1.0, PETSC_COMM_WORLD, &C1);
+  MatSynthesize3(A, B, A, 1.0, MAT_INITIAL_MATRIX, &C0);
+  MatSetSynthesize3Old(A, B, A, 1.0, PETSC_COMM_WORLD, &C1);
 
   const PetscScalar *row0, *row1;
   PetscInt ncols0, ncols1;
@@ -184,7 +162,7 @@ PetscErrorCode testVecSynthesize() {
   VecAssemblyBegin(B); VecAssemblyEnd(B);
 
   Vec C;
-  VecSetSynthesize(A, B, 0.2, comm, &C);
+  VecSynthesize(A, B, 0.2, MAT_INITIAL_MATRIX, &C);
 
   PetscScalar *cs;
   PetscInt n;
@@ -279,12 +257,16 @@ int testPartialCoulomb() {
 int main(int argc, char **args) {
   
   SlepcInitialize(&argc, &args, (char*)0, help);
+  MPI_Comm comm = PETSC_COMM_SELF;
 
   PetscErrorCode ierr;
-  ierr = testMat(); CHKERRQ(ierr);
-  ierr = testMatSynthesize(); CHKERRQ(ierr);
-  ierr = testMatSynthesize3(); CHKERRQ(ierr);  
+  PrintTimeStamp(comm, "vec", NULL);
   ierr = testVecSynthesize(); CHKERRQ(ierr);
+  PrintTimeStamp(comm, "mat", NULL);
+  ierr = testMat(); CHKERRQ(ierr);
+  PrintTimeStamp(comm, "mat_synthesize3", NULL);
+  ierr = testMatSynthesize3(); CHKERRQ(ierr);  
+  
   testLegGauss();
   testLobGauss();
   testPartialCoulomb();

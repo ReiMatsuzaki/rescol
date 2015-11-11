@@ -13,20 +13,21 @@ extern "C" {
 // vtbl for FEM interface
 typedef struct {
   PetscErrorCode (*Create)();
-  PetscErrorCode (*CreateFromOptions)();
   PetscErrorCode (*Destory)();
-  PetscErrorCode (*FPrintf)();
-  PetscErrorCode (*SetSR1Mat)();
-  PetscErrorCode (*SetD2R1Mat)();
-  PetscErrorCode (*SetR2invR1Mat)();
-  PetscErrorCode (*SetENR1Mat)();
-  PetscErrorCode (*SetPotR1Mat)();
-  PetscErrorCode (*SetEER2Mat)();
-  PetscErrorCode (*BasisPsi)();
+  PetscErrorCode (*View)();
+  PetscErrorCode (*SetFromOptions)();
+
+  PetscErrorCode (*Psi)();
   PetscErrorCode (*GuessHEig)();
   PetscErrorCode (*GetSize)();
-  PetscBool overlap_is_id;
-  
+
+  PetscErrorCode (*SR1Mat)();
+  PetscErrorCode (*D2R1Mat)();
+  PetscErrorCode (*R2invR1Mat)();
+  PetscErrorCode (*ENR1Mat)();
+  PetscErrorCode (*PotR1Mat)();
+  PetscErrorCode (*EER2Mat)();
+  PetscBool overlap_is_id;  
 } FEMSc;
 
 struct _p_FEMInf{
@@ -37,31 +38,37 @@ struct _p_FEMInf{
 typedef struct _p_FEMInf* FEMInf;
 
 // ----- getter of interface -----
-PetscErrorCode FEMInfCreateFD(FEMInf *inf, FD self);
-PetscErrorCode FEMInfCreateBSS(FEMInf *inf, BSS self);
-PetscErrorCode FEMInfCreateDVR(FEMInf *inf, DVR self);
+PetscErrorCode FEMInfSetFD(FEMInf self, FD target);
+PetscErrorCode FEMInfSetBSS(FEMInf self, BSS target);
+PetscErrorCode FEMInfSetDVR(FEMInf self, DVR target);
 
 // ---- Basic Method ------
-PetscErrorCode FEMInfCreateFromOptions(FEMInf *self, MPI_Comm comm);
+PetscErrorCode FEMInfCreate(MPI_Comm comm, FEMInf *inf);
 PetscErrorCode FEMInfDestroy(FEMInf *inf);
-PetscErrorCode FEMInfFPrintf(FEMInf self, FILE *file, int lvl);
-PetscErrorCode FEMInfView(FEMInf self);
+//PetscErrorCode FEMInfCreateFD(FEMInf *inf, FD self);
+PetscErrorCode FEMInfView(FEMInf self, PetscViewer v);
 
-// ----- Accessor ----
+// ---- Accessor ----
+PetscErrorCode FEMInfSetFromOptions(FEMInf self);
+
 PetscErrorCode FEMInfGetSize(FEMInf self, int *n);
 PetscErrorCode FEMInfGetOverlapIsId(FEMInf self, PetscBool *is_id);
 
 // ---- calculation -----
-PetscErrorCode FEMInfSetSR1Mat(FEMInf self, Mat *M);
-PetscErrorCode FEMInfSEtSR1MatNullable(FEMInf self, Mat *M);
-PetscErrorCode FEMInfSetD2R1Mat(FEMInf self, Mat *M);
-PetscErrorCode FEMInfSetR2invR1Mat(FEMInf self, Mat *M);
-PetscErrorCode FEMInfSetENR1Mat(FEMInf self, int q, double a, Mat *M); 
-PetscErrorCode FEMInfSetPOTR1Mat(FEMInf self, POT pot, Mat *M);
-PetscErrorCode FEMInfSetEER2Mat(FEMInf self, int q, Mat *M); 
-PetscErrorCode FEMInfBasisPsi(FEMInf self, int i, PetscScalar x, PetscScalar *y);
-PetscErrorCode FEMInfPsi(FEMInf self, PetscReal x, Vec c, PetscScalar *y);
+//PetscErrorCode FEMInfBasisPsi(FEMInf self, int i, PetscScalar x, PetscScalar *y);
+PetscErrorCode FEMInfPsi(FEMInf self, Vec c, PetscReal x, PetscScalar *y);
 PetscErrorCode FEMInfGuessHEig(FEMInf self, int n, int l, PetscScalar z, Vec *v);
+
+PetscErrorCode FEMInfCreateMat(FEMInf self, int dim, Mat *M);
+PetscErrorCode FEMInfCreateVec(FEMInf self, int dim, Vec *v);
+
+PetscErrorCode FEMInfSR1Mat(FEMInf self, Mat M);
+PetscErrorCode FEMInfSR1MatNullable(FEMInf self, Mat M);
+PetscErrorCode FEMInfD2R1Mat(FEMInf self, Mat M);
+PetscErrorCode FEMInfR2invR1Mat(FEMInf self, Mat M);
+PetscErrorCode FEMInfENR1Mat(FEMInf self, int q, double a, Mat M); 
+PetscErrorCode FEMInfPOTR1Mat(FEMInf self, POT pot, Mat M);
+PetscErrorCode FEMInfEER2Mat(FEMInf self, int q, Mat M); 
 
 #ifdef __cplusplus
 }

@@ -276,6 +276,25 @@ PetscErrorCode BSSSetFromOptions(BSS self) {
   return 0;
  }
 
+PetscErrorCode BSSPsi(BSS self, Vec c, PetscReal x, PetscScalar *y) {
+
+  PetscErrorCode ierr;
+
+  int n; BSSGetSize(self, &n);
+  Vec us; BSSCreateR1Vec(self, &us);
+  for(int i = 0; i < n; i++) {
+    PetscScalar u;
+    ierr = BSSBasisPsi(self, i, x, &u); CHKERRQ(ierr);
+    VecSetValue(us, i, u, INSERT_VALUES);
+  }
+  VecAssemblyBegin(us); VecAssemblyEnd(us);
+
+  PetscScalar yy;
+  VecTDot(us, c, &yy);
+  *y = yy;
+
+  return 0;
+}
 PetscErrorCode BSSBasisPsi(BSS self, int i, PetscReal x, PetscScalar *y) {
   
   PetscScalar z;
@@ -310,7 +329,6 @@ PetscErrorCode BSSCreateR1Mat(BSS self, Mat *M) {
   int nb = self->num_basis;
   MatCreate(self->comm, M);
   MatSetSizes(*M, PETSC_DECIDE, PETSC_DECIDE, nb, nb);
-  MatSetFromOptions(*M);
   MatSetUp(*M);
   return 0;
 }
@@ -318,10 +336,17 @@ PetscErrorCode BSSCreateR2Mat(BSS self, Mat *M) {
   int nb = self->num_basis;
   MatCreate(self->comm, M);
   MatSetSizes(*M, PETSC_DECIDE, PETSC_DECIDE, nb*nb, nb*nb);
-  MatSetFromOptions(*M);
   MatSetUp(*M);
   return 0;
 }
+PetscErrorCode BSSCreateR1Vec(BSS self, Vec *v) {
+  int nb = self->num_basis;
+  VecCreate(self->comm, v);
+  VecSetSizes(*v, PETSC_DECIDE, nb);
+  VecSetUp(*v);
+  return 0;
+}
+
 PetscErrorCode BSSSR1Mat(BSS self, Mat M) {
   int i, j, k;
   int nb = self->num_basis;

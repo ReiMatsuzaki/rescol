@@ -1,22 +1,48 @@
 #include <rescol/fd.h>
 
 // ---- Basic Methods ----
-PetscErrorCode FDCreate(FD *fd, int num_xs, double xmax, MPI_Comm comm) {
-
+PetscErrorCode FDCreate(MPI_Comm comm, FD *p_self) {
+  FD self;
   PetscErrorCode ierr;
-  FD _fd;
-  //  _fd = (FD)malloc(sizeof(struct _p_FD));
-  ierr = PetscMalloc1(1, &_fd);
-  *fd = NULL;
-
-  _fd->comm = comm;
-  _fd->h = xmax/num_xs;
-  _fd->num = num_xs;
-
-  *fd = _fd;
+  ierr = PetscMalloc1(1, &self); CHKERRQ(ierr);
+  self->comm = comm;
+  *p_self = self;
   return 0;
 }
-PetscErrorCode FDCreateFromOptions(FD *fd, MPI_Comm comm) {
+PetscErrorCode FDDestroy(FD *p_self) {
+  
+  PetscErrorCode ierr;
+  ierr = PetscFree(*p_self); CHKERRQ(ierr);
+  return 0;
+
+}
+
+PetscErrorCode FDView(FD self, PetscViewer v) {
+
+  PetscViewerType type;
+  PetscViewerGetType(v, &type);
+
+  if(strcmp(type, "ascii") != 0) 
+    SETERRQ(self->comm, 1, "unsupported type");
+  
+  PetscViewerASCIIPrintf(v, ">>>> Finite Difference >>>>\n");
+  PetscViewerASCIIPrintf(v, "h  : %f\n", self->h);
+  PetscViewerASCIIPrintf(v, "num: %d\n", self->num);
+  PetscViewerASCIIPrintf(v, "xmax: %f\n", self->num*self->h);
+  PetscViewerASCIIPrintf(v, "<<<< Finite Difference <<<<\n");
+  return 0;
+
+}
+
+// ---- Accessor ----
+PetscErrorCode FDSetMesh(FD self, int num_xs, PetscReal xmax) {
+
+  self->h = xmax/num_xs;
+  self->num = num_xs;
+
+  return 0;
+}
+PetscErrorCode FDSetFromOptions(FD self) {
 
   PetscBool find;
   PetscReal xmax = 30.0;  
@@ -26,132 +52,111 @@ PetscErrorCode FDCreateFromOptions(FD *fd, MPI_Comm comm) {
   ierr = PetscOptionsGetReal(NULL, "-fd_xmax", &xmax, &find); CHKERRQ(ierr);
   ierr = PetscOptionsGetInt(NULL, "-fd_num", &num, &find); CHKERRQ(ierr);
   
-  ierr = FDCreate(fd, num, xmax, comm); CHKERRQ(ierr);
+  ierr = FDSetMesh(self, num, xmax); CHKERRQ(ierr);
   return 0;
 }
-PetscErrorCode FDDestroy(FD *fd) {
-  
-  PetscErrorCode ierr;
-  ierr = PetscFree(*fd); CHKERRQ(ierr);
-  return 0;
 
-}
-PetscErrorCode FDFPrintf(FD this, FILE *file, int lvl) {
-  
-  if(lvl != 0) 
-    SETERRQ(this->comm, 1, "now only lvl=0 is supported");
-
-  PetscFPrintf(this->comm, file, "==== Begin Finite Difference ====\n");
-  PetscFPrintf(this->comm, file, "h  : %f\n", this->h);
-  PetscFPrintf(this->comm, file, "num: %d\n", this->num);
-  PetscFPrintf(this->comm, file, "xmax: %f\n", this->num*this->h);
-  PetscFPrintf(this->comm, file, "==== End Finite Difference ====\n");
-  return 0;
-
-}
-
-// ---- Accessor ----
 PetscErrorCode FDGetSize(FD self, int *n) {
   *n = self->num;
   return 0;
 }
 
-// ---- Matrix (private) ----
-PetscErrorCode FDInitR1Mat(FD this, Mat *M) {
+// ---- Matrix/Vector ----
+PetscErrorCode FDCreateR1Mat(FD self, Mat *M) {
 
   PetscErrorCode ierr;
-  PetscInt n; FDGetSize(this, &n);
-  ierr = MatCreate(this->comm, M); CHKERRQ(ierr);
+  PetscInt n; FDGetSize(self, &n);
+  ierr = MatCreate(self->comm, M); CHKERRQ(ierr);
   ierr = MatSetSizes(*M, PETSC_DECIDE, PETSC_DECIDE, n, n); CHKERRQ(ierr);
-  ierr = MatSetFromOptions(*M); CHKERRQ(ierr);
   ierr = MatSetUp(*M); CHKERRQ(ierr);
   return 0;
 
 }
-PetscErrorCode FDInitR2Mat(FD this, Mat *M) {
+PetscErrorCode FDCreateR2Mat(FD self, Mat *M) {
 
   PetscErrorCode ierr;
-  PetscInt n = this->num;
-  ierr = MatCreate(this->comm, M); CHKERRQ(ierr);
+  PetscInt n = self->num;
+  ierr = MatCreate(self->comm, M); CHKERRQ(ierr);
   ierr = MatSetSizes(*M, PETSC_DECIDE, PETSC_DECIDE, n*n, n*n); CHKERRQ(ierr);
-  ierr = MatSetFromOptions(*M); CHKERRQ(ierr);
   ierr = MatSetUp(*M); CHKERRQ(ierr);
   return 0;  
 
 }
+PetscErrorCode FDCreateR1Vec(FD self, Vec *v) {
 
-// ---- Matrix (public) ----
-PetscErrorCode FDSetSR1Mat(FD this, Mat *M) {
+  VecCreate(self->comm, v);
+  VecSetSizes(*v, PETSC_DECIDE, self->num);
+  VecSetUp(*v);
+  return 0;
+
+}
+
+PetscErrorCode FDSR1Mat(FD self, Mat M) {
 
   PetscErrorCode ierr;
-  ierr = FDInitR1Mat(this, M); CHKERRQ(ierr);
-  for(int i = 0; i < this->num; i++) {
-    ierr = MatSetValue(*M, i, i, 1.0, INSERT_VALUES); CHKERRQ(ierr);
+  for(int i = 0; i < self->num; i++) {
+    ierr = MatSetValue(M, i, i, 1.0, INSERT_VALUES); CHKERRQ(ierr);
   }
 
-  ierr = MatAssemblyBegin(*M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
-  ierr = MatAssemblyEnd(*M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  ierr = MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  ierr = MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
 
   return 0;
 }
-PetscErrorCode FDSetD2R1Mat(FD this, Mat *M) {
+PetscErrorCode FDD2R1Mat(FD self, Mat M) {
 
   PetscErrorCode ierr;
-  PetscInt n = this->num;
-  PetscScalar h = this->h;
+  PetscInt n = self->num;
+  PetscScalar h = self->h;
   PetscScalar hh = h*h;
 
-  ierr = FDInitR1Mat(this, M); CHKERRQ(ierr);
   for(int i = 0; i < n; i++)
     for(int j = 0; j < n; j++) {
       if(i-1 == j || i == j-1)
-	ierr = MatSetValue(*M, i, j, 1.0/hh, INSERT_VALUES);      
+	ierr = MatSetValue(M, i, j, 1.0/hh, INSERT_VALUES);      
       if(i == j)
-	ierr = MatSetValue(*M, i, j, -2.0/hh, INSERT_VALUES);
+	ierr = MatSetValue(M, i, j, -2.0/hh, INSERT_VALUES);
     }
-  ierr = MatAssemblyBegin(*M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
-  ierr = MatAssemblyEnd(*M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  ierr = MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  ierr = MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
 
   return 0;
   
 }
-PetscErrorCode FDSetR2invR1Mat(FD this, Mat *M) {
+PetscErrorCode FDR2invR1Mat(FD self, Mat M) {
   
   PetscErrorCode ierr;
 
-  FDInitR1Mat(this, M);
-  for(int i = 0; i < this->num; i++) {
-    PetscScalar x = (i+1) * this->h;
-    ierr = MatSetValue(*M, i, i, 1.0/(x*x), INSERT_VALUES);
+  for(int i = 0; i < self->num; i++) {
+    PetscScalar x = (i+1) * self->h;
+    ierr = MatSetValue(M, i, i, 1.0/(x*x), INSERT_VALUES);
   }
-  ierr = MatAssemblyBegin(*M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
-  ierr = MatAssemblyEnd(*M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  ierr = MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  ierr = MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
   return 0;
 
 }
-PetscErrorCode FDSetENR1Mat(FD this, int q, PetscScalar a, Mat *M) {
+PetscErrorCode FDENR1Mat(FD self, int q, PetscScalar a, Mat M) {
   
   PetscErrorCode ierr;
 
-  FDInitR1Mat(this, M);
-  for(int i = 0; i < this->num; i++) {
-    PetscReal x = (i+1) * this->h;
+  for(int i = 0; i < self->num; i++) {
+    PetscReal x = (i+1) * self->h;
     PetscReal y;
     PartialCoulomb(q, a, x, &y);
-    ierr = MatSetValue(*M, i, i, y, INSERT_VALUES);
+    ierr = MatSetValue(M, i, i, y, INSERT_VALUES);
   }
-  ierr = MatAssemblyBegin(*M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
-  ierr = MatAssemblyEnd(*M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  ierr = MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  ierr = MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
   return 0;
   
 }
-PetscErrorCode FDSetEER2Mat(FD this, int q, Mat *M) {
+PetscErrorCode FDEER2Mat(FD self, int q, Mat M) {
 
   PetscErrorCode ierr;
-  PetscInt n = this->num;
-  PetscScalar h = this->h;
+  PetscInt n = self->num;
+  PetscScalar h = self->h;
 
-  FDInitR2Mat(this, M);
   for(int i = 0; i < n; i++) 
     for(int j = 0; j < n; j++) {
       PetscReal xi = (i+1) * h;
@@ -159,31 +164,25 @@ PetscErrorCode FDSetEER2Mat(FD this, int q, Mat *M) {
       PetscReal y;
       PartialCoulomb(q, xi, xj, &y);
       PetscInt idx = i*n+j;
-      ierr = MatSetValue(*M, idx, idx, y, INSERT_VALUES);
+      ierr = MatSetValue(M, idx, idx, y, INSERT_VALUES);
   }
-  ierr = MatAssemblyBegin(*M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
-  ierr = MatAssemblyEnd(*M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  ierr = MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  ierr = MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
   return 0;
 }
 
-// ---- Vector ----
-PetscErrorCode FDGuessHEig(FD this, int n, int l, PetscScalar z, Vec *v) {
+PetscErrorCode FDGuessHEig(FD self, int n, int l, PetscScalar z, Vec v) {
   
   if(n != 1 || l != 0) 
-    SETERRQ(this->comm, 1, "only (n=1,l=0) is supported now.");
+    SETERRQ(self->comm, 1, "only (n=1,l=0) is supported now.");
 
-  VecCreate(this->comm, v);
-  VecSetSizes(*v, PETSC_DECIDE, this->num);
-  VecSetFromOptions(*v);
-  VecSetUp(*v);
-
-  for(int i = 0; i < this->num; i++) {
-    PetscScalar x = (i+1)*this->h;
+  for(int i = 0; i < self->num; i++) {
+    PetscScalar x = (i+1)*self->h;
     PetscScalar y = 2.0*pow(z, 1.5)*x*exp(-z*x);
-    VecSetValue(*v, i, y, INSERT_VALUES);
+    VecSetValue(v, i, y, INSERT_VALUES);
   }
-  VecAssemblyBegin(*v);
-  VecAssemblyEnd(*v);
+  VecAssemblyBegin(v);
+  VecAssemblyEnd(v);
   return 0;
 
 }

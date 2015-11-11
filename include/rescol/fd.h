@@ -18,23 +18,29 @@ struct _p_FD {
 typedef struct _p_FD* FD;
 
 // ---- Basic Methods ----
-PetscErrorCode FDCreate(FD *fd, int num_xs, double xmax, MPI_Comm comm);
-PetscErrorCode FDCreateFromOptions(FD *fd, MPI_Comm comm);
-PetscErrorCode FDDestroy(FD *fd);
-PetscErrorCode FDFPrintf(FD self, FILE *file, int lvl);
+PetscErrorCode FDCreate(MPI_Comm comm, FD *p_self);
+PetscErrorCode FDDestroy(FD *p_self);
+
+PetscErrorCode FDView(FD self, PetscViewer v);
 
 // ---- Accessor ----
+PetscErrorCode FDSetMesh(FD self, int num_xs, PetscReal xmax);
+PetscErrorCode FDSetFromOptions(FD self);
+
 PetscErrorCode FDGetSize(FD self, int *n);
 
-// ---- Matrix ----
-PetscErrorCode FDSetSR1Mat(FD self, Mat *M);
-PetscErrorCode FDSetD2R1Mat(FD self, Mat *M);
-PetscErrorCode FDSetR2invR1Mat(FD self, Mat *M);
-PetscErrorCode FDSetENR1Mat(FD self, int q, PetscScalar a, Mat *M);
-PetscErrorCode FDSetEER2Mat(FD self, int q, Mat *M);
+// ---- Matrix/Vector ----
+PetscErrorCode FDCreateR1Mat(FD self, Mat *M);
+PetscErrorCode FDCreateR1Vec(FD self, Vec *M);
+PetscErrorCode FDCreateR2Mat(FD self, Mat *M);
 
-// ---- Vector ----
-PetscErrorCode FDGuessHEig(FD self, int n, int l, PetscScalar z, Vec *v);
+PetscErrorCode FDSR1Mat(FD self, Mat M);
+PetscErrorCode FDD2R1Mat(FD self, Mat M);
+PetscErrorCode FDR2invR1Mat(FD self, Mat M);
+PetscErrorCode FDENR1Mat(FD self, int q, PetscScalar a, Mat M);
+PetscErrorCode FDEER2Mat(FD self, int q, Mat M);
+
+PetscErrorCode FDGuessHEig(FD self, int n, int l, PetscScalar z, Vec v);
 
 #ifdef __cplusplus
 }

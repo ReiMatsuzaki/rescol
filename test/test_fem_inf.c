@@ -8,16 +8,14 @@ static char help[] = "Unit test for fem_inf.c \n";
 
 int test1() {
 
-  BPS bps;
-  BPSCreate(&bps, PETSC_COMM_SELF); BPSSetLine(bps, 5.0, 6);
-  DVR dvr;
-  DVRCreate(&dvr, 4, bps, PETSC_COMM_SELF);
-  FEMInf fem;
-  FEMInfCreateDVR(&fem, dvr);
+  MPI_Comm comm = PETSC_COMM_SELF;
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 6);
+  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, 5, bps);
+  FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
 
   if(getenv("SHOW_DEBUG")) {
     PetscErrorCode ierr;
-    ierr = FEMInfFPrintf(fem, stdout, 0); CHKERRQ(ierr);
+    ierr = FEMInfView(fem, PETSC_VIEWER_STDOUT_SELF); CHKERRQ(ierr);
   }
 
   return 0;
@@ -27,30 +25,26 @@ int testH_BSS() {
   MPI_Comm comm = PETSC_COMM_SELF;
   PrintTimeStamp(comm, "H_BSS", NULL);
 
-  BPS bps; BPSCreate(&bps, PETSC_COMM_SELF); BPSSetLine(bps, 100.0, 101);
-  Scaler scaler; ScalerCreateSharpECS(&scaler, comm, 70.0, 20.0);
-  BSS bss; BSSCreate(&bss, 5, bps, scaler, comm);
-  FEMInf fem; FEMInfCreateBSS(&fem, bss);
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 101);
+  Scaler scaler; ScalerCreate(comm, &scaler); ScalerSetSharpECS(scaler, 70.0, 20.0);
+  BSS bss; BSSCreate(comm, &bss); 
+  BSSSetKnots(bss, 5, bps); BSSSetScaler(bss, scaler); BSSSetUp(bss);
+  FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetBSS(fem, bss);
 
   if(getenv("SHOW_DEBUG")) {
     printf("\n");
     printf("SHOW_DEBUG = %s\n", getenv("SHOW_DEBUG"));
-    FEMInfFPrintf(fem, stdout, 0);
+    FEMInfView(fem, PETSC_VIEWER_STDOUT_SELF);
     printf("\n");
   }
 
-  Mat H;
-  FEMInfSetD2R1Mat(fem, &H); MatScale(H, -0.5);
-
-  Mat V;
-  FEMInfSetENR1Mat(fem, 0, 0.0, &V);
+  Mat H; FEMInfCreateMat(fem, 1, &H); FEMInfD2R1Mat(fem, H); MatScale(H, -0.5);
+  Mat V; FEMInfCreateMat(fem, 1, &V); FEMInfENR1Mat(fem, 0, 0.0, V); 
   MatAXPY(H, -1.0, V, DIFFERENT_NONZERO_PATTERN);
 
-  Mat S;
-  FEMInfSetSR1Mat(fem, &S); 
+  Mat S; FEMInfCreateMat(fem, 1, &S); FEMInfSR1Mat(fem, S);
 
-  EPS eps; 
-  EPSCreateForBoundState(&eps, comm, H, S, -0.6);
+  EPS eps; EPSCreateForBoundState(&eps, comm, H, S, -0.6);
   Vec x0[1]; MatCreateVecs(H, &x0[0], NULL); 
   int num; FEMInfGetSize(fem, &num);
   for(int i = 0; i < num; i++) {
@@ -76,13 +70,15 @@ int testPOT_BSS() {
   
   MPI_Comm comm = PETSC_COMM_SELF;
   PrintTimeStamp(comm, "POT_BSS", NULL);
-  BPS bps; BPSCreate(&bps, comm); BPSSetExp(bps, 20.0, 21, 5.0);
-  BSS bss; BSSCreate(&bss, 5, bps, NULL, comm);
-  FEMInf fem; FEMInfCreateBSS(&fem, bss);
 
-  POT r2inv; POTPowerCreate(&r2inv, 1.0, -2.0);
-  Mat A; FEMInfSetPOTR1Mat(fem, r2inv, &A);
-  Mat B; FEMInfSetR2invR1Mat(fem, &B);
+  BPS bps; BPSCreate(comm, &bps); BPSSetExp(bps, 20.0, 21, 5.0);
+  BSS bss; BSSCreate(comm, &bss); 
+  BSSSetKnots(bss, 5, bps); BSSSetUp(bss);
+  FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetBSS(fem, bss);
+
+  POT r2inv; POTCreate(comm, &r2inv); POTSetPower(r2inv, 1.0, -2.0); 
+  Mat A; FEMInfCreateMat(fem, 1, &A); FEMInfPOTR1Mat(fem, r2inv, A);
+  Mat B; FEMInfCreateMat(fem, 1, &B); FEMInfR2invR1Mat(fem, B);
 
   MatAXPY(A, -1.0, B, DIFFERENT_NONZERO_PATTERN);
 
@@ -95,20 +91,14 @@ int testPOT_BSS() {
 int testH_DVR() {
 
   MPI_Comm comm = PETSC_COMM_SELF;
-  PrintTimeStamp(comm, "POT_BSS", NULL);
+  PrintTimeStamp(comm, "H_DVR", NULL);
   
-  BPS bps;
-  BPSCreate(&bps, comm); BPSSetExp(bps, 20.0, 21, 5.0);
-  DVR dvr;
-  DVRCreate(&dvr, 5, bps, comm);
-  FEMInf fem;
-  FEMInfCreateDVR(&fem, dvr);
+  BPS bps; BPSCreate(comm, &bps); BPSSetExp(bps, 20.0, 21, 5.0);
+  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, 5, bps);
+  FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
 
-  Mat H;
-  FEMInfSetD2R1Mat(fem, &H); MatScale(H, -0.5);
-
-  Mat V;
-  FEMInfSetENR1Mat(fem, 0, 0.0, &V);
+  Mat H; FEMInfCreateMat(fem, 1, &H); FEMInfD2R1Mat(fem, H); MatScale(H, -0.5);
+  Mat V; FEMInfCreateMat(fem, 1, &V); FEMInfENR1Mat(fem, 0, 0.0, V); 
   MatAXPY(H, -1.0, V, DIFFERENT_NONZERO_PATTERN);
 
   EPS eps; 
@@ -141,6 +131,7 @@ int main(int argc, char **args) {
   testH_BSS();
   testPOT_BSS();
   testH_DVR();
+
   SlepcFinalize();
   return 0;
 

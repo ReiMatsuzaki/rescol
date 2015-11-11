@@ -235,20 +235,47 @@ PetscErrorCode EPSSetGuessFromFiles(EPS eps, MPI_Comm comm, char **fn_list, int 
   return 0;
 }
 
-PetscErrorCode VecInitSynthesize(Vec A, Vec B, MPI_Comm comm, Vec *C) {
+PetscErrorCode VecSynthesizeSymbolic(Vec A, Vec B, Vec *C) {
+  /*
+    perform construction, preallocation, and computes the ij structure
+    see MatMatMultSymbolc for example.
+   */
 
   PetscErrorCode ierr;
-  PetscInt na, nb;
-  ierr = VecGetSize(A, &na);  CHKERRQ(ierr);
-  ierr = VecGetSize(B, &nb);  CHKERRQ(ierr);
+  MPI_Comm comm;   ierr = PetscObjectGetComm((PetscObject)A, &comm);
 
+  // construction
+  PetscInt na; VecGetSize(A, &na);
+  PetscInt nb; VecGetSize(B, &nb);
   ierr =VecCreate(comm, C);  CHKERRQ(ierr);
   ierr =VecSetSizes(*C, PETSC_DECIDE, na*nb);  CHKERRQ(ierr);
-  ierr =VecSetFromOptions(*C);  CHKERRQ(ierr);
+  ierr =VecSetUp(*C);  CHKERRQ(ierr);
+
+  // ij structure (values are all zeo)
+  PetscScalar *as; VecGetArray(A, &as);
+  PetscScalar *bs; VecGetArray(B, &bs);
+  PetscScalar *cs; PetscMalloc1(na*nb, &cs);
+  PetscInt *idxs; PetscMalloc1(na*nb, &idxs);
+  
+  PetscInt idx = 0;
+  for(int j = 0; j < nb; j++) 
+    for(int i = 0; i < na; i++) {
+      cs[i + na*j] = 0.0;
+      idxs[i + na*j] = idx;
+      idx++;
+    }
+  ierr = VecSetValues(*C, na*nb, idxs, cs, INSERT_VALUES); CHKERRQ(ierr);
+  ierr = VecAssemblyBegin(*C);  CHKERRQ(ierr);
+  ierr = VecAssemblyEnd(*C); CHKERRQ(ierr);
+
+  VecRestoreArray(A, &as); 
+  VecRestoreArray(B, &bs); 
+  PetscFree(cs);
+  PetscFree(idxs);  
   
   return 0;
 }
-PetscErrorCode VecSynthesize(Vec A, Vec B, PetscScalar c, 
+PetscErrorCode VecSynthesizeOld(Vec A, Vec B, PetscScalar c, 
 			     Vec *C, InsertMode mode) {
   
   PetscInt na, nb;
@@ -277,13 +304,73 @@ PetscErrorCode VecSynthesize(Vec A, Vec B, PetscScalar c,
 
   return 0;
 }
-PetscErrorCode VecSetSynthesize(Vec A, Vec B, PetscScalar c, 
-				MPI_Comm comm, Vec *C){
+PetscErrorCode VecSynthesizeNumeric(Vec A, Vec B, PetscScalar c, Vec C) {
+
+  PetscInt na; VecGetSize(A, &na);
+  PetscInt nb; VecGetSize(B, &nb);
+
+  PetscScalar *as; VecGetArray(A, &as);
+  PetscScalar *bs; VecGetArray(B, &bs);
+  PetscScalar *cs; VecGetArray(C, &cs);
+
+  for(int j = 0; j < nb; j++) {
+    PetscScalar bc = bs[j] * c;
+    for(int i = 0; i < na; i++) {
+      cs[i + na*j] = as[i] * bc;
+    }
+  }
+
+  VecRestoreArray(A, &as); 
+  VecRestoreArray(B, &bs); 
+  VecRestoreArray(C, &cs); 
+  return 0;
+}
+PetscErrorCode VecSynthesizeNumericOld(Vec A, Vec B, PetscScalar c, Vec *C) {
+
   PetscErrorCode ierr;
-  ierr = VecInitSynthesize(A, B, comm, C); CHKERRQ(ierr);
-  ierr = VecSynthesize(A, B, c, C, INSERT_VALUES); CHKERRQ(ierr);
+  
+  PetscInt na; VecGetSize(A, &na);
+  PetscInt nb; VecGetSize(B, &nb);
+
+  PetscScalar *as; VecGetArray(A, &as);
+  PetscScalar *bs; VecGetArray(B, &bs);
+  PetscScalar *cs; PetscMalloc1(na*nb, &cs);
+
+  PetscInt *idxs; PetscMalloc1(na*nb, &idxs);
+  
+  PetscInt idx = 0;
+  for(int j = 0; j < nb; j++) 
+    for(int i = 0; i < na; i++) {
+      cs[i + na*j] = as[i] * bs[j] * c;
+      idxs[i + na*j] = idx;
+      idx++;
+    }
+
+  ierr = VecSetValues(*C, na*nb, idxs, cs, INSERT_VALUES); CHKERRQ(ierr);
+
   ierr = VecAssemblyBegin(*C);  CHKERRQ(ierr);
   ierr = VecAssemblyEnd(*C); CHKERRQ(ierr);
+
+  VecRestoreArray(A, &as); 
+  VecRestoreArray(B, &bs); 
+  PetscFree(cs);
+  PetscFree(idxs);
+  return 0;
+}
+PetscErrorCode VecSynthesize(Vec A, Vec B, PetscScalar c, 
+			     MatReuse scall, Vec *C){
+  PetscErrorCode ierr;
+  MPI_Comm comm;   ierr = PetscObjectGetComm((PetscObject)A, &comm);
+
+  if(scall == MAT_INITIAL_MATRIX) {
+    ierr = VecSynthesizeSymbolic(A, B, C); CHKERRQ(ierr);
+  } else if(scall == MAT_REUSE_MATRIX) {
+
+  } else
+    SETERRQ(comm, 1, "MatReuse scall <- {MAT_INITIAL_MATRIX, MAT_REUSE_MATRIX}");
+    
+  ierr = VecSynthesizeNumeric(A, B, c, *C); CHKERRQ(ierr);
+
   return 0;
 }
 PetscErrorCode VecNormalizeForS(Mat S, Vec x) {
@@ -302,7 +389,207 @@ PetscErrorCode VecNormalizeForS(Mat S, Vec x) {
   return 0;
 }
 
+PetscErrorCode MatSynthesizeCreate(Mat A, Mat B, Mat *C) {
+  PetscErrorCode ierr;
+  MPI_Comm comm;   PetscObjectGetComm((PetscObject)A, &comm);
+  PetscInt na, ma; ierr = MatGetSize(A, &na, &ma); CHKERRQ(ierr);
+  PetscInt nb, mb; ierr = MatGetSize(B, &nb, &mb); CHKERRQ(ierr);
 
+  // construction
+  ierr = MatCreate(comm, C); CHKERRQ(ierr);
+  ierr = MatSetSizes(*C, PETSC_DECIDE, PETSC_DECIDE, na*nb, ma*mb); CHKERRQ(ierr);
+  ierr = MatSetUp(*C); CHKERRQ(ierr);
+  return 0;
+}
+PetscErrorCode MatSynthesizeZero(Mat A, Mat B, Mat C) {
+  PetscErrorCode ierr;
+  MPI_Comm comm;   PetscObjectGetComm((PetscObject)A, &comm);
+  PetscInt na, ma; ierr = MatGetSize(A, &na, &ma); CHKERRQ(ierr);
+  PetscInt nb, mb; ierr = MatGetSize(B, &nb, &mb); CHKERRQ(ierr);
+
+  const PetscScalar **row_a, **row_b;
+  PetscInt *ncols_a, *ncols_b;
+  const PetscInt **cols_a, **cols_b;
+  
+  PetscMalloc1(na, &row_a);   PetscMalloc1(nb, &row_b);
+  PetscMalloc1(na, &ncols_a); PetscMalloc1(nb, &ncols_b);
+  PetscMalloc1(na, &cols_a);  PetscMalloc1(nb, &cols_b);
+
+  for(int i = 0; i < na; i++) 
+    ierr = MatGetRow(A, i, &ncols_a[i], &cols_a[i], &row_a[i]); CHKERRQ(ierr);
+  for(int i = 0; i < nb; i++) 
+    ierr = MatGetRow(B, i, &ncols_b[i], &cols_b[i], &row_b[i]); CHKERRQ(ierr);
+
+  for(int i_a = 0; i_a < na; i_a++) {
+    for(int idx_a = 0; idx_a < ncols_a[i_a]; idx_a++) {
+      int j_a = cols_a[i_a][idx_a];
+      for(int i_b = 0; i_b < nb; i_b++) { 
+      	for(int idx_b = 0; idx_b < ncols_b[i_b]; idx_b++) {
+	  int j_b = cols_b[i_b][idx_b];
+	  int i = i_a + i_b * na;
+	  int j = j_a + j_b * ma;
+	  PetscScalar v = 0.0;
+	  ierr = MatSetValue(C, i, j, v, INSERT_VALUES);  CHKERRQ(ierr);
+	}
+      }
+    }
+  }
+
+  for(int i = 0; i < na; i++)
+    ierr = MatRestoreRow(A, i, &ncols_a[i], &cols_a[i], &row_a[i]); CHKERRQ(ierr);
+  for(int i = 0; i < nb; i++)
+    ierr = MatRestoreRow(B, i, &ncols_b[i], &cols_b[i], &row_b[i]); CHKERRQ(ierr);
+  PetscFree(row_a);   PetscFree(row_b);
+  PetscFree(ncols_a); PetscFree(ncols_b);
+  PetscFree(cols_a);  PetscFree(cols_b);
+
+  MatAssemblyBegin(C, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(C, MAT_FINAL_ASSEMBLY);
+  return 0;
+  
+}
+PetscErrorCode MatSynthesizeSymbolic(Mat A, Mat B, Mat *C) {
+  /* current version of this function does not zeonize*/
+  PetscErrorCode ierr;
+  ierr = MatSynthesizeCreate(A, B, C); CHKERRQ(ierr);
+  //  ierr = MatSynthesizeZero(A, B, *C); CHKERRQ(ierr);
+  return 0;
+}
+PetscErrorCode MatSynthesizeNumeric(Mat A, Mat B, PetscScalar c, Mat C) {
+
+  /*
+    if you need more efficiency for this function, 
+    use MatSetValues or MatSetValuesBlocked .
+    In this case, the rectangler are choosen as 1xmn.
+   */
+
+  PetscErrorCode ierr;
+  MPI_Comm comm;   PetscObjectGetComm((PetscObject)A, &comm);
+  PetscInt na, ma; ierr = MatGetSize(A, &na, &ma); CHKERRQ(ierr);
+  PetscInt nb, mb; ierr = MatGetSize(B, &nb, &mb); CHKERRQ(ierr);
+  PetscInt nc, mc; ierr = MatGetSize(C, &nc, &mc); CHKERRQ(ierr);
+  
+  const PetscScalar **row_a, **row_b;
+  PetscInt *ncols_a, *ncols_b;
+  const PetscInt **cols_a, **cols_b;
+  
+  PetscMalloc1(na, &row_a);   PetscMalloc1(nb, &row_b);
+  PetscMalloc1(na, &ncols_a); PetscMalloc1(nb, &ncols_b);
+  PetscMalloc1(na, &cols_a);  PetscMalloc1(nb, &cols_b);
+
+  for(int i = 0; i < na; i++) 
+    ierr = MatGetRow(A, i, &ncols_a[i], &cols_a[i], &row_a[i]); CHKERRQ(ierr);
+  for(int i = 0; i < nb; i++) 
+    ierr = MatGetRow(B, i, &ncols_b[i], &cols_b[i], &row_b[i]); CHKERRQ(ierr);
+
+  /*
+  for(int i = 0; i < nc; i++) {
+    int i_a = i%na;  int i_b = i/na;
+    PetscInt ncols; const PetscInt *cols; const PetscScalar *row;
+    MatGetRow(C, i, &ncols, &cols, &row);
+    for(int idx = 0; idx < ncols; idx++) {
+      int j = cols[idx];
+      int j_a = j%ma; int j_b = j/ma;
+    }
+  }
+  */
+
+  for(int i_a = 0; i_a < na; i_a++) {
+    for(int idx_a = 0; idx_a < ncols_a[i_a]; idx_a++) {
+      int j_a = cols_a[i_a][idx_a];
+      for(int i_b = 0; i_b < nb; i_b++) { 
+      	for(int idx_b = 0; idx_b < ncols_b[i_b]; idx_b++) {
+	  int j_b = cols_b[i_b][idx_b];
+	  int i = i_a + i_b * na;
+	  int j = j_a + j_b * ma;
+	  PetscScalar v =  row_a[i_a][idx_a] * row_b[i_b][idx_b] * c;
+	  ierr = MatSetValue(C, i, j, v, INSERT_VALUES);  CHKERRQ(ierr);
+	}
+      }
+    }
+  }
+
+  for(int i = 0; i < na; i++)
+    ierr = MatRestoreRow(A, i, &ncols_a[i], &cols_a[i], &row_a[i]); CHKERRQ(ierr);
+  for(int i = 0; i < nb; i++)
+    ierr = MatRestoreRow(B, i, &ncols_b[i], &cols_b[i], &row_b[i]); CHKERRQ(ierr);
+  PetscFree(row_a);   PetscFree(row_b);
+  PetscFree(ncols_a); PetscFree(ncols_b);
+  PetscFree(cols_a);  PetscFree(cols_b);
+
+  MatAssemblyBegin(C, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(C, MAT_FINAL_ASSEMBLY);
+  return 0;
+}
+PetscErrorCode MatSynthesize(Mat A, Mat B, PetscScalar c, MatReuse scall, Mat *C) {
+
+  PetscErrorCode ierr;
+  MPI_Comm comm;   ierr = PetscObjectGetComm((PetscObject)A, &comm);
+
+  if(scall == MAT_INITIAL_MATRIX) {
+    ierr = MatSynthesizeSymbolic(A, B, C); CHKERRQ(ierr);
+  } else if(scall == MAT_REUSE_MATRIX) {
+
+  } else
+    SETERRQ(comm, 1, "MatReuse scall <- {MAT_INITIAL_MATRIX, MAT_REUSE_MATRIX}");
+    
+  ierr = MatSynthesizeNumeric(A, B, c, *C); CHKERRQ(ierr);
+  return 0;
+}
+PetscErrorCode MatSynthesize3Symbolic(Mat A, Mat B, Mat C, Mat *D) {
+
+  PetscErrorCode ierr;
+  Mat BC; 
+  ierr = MatSynthesizeSymbolic(B, C, &BC); CHKERRQ(ierr);
+  ierr = MatSynthesizeSymbolic(A, BC, D); CHKERRQ(ierr);
+  MatDestroy(&BC);
+  return 0;
+
+/*
+  MPI_Comm comm;   PetscObjectGetComm((PetscObject)A, &comm);
+
+  PetscInt na, nb, nc, ma, mb, mc;
+  ierr = MatGetSize(A, &na, &ma); CHKERRQ(ierr);
+  ierr = MatGetSize(B, &nb, &mb); CHKERRQ(ierr);
+  ierr = MatGetSize(C, &nc, &mc); CHKERRQ(ierr);
+
+  ierr = MatCreate(comm, D); CHKERRQ(ierr);
+  ierr = MatSetSizes(*D, PETSC_DECIDE, PETSC_DECIDE, na*nb*nc, ma*mb*mc);
+  CHKERRQ(ierr);
+  ierr = MatSetFromOptions(*D); CHKERRQ(ierr);
+  ierr = MatSetUp(*D); CHKERRQ(ierr);
+  return 0;  
+*/
+}
+PetscErrorCode MatSynthesize3Numeric(Mat A, Mat B, Mat C, PetscScalar d, Mat D) {
+
+  PetscErrorCode ierr;
+  Mat BC; 
+  ierr = MatSynthesizeSymbolic(B, C, &BC); CHKERRQ(ierr);
+  ierr = MatSynthesizeNumeric(B, C, d, BC); CHKERRQ(ierr);
+  ierr = MatSynthesizeNumeric(A, BC, d, D); CHKERRQ(ierr);
+  MatDestroy(&BC);
+  return 0;
+  
+}
+PetscErrorCode MatSynthesize3(Mat A, Mat B, Mat C, 
+			      PetscScalar d, MatReuse scall, Mat *D) {
+
+  PetscErrorCode ierr;
+  MPI_Comm comm;   ierr = PetscObjectGetComm((PetscObject)A, &comm);
+
+  if(scall == MAT_INITIAL_MATRIX) {
+    ierr = MatSynthesize3Symbolic(A, B, C, D); CHKERRQ(ierr);
+  } else if(scall == MAT_REUSE_MATRIX) {
+
+  } else
+    SETERRQ(comm, 1, "MatReuse scall <- {MAT_INITIAL_MATRIX, MAT_REUSE_MATRIX}");
+    
+  ierr = MatSynthesize3Numeric(A, B, C, d, *D); CHKERRQ(ierr);
+  return 0;
+}
+
+// ---- begin old code ----
 PetscErrorCode MatInitSynthesize(Mat A, Mat B, MPI_Comm comm, Mat *C) {
 
   PetscInt na, nb, ma, mb;
@@ -316,8 +603,8 @@ PetscErrorCode MatInitSynthesize(Mat A, Mat B, MPI_Comm comm, Mat *C) {
   ierr = MatSetUp(*C); CHKERRQ(ierr);
   return 0;
 }
-PetscErrorCode MatSynthesize(Mat A, Mat B, PetscScalar c,
-			     Mat *C, InsertMode mode) {
+PetscErrorCode MatSynthesizeOld(Mat A, Mat B, PetscScalar c,
+				Mat *C, InsertMode mode) {
   PetscErrorCode ierr;
   PetscInt na, nb, ma, mb;
   ierr = MatGetSize(A, &na, &ma); CHKERRQ(ierr);
@@ -364,7 +651,7 @@ PetscErrorCode MatSetSynthesizeSlow(Mat A, Mat B, PetscScalar c,
 				MPI_Comm comm, Mat *C) {
   PetscErrorCode ierr;
   ierr = MatInitSynthesize(A, B, comm, C); CHKERRQ(ierr);
-  ierr = MatSynthesize(A, B, c, C, INSERT_VALUES); CHKERRQ(ierr);
+  ierr = MatSynthesizeOld(A, B, c, C, INSERT_VALUES); CHKERRQ(ierr);
   MatAssemblyBegin(*C, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(*C, MAT_FINAL_ASSEMBLY);
   return 0;
@@ -442,22 +729,22 @@ PetscErrorCode MatInitSynthesize3(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D) {
   ierr = MatSetUp(*D); CHKERRQ(ierr);
   return 0;
 }
-PetscErrorCode MatSynthesize3(Mat A, Mat B, Mat C, PetscScalar d, 
+PetscErrorCode MatSynthesize3Old(Mat A, Mat B, Mat C, PetscScalar d, 
 			      Mat *D, InsertMode mode) {
   PetscErrorCode ierr;
   Mat BC;
   ierr = MatSetSynthesize(B, C, d, PETSC_COMM_SELF, &BC); CHKERRQ(ierr);
   
-  ierr = MatSynthesize(A, BC, 1.0, D, mode); CHKERRQ(ierr);
+  ierr = MatSynthesizeOld(A, BC, 1.0, D, mode); CHKERRQ(ierr);
 
   ierr = MatDestroy(&BC); CHKERRQ(ierr);
 
   return 0;
 }
-PetscErrorCode MatSetSynthesize3(Mat A, Mat B, Mat C, PetscScalar d, MPI_Comm comm, Mat *D) {
+PetscErrorCode MatSetSynthesize3Old(Mat A, Mat B, Mat C, PetscScalar d, MPI_Comm comm, Mat *D) {
   PetscErrorCode ierr;
   ierr = MatInitSynthesize3(A, B, C, comm, D); CHKERRQ(ierr);
-  ierr = MatSynthesize3(A, B, C, d, D, INSERT_VALUES); CHKERRQ(ierr);
+  ierr = MatSynthesize3Old(A, B, C, d, D, INSERT_VALUES); CHKERRQ(ierr);
   MatAssemblyBegin(*D, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(*D, MAT_FINAL_ASSEMBLY);
   return 0;
@@ -469,7 +756,9 @@ PetscErrorCode MatSetSynthesize3Fast(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D)
   ierr = MatSetSynthesizeFast(A, BC, comm, D); CHKERRQ(ierr);
   MatDestroy(&BC);
   return 0;
+
 }
+// ---- end old code -----
 
 PetscErrorCode PartialCoulomb(int q, double r1, double r2, double *y) {
 
@@ -520,3 +809,4 @@ PetscErrorCode LobGauss(int n, int i, PetscScalar* x, PetscScalar* w) {
   *w = ws[idx];
   return 0;
 }
+ 
