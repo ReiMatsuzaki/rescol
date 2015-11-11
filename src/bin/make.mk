@@ -40,17 +40,19 @@ check_write_pot: write_pot.out
 	-malloc_dump
 
 
-eig_one.out: eig_one.o ${OBJ_FEM} oce1.o angmoment.o writer.o eeps.o
+eig_one.out: eig_one.o ${OBJ_FEM} oce1.o angmoment.o y1s.o eeps.o viewerfunc.o
 .PHONY: check_eig_one
 check_eig_one: eig_one.out
 	./$< -fem_type bss -bss_order 4 \
 	-bps_num_zs 51 -bps_zmax 51.0 -bps_type line \
-	-scaler_type secs -scaler_r0 40.0 -scaler_theta 25.0 \
+	-scaler_type sharpECS -scaler_r0 40.0 -scaler_theta 25.0 \
 	-y1s_L 0 \
 	-pot_type slater -pot_v0 3.5 -pot_z 1.0 \
 	-eps_nev 2 \
 	-eps_converged_reason \
-	-eeps_view_values ::ascii_info_detail
+	-eeps_view_values ::ascii_info_detail -malloc_dump \
+	-viewerfunc_xmax 100.0 -viewerfunc_num 10 -viewerfunc_view ascii:stdout \
+	-malloc_dump
 
 
 h2plus.out: h2plus.o ${OBJ_FEM} oce1.o y1s.o angmoment.o eeps.o

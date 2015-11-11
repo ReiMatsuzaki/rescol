@@ -109,57 +109,70 @@ PetscErrorCode GuessSetInitSpace(Guess self, EPS eps) {
 
 
 int main(int argc, char **args) {
+
   PetscErrorCode ierr;
+  MPI_Comm comm = MPI_COMM_SELF;
   ierr = SlepcInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);
 
-  MPI_Comm comm = MPI_COMM_SELF;
-  OCE1 oce;
-  POT pot;
-  //  WFWriter writer;
-  EEPS eeps; EEPSCreate(&eeps, comm);
-  
-  
-
   PrintTimeStamp(comm, "Init", NULL);
-  ierr = PetscOptionsBegin(comm, "", "traj_one.c options", "none");
-  
-  ierr = OCE1CreateFromOptions(&oce, comm); CHKERRQ(ierr);
-  ierr = POTCreateFromOptions(&pot, comm); CHKERRQ(ierr);  
+  OCE1 oce;  OCE1Create(comm, &oce);
+  POT pot;   POTCreate(comm, &pot);
+  EEPS eeps; EEPSCreate(comm, &eeps);
+  PetscViewer viewer = PETSC_VIEWER_STDOUT_SELF;
+  PetscViewerFormat format;
+  ViewerFunc viewer_func; ViewerFuncCreate(comm, &viewer_func);
+
+  ierr = PetscOptionsBegin(comm, "", "eig_one.c options", "none");
+  ierr = OCE1SetFromOptions(oce); CHKERRQ(ierr);
+  ierr = POTSetFromOptions(pot);  CHKERRQ(ierr);  
   ierr = EEPSSetFromOptions(eeps); CHKERRQ(ierr);
-  //  ierr = WFWriterCreateFromOptions(&writer, comm); CHKERRQ(ierr);
+  ierr = ViewerFuncSetFromOptions(viewer_func); CHKERRQ(ierr);
+  ierr = PetscOptionsGetViewer(comm, NULL, "-viewer", &viewer, &format, NULL);
+  CHKERRQ(ierr);
   PetscOptionsEnd();
 
+  // Matrix
   PrintTimeStamp(comm, "Mat", NULL);
-  Mat H, S;
-  OCE1SetTMat(oce, &H);
+  Mat H; 
+  OCE1CreateMat(oce, &H); 
+  OCE1TMat(oce, H); 
   OCE1PlusPOTMat(oce, ROT_SCALAR, pot, H);
-  OCE1SetSMatNullable(oce, &S);
+  Mat S;
+  PetscBool is_id;
+  OCE1CreateMat(oce, &S);
+  OCE1SMat(oce, S, &is_id);
 
-
+  // solve
   PrintTimeStamp(comm, "EPS", NULL);
-  EEPSSetOperators(eeps, H, S);
-  EEPSSetTarget(eeps, 0.1);
-  EEPSSetFromOptions(eeps);
+  if(is_id)
+    EEPSSetOperators(eeps, H, NULL);
+  else
+    EEPSSetOperators(eeps, H, S);
   EEPSSolve(eeps);
 
+  // write
+  if(ViewerFuncIsActive(viewer_func)) {
+    Vec c; MatCreateVecs(H, &c, NULL);
+    ierr = EPSGetEigenpair(eeps->eps, 0, NULL, NULL, c, NULL); CHKERRQ(ierr);
+    ierr = OCE1ViewFunc(oce, c, viewer_func); CHKERRQ(ierr);
+    ierr = ViewerFuncView(viewer_func, viewer);
+    ierr = VecDestroy(&c); CHKERRQ(ierr);
+  }
+
+  // Output
   PrintTimeStamp(comm, "Output", NULL);
-  OCE1View(oce);   
-  POTView(pot);   
+  OCE1View(oce, viewer);   
+  POTView(pot, viewer);   
 
-  /*
-  if(writer)
-    WFWriterView(writer);
-  if(write_eig_vec)
-    PetscPrintf(comm, "write_eig_vec: True \n");
-  else
-    PetscPrintf(comm, "write_eig_vec: False \n");
-  */
-
+  // Finalize  
   PrintTimeStamp(comm, "Destroy", NULL);
-  //  if(writer)
-  //    WFWriterDestroy(&writer);
-  EEPSDestroy(&eeps);
-  OCE1Destroy(&oce);
+  ierr = OCE1Destroy(&oce); CHKERRQ(ierr);
+  ierr = POTDestroy(&pot); CHKERRQ(ierr);
+  ierr = EEPSDestroy(&eeps); CHKERRQ(ierr);
+  // PetscViewerDestroy(&viewer);
+  ierr = ViewerFuncDestroy(&viewer_func); CHKERRQ(ierr);
+  ierr = MatDestroy(&H);  CHKERRQ(ierr);
+  ierr = MatDestroy(&S); CHKERRQ(ierr);
   ierr = SlepcFinalize(); CHKERRQ(ierr);
   return 0;
 }

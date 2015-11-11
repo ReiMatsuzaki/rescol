@@ -11,6 +11,7 @@ PetscErrorCode OCE1Create(MPI_Comm comm, OCE1 *p_self) {
   self->mu = 1.0;
   self->fem = NULL;
   self->y1s = NULL;
+
   self->s_r = NULL;
   self->s_y = NULL;
   
@@ -52,9 +53,52 @@ PetscErrorCode OCE1View(OCE1 self, PetscViewer v) {
   PetscViewerASCIIPrintf(v, "<<<< One Center Expansion 1 <<<<\n");
   return 0;
 }
+PetscErrorCode OCE1ViewFunc(OCE1 self, Vec c, ViewerFunc v) {
+
+  PetscErrorCode ierr;
+  PetscViewerType type;
+  PetscViewerGetType(v->base, &type);
+  if(strcmp(type, "ascii") != 0) {
+    char msg[100]; sprintf(msg, "unsupported type: %s", type);
+    SETERRQ(self->comm, 1, msg);
+  }
+
+  PetscInt num_xs; 
+  PetscReal *xs;
+  ViewerFuncGetXs(v, &num_xs, &xs);
+
+  int num_r, num_y;
+  OCE1GetSizes(self, &num_r, &num_y);
+
+  Vec *cs; 
+  ierr = PetscMalloc1(num_y, &cs); CHKERRQ(ierr);
+  ierr = VecSplit(c, num_y, cs); CHKERRQ(ierr);
+
+  for(int i = 0; i < num_xs; i++) {
+    PetscReal x = xs[i];
+    PetscViewerASCIIPrintf(v->base, "%f ", xs[i]);
+    for(int j = 0; j< num_y; j++ ) {
+      PetscScalar y;
+      FEMInfPsi(self->fem, cs[j], x, &y);
+#if defined(PETSC_USE_COMPLEX)
+      PetscReal re = PetscRealPart(y);
+      PetscReal im = PetscImaginaryPart(y);
+      PetscViewerASCIIPrintf(v->base, "%f %f ", re, im);
+#else
+      PetscViewerASCIIPrintf(v->base, "%f ", y);
+#endif
+    }
+    PetscViewerASCIIPrintf(v->base, "\n");
+  }
+
+  for(int i = 0; i < num_y; i++)
+    VecDestroy(&cs[i]);
+  PetscFree(cs);
+
+  return 0;
+}
 
 PetscErrorCode OCE1Set(OCE1 self, FEMInf fem, Y1s y1s) {
-
   self->fem = fem;
   self->y1s = y1s;
   return 0;

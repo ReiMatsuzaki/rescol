@@ -23,7 +23,7 @@ PetscErrorCode ViewerFuncDestroy(ViewerFunc *p_self) {
   ierr = PetscViewerDestroy(&self->base); CHKERRQ(ierr);
   ierr = PetscFree(self->xs); CHKERRQ(ierr);
 
-  //ierr = PetscFree(self); CHKERRQ(ierr);
+  ierr = PetscFree(*p_self); CHKERRQ(ierr);
   return 0;
 }
 

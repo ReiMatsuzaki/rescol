@@ -1,4 +1,5 @@
 #include <rescol/oce1.h>
+#include <rescol/viewerfunc.h>
 #include <rescol/eeps.h>
 
 static char help[] = "solve H2^+ problem";
@@ -31,15 +32,20 @@ int main(int argc, char **args) {
   double bond_length = 2.0;
   PetscViewer viewer = PETSC_VIEWER_STDOUT_SELF;
   PetscViewerFormat format;
+  ViewerFunc viewer_func; ViewerFuncCreate(comm, &viewer_func);
+  
   PetscOptionsBegin(PETSC_COMM_SELF, "", "h2plus.c options", "none");
   ierr = PetscOptionsGetReal(NULL, "-bond_length", &bond_length, NULL);
   ierr = OCE1SetFromOptions(oce1); CHKERRQ(ierr);
   ierr = EEPSSetFromOptions(eps); CHKERRQ(ierr);
   ierr = PetscOptionsGetViewer(comm, NULL, "-view", &viewer, &format, NULL);
+  CHKERRQ(ierr);
+  ierr = ViewerFuncSetFromOptions(viewer_func); CHKERRQ(ierr);
+  
   PetscOptionsEnd();  
 
   // other conf
-  PetscBool s_is_id; FEMInfGetOverlapIsId(oce1->fem, &s_is_id);
+  PetscBool s_is_id;
 
   // Matrix
   PrintTimeStamp(comm, "Mat", NULL);
@@ -56,11 +62,18 @@ int main(int argc, char **args) {
   else
     EEPSSetOperators(eps, H, S);
   EEPSSolve(eps);  
-  
-  // Output
+
+  // Write
+  if(ViewerFuncIsActive(viewer_func)) {
+    Vec c; MatCreateVecs(H, &c, NULL);
+    ierr = EPSGetEigenpair(eps->eps, 0, NULL, NULL, c, NULL); CHKERRQ(ierr);
+    ierr = OCE1ViewFunc(oce1, c, viewer_func); CHKERRQ(ierr);
+    ierr = ViewerFuncView(viewer_func, viewer);
+  }
+
+  // output
   PrintTimeStamp(comm, "Output", NULL);
   OCE1View(oce1, viewer);
-
   return 0;
 }
 

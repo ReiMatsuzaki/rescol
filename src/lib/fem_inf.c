@@ -105,12 +105,14 @@ PetscErrorCode FEMInfCreate(MPI_Comm comm, FEMInf *p_self) {
 }
 PetscErrorCode FEMInfDestroy(FEMInf *inf) {
 
+  PetscErrorCode ierr;
+
   if((*inf)->sc->Destory == NULL)
     SETERRQ((*inf)->comm, 1, "method is null");
   
-  (*inf)->sc->Destory(&((*inf)->obj));
-
-  PetscFree(*inf);
+  ierr = (*inf)->sc->Destory(&((*inf)->obj)); CHKERRQ(ierr);
+  
+  ierr = PetscFree(*inf); CHKERRQ(ierr);
 
   return 0;
 }

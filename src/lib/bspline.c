@@ -129,6 +129,9 @@ PetscErrorCode BSSDestroy(BSS *p_self) {
   ierr = PetscFree(self->ts_r);  CHKERRQ(ierr);  
   ierr = PetscFree(self->xs); CHKERRQ(ierr);
   ierr = PetscFree(self->ws); CHKERRQ(ierr);
+  ierr = PetscFree(self->qrs); CHKERRQ(ierr);
+  ierr = PetscFree(self->Rrs); CHKERRQ(ierr);
+  
   ierr = PetscFree(self->vals); CHKERRQ(ierr);
   ierr = PetscFree(self->derivs); CHKERRQ(ierr);
   ierr = PetscFree(*p_self); CHKERRQ(ierr);

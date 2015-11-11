@@ -760,6 +760,29 @@ PetscErrorCode MatSetSynthesize3Fast(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D)
 }
 // ---- end old code -----
 
+PetscErrorCode VecSplit(Vec x, PetscInt n, Vec* ys) {
+  /*
+    split one vector x to n vectors ys.
+  */
+  PetscErrorCode ierr;
+  MPI_Comm comm; 
+  ierr = PetscObjectGetComm((PetscObject)x, &comm); CHKERRQ(ierr);
+
+  PetscInt nx; 
+  ierr = VecGetSize(x, &nx); CHKERRQ(ierr);
+
+  PetscInt ny = nx/n;
+
+  for(int i = 0; i < n; i++) {
+    IS is; 
+    ierr = ISCreateStride(comm, ny, i*ny, 1, &is); CHKERRQ(ierr);
+    ierr = VecGetSubVector(x, is, &ys[i]); CHKERRQ(ierr);
+    ierr = ISDestroy(&is); CHKERRQ(ierr);
+  }
+
+  return 0;
+}
+
 PetscErrorCode PartialCoulomb(int q, double r1, double r2, double *y) {
 
   if(q < 0) {

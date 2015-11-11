@@ -5,6 +5,47 @@
 
 static char help[] = "Unit test for angmoment.c \n\n";
 
+PetscErrorCode testVecSplit() {
+  PetscErrorCode ierr;
+  MPI_Comm comm = PETSC_COMM_SELF;
+
+  PetscScalar *x0s; PetscMalloc1(12, &x0s);
+  for(int i = 0 ;i < 12; i++)
+    x0s[i] = 1.1*i;
+  Vec x; 
+  VecCreateSeqWithArray(comm, 12, 12, x0s, &x);
+
+  Vec *xs; PetscMalloc1(3, &xs);
+  ierr = VecSplit(x, 3, xs); CHKERRQ(ierr);
+
+  PetscScalar vs[4];
+  PetscInt    idx[4] = {0, 1, 2, 3};
+  ierr = VecGetValues(xs[0], 4, idx, vs); CHKERRQ(ierr);
+  //  VecView(x, PETSC_VIEWER_STDOUT_SELF);
+  //  VecView(xs[0], PETSC_VIEWER_STDOUT_SELF);
+  ASSERT_DOUBLE_EQ(0.0, vs[0]);
+  ASSERT_DOUBLE_EQ(1.1, vs[1]);
+  ASSERT_DOUBLE_EQ(2.2, vs[2]);
+  ASSERT_DOUBLE_EQ(3.3, vs[3]);
+
+  ierr = VecGetValues(xs[1], 4, idx, vs); CHKERRQ(ierr);
+  ASSERT_DOUBLE_EQ(4.4, vs[0]);
+  ASSERT_DOUBLE_EQ(5.5, vs[1]);
+  ASSERT_DOUBLE_EQ(6.6, vs[2]);
+  ASSERT_DOUBLE_EQ(7.7, vs[3]);
+
+  ierr = VecGetValues(xs[2], 4, idx, vs); CHKERRQ(ierr);
+  ASSERT_DOUBLE_EQ(8.8, vs[0]);
+  ASSERT_DOUBLE_EQ(9.9, vs[1]);
+  ASSERT_DOUBLE_EQ(11.0, vs[2]);
+  ASSERT_DOUBLE_EQ(12.1, vs[3]);
+  
+  for(int i = 0; i < 3; i++)
+    VecDestroy(&xs[i]);
+  PetscFree(xs);
+
+  return 0;
+}
 PetscErrorCode testVecSynthesize2() {
   MPI_Comm comm = PETSC_COMM_SELF;
   Vec a; VecCreate(comm, &a); VecSetSizes(a, PETSC_DECIDE, 3); VecSetUp(a);
@@ -260,8 +301,10 @@ int main(int argc, char **args) {
   MPI_Comm comm = PETSC_COMM_SELF;
 
   PetscErrorCode ierr;
-  PrintTimeStamp(comm, "vec", NULL);
+  PrintTimeStamp(comm, "vec1", NULL);
   ierr = testVecSynthesize(); CHKERRQ(ierr);
+  PrintTimeStamp(comm, "vec2", NULL);
+  ierr = testVecSplit(); CHKERRQ(ierr);
   PrintTimeStamp(comm, "mat", NULL);
   ierr = testMat(); CHKERRQ(ierr);
   PrintTimeStamp(comm, "mat_synthesize3", NULL);
