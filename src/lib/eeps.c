@@ -1,6 +1,6 @@
 #include <rescol/eeps.h>
 
-PetscErrorCode EEPSCreate(EEPS *p_self, MPI_Comm comm) {
+PetscErrorCode EEPSCreate(MPI_Comm comm, EEPS *p_self) {
 
   EEPS self;
   PetscNew(&self);
@@ -23,6 +23,7 @@ PetscErrorCode EEPSDestroy(EEPS *p_self) {
   ierr = PetscFree(*p_self); CHKERRQ(ierr);
   return 0;
 }
+
 PetscErrorCode EEPSSetOperators(EEPS self, Mat H, Mat S ) {
 
   EPSSetOperators(self->eps, H, S);
@@ -101,7 +102,7 @@ PetscErrorCode EEPSViewValues(EEPS self) {
     EPSComputeError(self->eps, i, EPS_ERROR_RELATIVE, &error);
 #if defined(PETSC_USE_COMPLEX)
     re = PetscRealPart(kr);
-    im = PetscRealPart(kr);
+    im = PetscImaginaryPart(kr);
 #else
     re = kr;
     im = ki;

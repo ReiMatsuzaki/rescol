@@ -212,7 +212,7 @@ PetscErrorCode DVRGetSize(DVR self, int *n) {
 // ---- inner ----
 PetscErrorCode DVRPrepareT2(DVR self) {
   PetscErrorCode ierr;
-  ierr = MatSetSynthesizeFast(self->T, self->T, self->comm, &self->T2); 
+  ierr = MatSynthesize(self->T, self->T, 1.0, MAT_INITIAL_MATRIX, &self->T2); 
   CHKERRQ(ierr);  
   ierr = MatTranspose(self->T2, MAT_INITIAL_MATRIX, &self->T2T); 
   CHKERRQ(ierr);  

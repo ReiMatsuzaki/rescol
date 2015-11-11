@@ -14,7 +14,7 @@ CFLAGS+=-std=gnu99
 CXXFLAGS=
 LIBS=-lgsl -lgtest
 
-OBJ_FEM= fem_inf.o fd.o bspline.o dvr.o bps.o mat.o pot.o scale.o viewerfunc.o
+OBJ_FEM= fem_inf.o fd.o bspline.o dvr.o bps.o mat.o pot.o scaler.o viewerfunc.o
 
 include $(subst .c,.d,${SOURCE_LIST})
 include ${RESCOL_DIR}/test/make.mk

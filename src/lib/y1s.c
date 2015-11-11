@@ -193,7 +193,7 @@ PetscErrorCode Y1sLambdaY1Mat(Y1s self, Mat M) {
   return 0;
 
 }
-PetscErrorCode SelfPqY1Mat(Y1s self, int q, Mat M, PetscBool *non0) {
+PetscErrorCode Y1sPqY1Mat(Y1s self, int q, Mat M, PetscBool *non0) {
 
   int n = self->num;
   int *ls = self->ls;

@@ -18,8 +18,9 @@ struct _p_EEPS {
   PetscViewer viewer_values;
 };
 typedef struct _p_EEPS* EEPS;
-PetscErrorCode EEPSCreate(EEPS *p_self, MPI_Comm comm);
+PetscErrorCode EEPSCreate(MPI_Comm comm, EEPS *p_self);
 PetscErrorCode EEPSDestroy(EEPS *p_self);
+
 PetscErrorCode EEPSSetOperators(EEPS self, Mat H, Mat S );
 PetscErrorCode EEPSSetTarget(EEPS self, PetscScalar target);
 PetscErrorCode EEPSSetInitSpace(EEPS self, int num_guess, Vec *guess);

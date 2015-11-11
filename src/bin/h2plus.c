@@ -1,4 +1,5 @@
 #include <rescol/oce1.h>
+#include <rescol/eeps.h>
 
 static char help[] = "solve H2^+ problem";
 /*
@@ -22,47 +23,44 @@ int main(int argc, char **args) {
 
   PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
-  OCE1 oce1;
-  //  char guess_type[10] = "none";
-  double bond_length = 2.0;
-
-  // Initialize
   ierr = SlepcInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);
+
   PrintTimeStamp(comm, "Init", NULL);
+  OCE1 oce1; OCE1Create(comm, &oce1); 
+  EEPS eps;  EEPSCreate(comm, &eps);
+  double bond_length = 2.0;
+  PetscViewer viewer = PETSC_VIEWER_STDOUT_SELF;
+  PetscViewerFormat format;
   PetscOptionsBegin(PETSC_COMM_SELF, "", "h2plus.c options", "none");
-  //  PetscOptionsGetString(NULL, "-guess_type", guess_type, 10, NULL);
-  PetscOptionsGetReal(NULL, "-bond_length", &bond_length, NULL);
-  ierr = OCE1CreateFromOptions(&oce1, comm); CHKERRQ(ierr);
+  ierr = PetscOptionsGetReal(NULL, "-bond_length", &bond_length, NULL);
+  ierr = OCE1SetFromOptions(oce1); CHKERRQ(ierr);
+  ierr = EEPSSetFromOptions(eps); CHKERRQ(ierr);
+  ierr = PetscOptionsGetViewer(comm, NULL, "-view", &viewer, &format, NULL);
   PetscOptionsEnd();  
 
   // other conf
   PetscBool s_is_id; FEMInfGetOverlapIsId(oce1->fem, &s_is_id);
 
   // Matrix
-  Mat H, S;
   PrintTimeStamp(comm, "Mat", NULL);
-  ierr = OCE1SetTMat(oce1, &H); CHKERRQ(ierr);
-  ierr = OCE1PlusVneMat(oce1, bond_length/2.0, 1.0, &H); CHKERRQ(ierr);
-  ierr = OCE1SetSMatNullable(oce1, &S); CHKERRQ(ierr);
+  Mat H; OCE1CreateMat(oce1, &H);
+  Mat S; OCE1CreateMat(oce1, &S); 
+  ierr = OCE1TMat(oce1, H); CHKERRQ(ierr);
+  ierr = OCE1PlusVneMat(oce1, bond_length/2.0, 1.0, H); CHKERRQ(ierr);
+  OCE1SMat(oce1, S, &s_is_id);
 
   // Solve
-  EPS eps; 
   PrintTimeStamp(comm, "EPS", NULL);
-  EPSCreateForBoundState(&eps, comm, H, S, -1.2);
-  EPSSolve(eps);  
+  if(s_is_id)
+    EEPSSetOperators(eps, H, NULL);
+  else
+    EEPSSetOperators(eps, H, S);
+  EEPSSolve(eps);  
   
   // Output
   PrintTimeStamp(comm, "Output", NULL);
-  OCE1View(oce1);
+  OCE1View(oce1, viewer);
 
-  int nconv;
-  PetscScalar kr;
-  EPSGetConverged(eps, &nconv);
-  PetscPrintf(PETSC_COMM_SELF, "\n==== Eigenvalues ====\n");
-  for(int i = 0; i < nconv; i++) {
-    EPSGetEigenpair(eps, i, &kr, NULL, NULL, NULL);
-    PetscPrintf(comm, "eig%i: %f\n", i, kr);
-  }  
   return 0;
 }
 

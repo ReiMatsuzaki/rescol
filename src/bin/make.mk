@@ -1,5 +1,4 @@
 h2mole.out: h2mole.o ${OBJ_FEM} oce2.o angmoment.o
-h2plus.out: h2plus.o ${OBJ_FEM} oce1.o angmoment.o
 he_guess.out: he_guess.o ${OBJ_FEM} oce2.o angmoment.o
 h_pi.out: h_pi.o ${OBJ_FEM} angmoment.o
 
@@ -54,14 +53,14 @@ check_eig_one: eig_one.out
 	-eeps_view_values ::ascii_info_detail
 
 
-
+h2plus.out: h2plus.o ${OBJ_FEM} oce1.o y1s.o angmoment.o eeps.o
 .PHONY: check_h2plus
 check_h2plus: h2plus.out
 	./$< -fem_type bss -bss_order 8 \
-	-bps_num_zs 51 -bps_zmax 51.0 -bps_type line \
-	-y1s_rot sigma -y1s_parity gerade -y1s_lmax 4 \
-	-eps_nev 2 -eps_max_it 1000
-	echo Reference: 1.102 634 214 494 9
+	-bps_num_zs 101 -bps_zmax 50.0 -bps_type line \
+	-y1s_rot sigma -y1s_parity gerade -y1s_lmax 8 \
+	-eps_nev 2 -eps_max_it 1000 -eps_target -1.2 -eeps_view_values ascii:stdout
+	@echo Reference: -1.102 634 214 494 9
 
 check_hatom: hatom.o fem_inf.o fd.o dvr.o bspline.o mat.o
 	-${CLINKER} -o hatom.out  hatom.o fem_inf.o fd.o dvr.o bspline.o bps.o mat.o ${SLEPC_EPS_LIB}
