@@ -2,6 +2,7 @@
 #include <time.h>
 #include "unittest.h"
 #include <rescol/bspline.h>
+#include <rescol/pot.h>
 
 static char help[] = "Unit test for bspline.c \n\n";
 
@@ -439,7 +440,7 @@ int testBSplinePot() {
   BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 6);
   int order = 3;
   BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);  BSSSetUp(bss);
-  POT pot; POTCreate(comm, &pot); POTSetPower(pot, 1.0, -2.0);
+  PF pot; PFCreate(comm, 1, 1, &pot); PFSetPower(pot, 1.0, -2.0);
 
   Mat V; BSSCreateR1Mat(bss, &V);
   Mat U; BSSCreateR1Mat(bss, &U);
@@ -460,7 +461,7 @@ int testBSplinePot2() {
   BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 8);
   int order = 3;
   BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);  BSSSetUp(bss);
-  POT pot; POTCreate(comm, &pot); POTSetCoulomb(pot, 2.0, 1.5);
+  PF pot; PFCreate(comm, 1, 1, &pot); PFSetCoulombNE(pot, 2, 1.5);
 
   //  POTView(pot);
 
@@ -481,13 +482,13 @@ int testSlaterPotWithECS() {
 
   MPI_Comm comm = PETSC_COMM_SELF;
   BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 101);
-  Scaler scaler; ScalerCreate(comm, &scaler); 
-  ScalerSetSharpECS(scaler, 60.0, 20.0*M_PI/180.0);
+  CScaling scaler; CScalingCreate(comm, &scaler); 
+  CScalingSetSharpECS(scaler, 60.0, 20.0*M_PI/180.0);
 
   int order = 5;
   BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);
   BSSSetScaler(bss, scaler);   BSSSetUp(bss);
-  POT slater; POTCreate(comm, &slater); POTSetSlater(slater, 7.5, 1.0);
+  PF slater; PFCreate(comm, 1, 1, &slater); PFSetSlater(slater, 7.5, 2, 1.0);
 
   if(getenv("SHOW_DEBUG"))
     BSSView(bss, PETSC_VIEWER_STDOUT_SELF);
@@ -522,7 +523,8 @@ int testSlaterPotWithECS() {
   ASSERT_DOUBLE_NEAR(-0.0127745, PetscImaginaryPart(kr), pow(10.0, -4.0));
   ASSERT_DOUBLE_NEAR(3.4263903, PetscRealPart(kr), pow(10.0, -4.0));  
 
-  POTDestroy(&slater);
+  PFDestroy(&scaler);
+  PFDestroy(&slater);
   BSSDestroy(&bss); MatDestroy(&H); MatDestroy(&V); MatDestroy(&S);
   EPSDestroy(&eps);
   return 0;

@@ -82,14 +82,40 @@ PetscErrorCode CScalingSetSharpECS(CScaling self, PetscReal r0, PetscReal t) {
   PFSet(self, SharpECSApply, NULL, SharpECSView, NULL, ctx);
   return 0;    
 }
+PetscErrorCode CScalingSetFromOptions(CScaling self) {
+
+  MPI_Comm comm; PetscObjectGetComm((PetscObject)self, &comm);
+  char type[10] = "none";
+  PetscReal r0 = 0.0;
+  PetscReal theta = 0.0;
+
+  PetscOptionsGetString(NULL, "-cscaling_type", type, 10, NULL);
+  PetscOptionsGetReal(NULL, "-cscaling_r0", &r0, NULL);
+  PetscOptionsGetReal(NULL, "-cscaling_theta", &theta, NULL); 
+
+  if(strcmp(type, "none") == 0) {
+    CScalingSetNone(self);
+  } else if(strcmp(type, "uniform_cs") == 0) {
+    CScalingSetUniformCS(self, theta*M_PI/180.0);
+  } else if(strcmp(type, "sharp_ecs") == 0) {
+    CScalingSetSharpECS(self, r0, theta*M_PI/180.0);
+  } else
+    SETERRQ(comm, 1, "cscaling_type<-{none, uni, secs}");
+  return 0;
+}
+
 PetscErrorCode CScalingCalc(CScaling self, PetscReal *xs, int n,
 			    PetscScalar *qrs, PetscScalar *Rrs) {
   for(int i = 0; i < n; i++) {
     PetscScalar x[1] = {xs[i]};
     PetscScalar ys[2];
     PFApply(self, 1, x, ys);
-    qrs[i] = ys[0];
-    Rrs[i] = ys[1];
+    if(qrs!=NULL)
+      qrs[i] = ys[0];
+    if(Rrs!=NULL)
+      Rrs[i] = ys[1];
   }
   return 0;
 }
+
+

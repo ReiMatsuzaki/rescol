@@ -8,8 +8,7 @@ extern "C" {
 #include <petscmat.h>
 #include "mat.h"
 #include "bps.h"
-#include "pot.h"
-#include "scaler.h"
+#include "cscaling.h"
 
 struct _p_BSS {
   MPI_Comm comm;
@@ -19,13 +18,14 @@ struct _p_BSS {
   int num_basis; 
   int* b_idx_list; // basis index list;
 
-  Scaler scaler; // object for complex scaling
+  CScaling c_scaling; // object for complex scaling
 
   int num_ts; // number of ts_r and ts_s
   PetscReal* ts_r; // overlapped knots points
   PetscScalar* ts_s; // overlapped knots points
   
   PetscReal* xs; // quadrature points
+  PetscScalar* xs_s; // quadrature points (Scalar)
   PetscReal* ws; // weight
   PetscScalar *qrs; // coordinate transform
   PetscScalar *Rrs; // integral of qrs
@@ -54,7 +54,7 @@ PetscErrorCode BSSDestroy(BSS *p_self);
 PetscErrorCode BSSView(BSS self, PetscViewer v);
 
 PetscErrorCode BSSSetKnots(BSS self, int order, BPS bps);
-PetscErrorCode BSSSetScaler(BSS self, Scaler scaler);
+PetscErrorCode BSSSetScaler(BSS self, CScaling cscaling);
 PetscErrorCode BSSSetUp(BSS self);
 PetscErrorCode BSSSetFromOptions(BSS self);
 
@@ -71,7 +71,7 @@ PetscErrorCode BSSSR1Mat(BSS self, Mat S);
 PetscErrorCode BSSR2invR1Mat(BSS self, Mat M);
 PetscErrorCode BSSD2R1Mat(BSS self, Mat D);
 PetscErrorCode BSSENR1Mat(BSS self, int q, PetscReal  a, Mat V);
-PetscErrorCode BSSPotR1Mat(BSS self, POT pot, Mat M);
+PetscErrorCode BSSPotR1Mat(BSS self, PF pot, Mat M);
 PetscErrorCode BSSEER2Mat(BSS self, int q, Mat V);
 PetscErrorCode BSSEER2Mat_ver1(BSS self, int q, Mat V);
 

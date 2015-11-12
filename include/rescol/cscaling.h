@@ -13,8 +13,11 @@ PetscErrorCode CScalingCreate(MPI_Comm comm, CScaling *p_self);
 PetscErrorCode CScalingSetNone(CScaling self);
 PetscErrorCode CScalingSetUniformCS(CScaling self, PetscReal t);
 PetscErrorCode CScalingSetSharpECS(CScaling self, PetscReal r0, PetscReal t);
+PetscErrorCode CScalingSetFromOptions(CScaling self);
+
 PetscErrorCode CScalingCalc(CScaling self, PetscReal *xs, int n,
 			    PetscScalar *qrs, PetscScalar *Rrs);
+
 
 
 #ifdef __cplusplus

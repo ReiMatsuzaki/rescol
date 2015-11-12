@@ -101,7 +101,7 @@ PetscErrorCode BSSCreate(MPI_Comm comm, BSS *p_self) {
   self->comm = comm;
   self->order = 0;
   self->bps = NULL;
-  self->scaler = NULL;
+  self->c_scaling = NULL;
 
   self->num_ele = 0;
   self->num_basis  = 0;
@@ -123,11 +123,12 @@ PetscErrorCode BSSDestroy(BSS *p_self) {
   PetscErrorCode ierr;
   BSS self = *p_self;
   ierr = BPSDestroy(&self->bps); CHKERRQ(ierr);
-  ierr = ScalerDestroy(&self->scaler); CHKERRQ(ierr);
+  ierr = PFDestroy(&self->c_scaling); CHKERRQ(ierr);
   ierr = PetscFree(self->b_idx_list); CHKERRQ(ierr);
   ierr = PetscFree(self->ts_s);  CHKERRQ(ierr);
   ierr = PetscFree(self->ts_r);  CHKERRQ(ierr);  
   ierr = PetscFree(self->xs); CHKERRQ(ierr);
+  ierr = PetscFree(self->xs_s); CHKERRQ(ierr);
   ierr = PetscFree(self->ws); CHKERRQ(ierr);
   ierr = PetscFree(self->qrs); CHKERRQ(ierr);
   ierr = PetscFree(self->Rrs); CHKERRQ(ierr);
@@ -151,7 +152,7 @@ PetscErrorCode BSSView(BSS self, PetscViewer v) {
   PetscViewerASCIIPrintf(v, "num_ele: %d\n", self->num_ele);
   PetscViewerASCIIPrintf(v, "num_basis: %d\n", self->num_basis);
   BPSView(self->bps, v);  
-  ScalerView(self->scaler, v);
+  PFView(self->c_scaling, v);
   PetscViewerASCIIPrintf(v, "<<<< B-Spline <<<<\n");
 
   return 0;
@@ -178,6 +179,7 @@ PetscErrorCode BSSSetKnots(BSS self, int order, BPS bps) {
 
   int n_xs = self->num_ele * self->order;
   PetscMalloc1(n_xs, &self->xs); 
+  PetscMalloc1(n_xs, &self->xs_s); 
   PetscMalloc1(n_xs, &self->ws);
   PetscMalloc1(n_xs, &self->qrs); 
   PetscMalloc1(n_xs, &self->Rrs);
@@ -190,15 +192,15 @@ PetscErrorCode BSSSetKnots(BSS self, int order, BPS bps) {
   PetscFree(zs);
   return 0;
 }
-PetscErrorCode BSSSetScaler(BSS self, Scaler scaler) {
+PetscErrorCode BSSSetScaler(BSS self, CScaling c_scaling) {
 
-  Scaler s;
-  if(scaler == NULL) {
-    ScalerCreate(self->comm, &s); ScalerSetNone(s);
+  CScaling s;
+  if(c_scaling == NULL) {
+    CScalingCreate(self->comm, &s); CScalingSetNone(s);
   } else {
-    s = scaler;
+    s = c_scaling;
   }
-  self->scaler = s;
+  self->c_scaling = s;
   return 0;
 }
 PetscErrorCode BSSSetUp(BSS self) {
@@ -206,10 +208,8 @@ PetscErrorCode BSSSetUp(BSS self) {
   PetscErrorCode ierr;
 
   //  set default scaler
-  if(self->scaler == NULL) 
+  if(self->c_scaling == NULL) 
     BSSSetScaler(self, NULL);
-
-  
   
   // copy ts_r and  ts_s
   PetscReal *zs; PetscInt num_zs;
@@ -222,7 +222,7 @@ PetscErrorCode BSSSetUp(BSS self) {
   for(int i = 0; i < num_zs; i++) 
     self->ts_r[i+self->order-1] = zs[i];
   PetscFree(zs);
-  ScalerCalc(self->scaler, self->ts_r, self->num_ts, NULL, self->ts_s);
+  CScalingCalc(self->c_scaling, self->ts_r, self->num_ts, NULL, self->ts_s);
 
   // index of basis
   for(int ib = 0; ib < self->num_basis; ib++)
@@ -236,7 +236,7 @@ PetscErrorCode BSSSetUp(BSS self) {
       int ix = ie*self->order+iq;
       LegGauss(self->order, iq, &x, &w);
       x = (b+a)/2.0  + (b-a)/2.0 * x; w = (b-a)/2.0*w;
-      self->xs[ix] = x;
+      self->xs[ix] = x; self->xs_s[ix] = x;
       self->ws[ix] = w;
       
       for(int ib = 0; ib < self->num_basis; ib++) {
@@ -255,8 +255,8 @@ PetscErrorCode BSSSetUp(BSS self) {
   }
 
   int n_xs = self->num_ele * self->order;
-  ierr = ScalerCalc(self->scaler, self->xs, n_xs, 
-		    self->qrs, self->Rrs); CHKERRQ(ierr);
+  ierr = CScalingCalc(self->c_scaling, self->xs, n_xs,
+		      self->qrs, self->Rrs); CHKERRQ(ierr);
 
   return 0;
 }
@@ -267,11 +267,11 @@ PetscErrorCode BSSSetFromOptions(BSS self) {
 
   PetscInt order = 2;
   BPS bps;        BPSCreate(self->comm, &bps);
-  Scaler scaler;  ScalerCreate(self->comm, &scaler);
+  CScaling scaler;  CScalingCreate(self->comm, &scaler);
   
   ierr = PetscOptionsGetInt(NULL, "-bss_order", &order, &find); CHKERRQ(ierr);
   ierr = BPSSetFromOptions(bps); CHKERRQ(ierr);
-  ierr = ScalerSetFromOptions(scaler); CHKERRQ(ierr);
+  ierr = CScalingSetFromOptions(scaler); CHKERRQ(ierr);
   ierr = BSSSetKnots(self, order, bps); CHKERRQ(ierr);
   ierr = BSSSetScaler(self, scaler); CHKERRQ(ierr);
   ierr = BSSSetUp(self); CHKERRQ(ierr);
@@ -457,7 +457,7 @@ PetscErrorCode BSSENR1Mat(BSS self, int q, PetscReal a, Mat M) {
   MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
   return 0;
 }
-PetscErrorCode BSSPotR1Mat(BSS self, POT pot, Mat M) {
+PetscErrorCode BSSPotR1Mat(BSS self, PF pot, Mat M) {
   int order = self->order;
   int nb = self->num_basis;
   int ne = self->num_ele;
@@ -465,11 +465,10 @@ PetscErrorCode BSSPotR1Mat(BSS self, POT pot, Mat M) {
   PetscErrorCode ierr;
   InsertMode mode = INSERT_VALUES;
 
-  PetscScalar *vs; 
-  PetscMalloc1(nq, &vs);
+  PetscScalar *vs; PetscMalloc1(nq, &vs);
+  ierr = PFApply(pot, nq, self->xs_s, vs); CHKERRQ(ierr);
   for(int k = 0; k < nq; k++) {
-    PetscScalar v; POTCalc(pot, self->xs[k], &v);
-    vs[k] = v * self->ws[k] * self->qrs[k];
+    vs[k] *= self->ws[k] * self->qrs[k];
   }
 
   for(int i = 0; i < nb; i++) {

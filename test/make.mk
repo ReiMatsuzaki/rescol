@@ -8,7 +8,8 @@ test_mat.out: test_mat.o mat.o viewerfunc.o
 test_oce2.out: test_oce2.o oce2.o mat.o fem_inf.o dvr.o bspline.o fd.o bps.o pot.o cscaling.o mat.o angmoment.o viewerfunc.o
 test_pot.out: test_pot.o pot.o viewerfunc.o
 test_cscaling.out: test_cscaling.o cscaling.o
-TEST_LIST=angmoment bps bspline dvr fem_inf mat oce2 pot cscaling #fd
+test_op.out: test_op.o
+TEST_LIST=angmoment bps bspline dvr fem_inf mat oce2 pot cscaling op #fd
 
 check_%: test_%.out
 	@echo
