@@ -54,7 +54,7 @@ PetscErrorCode DVRSR1Mat(DVR self, Mat M);
 PetscErrorCode DVRD2R1Mat(DVR self, Mat M);
 PetscErrorCode DVRR2invR1Mat(DVR self, Mat M);
 PetscErrorCode DVRENR1Mat(DVR self, int q, PetscReal a, Mat M);
-PetscErrorCode DVRSetEER2Mat(DVR self, int q, Mat M);
+PetscErrorCode DVREER2Mat(DVR self, int q, Mat M);
 
 // -------- LSR1Mat/LSR2Mat --------
 PetscErrorCode DVRCreateR1LSMat(DVR self, Mat *M);

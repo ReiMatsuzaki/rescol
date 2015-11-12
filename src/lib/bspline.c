@@ -322,11 +322,10 @@ PetscErrorCode BSSDerivBasisPsi(BSS self, int i, PetscReal x, PetscScalar *y) {
   return 0;
 }
 PetscErrorCode BSSGetSize(BSS self, int *n) {
- 
   *n = self->num_basis;
   return 0;
 }
-
+ 
 // ---- Matrix -----
 PetscErrorCode BSSCreateR1Mat(BSS self, Mat *M) {
   int nb = self->num_basis;
