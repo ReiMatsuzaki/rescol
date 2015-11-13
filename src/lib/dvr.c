@@ -1,4 +1,5 @@
 #include <rescol/mat.h>
+#include <rescol/synthesize.h>
 #include <rescol/dvr.h>
 
 // ------- Lapack -------
@@ -86,6 +87,7 @@ PetscErrorCode DVRDestroy(DVR *p_self) {
   ierr = PetscFree(self->xs); CHKERRQ(ierr);    
   ierr = PetscFree(self->ws); CHKERRQ(ierr);    
   ierr = PetscFree(self->xs_basis); CHKERRQ(ierr);    
+  
 
   if(self->D2_R1LSMat != NULL) {
     ierr = MatDestroy(&self->D2_R1LSMat); CHKERRQ(ierr);    
@@ -177,6 +179,8 @@ PetscErrorCode DVRSetKnots(DVR self, int nq, BPS bps) {
   self->T2 = NULL;
   self->T2T = NULL;
 
+  PetscFree(zs);
+
   return 0;
 }
 PetscErrorCode DVRSetUp(DVR self) {
@@ -212,7 +216,7 @@ PetscErrorCode DVRGetSize(DVR self, int *n) {
 // ---- inner ----
 PetscErrorCode DVRPrepareT2(DVR self) {
   PetscErrorCode ierr;
-  ierr = MatSynthesize(self->T, self->T, 1.0, MAT_INITIAL_MATRIX, &self->T2); 
+  ierr = MatMatSynthesize(self->T, self->T, 1.0, MAT_INITIAL_MATRIX, &self->T2); 
   CHKERRQ(ierr);  
   ierr = MatTranspose(self->T2, MAT_INITIAL_MATRIX, &self->T2T); 
   CHKERRQ(ierr);  
@@ -240,14 +244,15 @@ PetscErrorCode DVRSR1Mat(DVR self, Mat M) {
   return 0;
 }
 PetscErrorCode DVRD2R1Mat(DVR self, Mat M) {
+  PetscErrorCode ierr;
   Mat LSR1, T;
-  DVRCreateR1LSMat(self, &LSR1);
+  ierr = DVRCreateR1LSMat(self, &LSR1); CHKERRQ(ierr);
   //  DVRCreateR1Mat(self, &T);
-  DVRD2R1LSMat(self, LSR1);
-  DVRLSMatToMat(self, LSR1, MAT_INITIAL_MATRIX, &T);
-  MatDestroy(&LSR1);
-  MatCopy(T, M, DIFFERENT_NONZERO_PATTERN);
-  MatDestroy(&T);
+  ierr = DVRD2R1LSMat(self, LSR1); CHKERRQ(ierr);
+  ierr = DVRLSMatToMat(self, LSR1, MAT_INITIAL_MATRIX, &T); CHKERRQ(ierr);
+  ierr = MatDestroy(&LSR1); CHKERRQ(ierr);
+  ierr = MatCopy(T, M, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
+  ierr = MatDestroy(&T); CHKERRQ(ierr);
   return 0;
 }
 PetscErrorCode DVRR2invR1Mat(DVR self, Mat M) {

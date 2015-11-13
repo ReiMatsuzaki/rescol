@@ -31,6 +31,11 @@ PetscErrorCode UniformCSView(void *ctx, PetscViewer v) {
   PetscViewerASCIIPrintf(v, "theta : %f\n", t);
   return 0;
 }
+PetscErrorCode UniformCSDestroy(void *ctx) {
+  UniformCS* cs = (UniformCS*)ctx;  
+  PetscFree(cs);
+  return 0;
+}
 
 typedef struct {
   PetscReal r0;
@@ -60,6 +65,11 @@ PetscErrorCode SharpECSView(void *ctx, PetscViewer v) {
   PetscViewerASCIIPrintf(v, "theta = %f\n", t);
   return 0;
 }
+PetscErrorCode SharpECSDestroy(void *ctx) {
+  SharpECS* cs = (SharpECS*)ctx;
+  PetscFree(cs);
+  return 0;
+}
 
 PetscErrorCode CScalingCreate(MPI_Comm comm, CScaling *p_self) {
   PFCreate(comm, 1, 2, p_self);
@@ -72,14 +82,14 @@ PetscErrorCode CScalingSetNone(CScaling self) {
 PetscErrorCode CScalingSetUniformCS(CScaling self, PetscReal t) {
   UniformCS *ctx; PetscNew(&ctx);
   ctx->theta = t;
-  PFSet(self, UniformCSApply, NULL, UniformCSView, NULL, ctx);
+  PFSet(self, UniformCSApply, NULL, UniformCSView, UniformCSDestroy, ctx);
   return 0;  
 }
 PetscErrorCode CScalingSetSharpECS(CScaling self, PetscReal r0, PetscReal t) {
   SharpECS *ctx; PetscNew(&ctx);
   ctx->r0 = r0;
   ctx->theta = t;
-  PFSet(self, SharpECSApply, NULL, SharpECSView, NULL, ctx);
+  PFSet(self, SharpECSApply, NULL, SharpECSView, SharpECSDestroy, ctx);
   return 0;    
 }
 PetscErrorCode CScalingSetFromOptions(CScaling self) {
@@ -100,7 +110,7 @@ PetscErrorCode CScalingSetFromOptions(CScaling self) {
   } else if(strcmp(type, "sharp_ecs") == 0) {
     CScalingSetSharpECS(self, r0, theta*M_PI/180.0);
   } else
-    SETERRQ(comm, 1, "cscaling_type<-{none, uni, secs}");
+    SETERRQ(comm, 1, "cscaling_type<-{none, uniform_cs, sharp_ecs}");
   return 0;
 }
 

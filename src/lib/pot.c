@@ -57,6 +57,7 @@ PetscErrorCode PowerDestroy(void *ctx) {
 typedef struct {
   PetscInt q;
   PetscScalar a;
+  PetscScalar zz;
 } CoulombNE;
 PetscErrorCode CoulombNEApply(void *ctx, int n, const PetscScalar *x, PetscScalar *y) {
   CoulombNE *self = (CoulombNE*)ctx;
@@ -71,20 +72,21 @@ PetscErrorCode CoulombNEApply(void *ctx, int n, const PetscScalar *x, PetscScala
       s = x[i];
       g = a;
     }
-    y[i] = pow(s/g, self->q) / g;
+    y[i] = self->zz * pow(s/g, self->q) / g;
   }
   return 0;
 }
 PetscErrorCode CoulombNEView(void *ctx, PetscViewer v) {
   CoulombNE *self = (CoulombNE*)ctx;
   PetscViewerASCIIPrintf(v, ">>> POT(CoulombNE) >>>\n");
-  PetscViewerASCIIPrintf(v, "          s^q   \n");
-  PetscViewerASCIIPrintf(v, "v(x) = ---------\n");
-  PetscViewerASCIIPrintf(v, "        g^{q+1} \n");
+  PetscViewerASCIIPrintf(v, "           s^q   \n");
+  PetscViewerASCIIPrintf(v, "v(x) = z ---------\n");
+  PetscViewerASCIIPrintf(v, "          g^{q+1} \n");
   PetscViewerASCIIPrintf(v, "s = min{a, x}\n");
   PetscViewerASCIIPrintf(v, "g = max{a, x}\n");
   PetscViewerASCIIPrintf(v, "a = %f\n", self->a);
   PetscViewerASCIIPrintf(v, "q = %d\n", self->q);
+  PetscViewerASCIIPrintf(v, "z = %f\n", self->zz);
   PetscViewerASCIIPrintf(v, "<<< POT(CoulombNE) <<<\n");  
   return 0;
 }
@@ -157,37 +159,42 @@ PetscErrorCode MorseDestroy(void *ctx) {
 }
 
 
-PetscErrorCode PFSetHarm(PF self, PetscScalar a) {
+PetscErrorCode PotCreate(MPI_Comm comm, Pot *p_self) {
+  PetscErrorCode ierr;
+  ierr = PFCreate(comm, 1, 1, p_self); CHKERRQ(ierr);
+  return 0;
+}
+PetscErrorCode PotSetHarm(Pot self, PetscScalar a) {
   Harm *ctx; PetscNew(&ctx);
   ctx->a = a;
   PFSet(self, HarmApply, NULL, HarmView, HarmDestroy, ctx);
   return 0;
 }
-PetscErrorCode PFSetPower(PF self, PetscScalar a, PetscInt n) {
+PetscErrorCode PotSetPower(Pot self, PetscScalar a, PetscInt n) {
   Power *ctx; PetscNew(&ctx);
   ctx->a = a; ctx->n = n;
   PFSet(self, PowerApply, NULL, PowerView, PowerDestroy, ctx);
   return 0;
 }
-PetscErrorCode PFSetCoulombNE(PF self, int q, PetscScalar a) {
+PetscErrorCode PotSetCoulombNE(Pot self, int q, PetscScalar a, PetscScalar zz) {
   CoulombNE *ctx; PetscNew(&ctx);
-  ctx->q = q; ctx->a = a;
+  ctx->q = q; ctx->a = a; ctx->zz=zz;
   PFSet(self, CoulombNEApply, NULL, CoulombNEView, CoulombNEDestroy, ctx);
   return 0;
 }
-PetscErrorCode PFSetSlater(PF self, PetscScalar a, int n, PetscScalar z) {
+PetscErrorCode PotSetSlater(Pot self, PetscScalar a, int n, PetscScalar z) {
   Slater *ctx; PetscNew(&ctx);
   ctx->a = a; ctx->n = n; ctx->z = z;
   PFSet(self, SlaterApply, NULL, SlaterView, SlaterDestroy, ctx);
   return 0;
 }
-PetscErrorCode PFSetMorse(PF self, PetscScalar D0, PetscScalar a, PetscScalar Re){
+PetscErrorCode PotSetMorse(Pot self, PetscScalar D0, PetscScalar a, PetscScalar Re){
   Morse *ctx; PetscNew(&ctx);
   ctx->D0 = D0; ctx->a = a; ctx->Re = Re;
   PFSet(self, MorseApply, NULL, MorseView, MorseDestroy, ctx);
   return 0;
 }
-PetscErrorCode PFSetPotentialFromOptions(PF self) {
+PetscErrorCode PotSetFromOptions(Pot self) {
 
   MPI_Comm comm; PetscObjectGetComm((PetscObject)self, &comm);
   
@@ -205,7 +212,7 @@ PetscErrorCode PFSetPotentialFromOptions(PF self) {
     ierr = PetscOptionsGetReal(NULL, "-pot_a", &a, &find); CHKERRQ(ierr);
     if(!find)
       SETERRQ(comm, 1, "-pot_a is not found");
-    PFSetHarm(self, a);
+    PotSetHarm(self, a);
 
   } else if(strcmp(type, "slater") == 0) {
     PetscReal v0, z;
@@ -219,7 +226,7 @@ PetscErrorCode PFSetPotentialFromOptions(PF self) {
     ierr = PetscOptionsGetInt(NULL, "-pot_n", &n, &find); CHKERRQ(ierr);
     if(!find)
       SETERRQ(comm, 1, "-pot_n is not found");
-    PFSetSlater(self, v0, n, z);
+    PotSetSlater(self, v0, n, z);
 
   } else if(strcmp(type, "morse") == 0) {
     PetscReal D0, a, Re;
@@ -233,7 +240,7 @@ PetscErrorCode PFSetPotentialFromOptions(PF self) {
     if(!find)
       SETERRQ(comm, 1, "-pot_Re is not found");
 
-    PFSetMorse(self, D0, a, Re);
+    PotSetMorse(self, D0, a, Re);
 
   } else {
     char msg[100]; sprintf(msg, "unsupported pot_type: %s", type);

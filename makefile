@@ -9,7 +9,7 @@ VPATH = ${RESCOL_DIR}/src/lib \
 	${RESCOL_DIR}/test \
 	${RESCOL_DIR}/test/training
 
-CPPFLAGS+=-I${INC_DIR}
+CPPFLAGS+=-I${INC_DIR} -I${PETSC_DIR}
 CFLAGS+=-std=gnu99
 CXXFLAGS=
 LIBS=-lgsl -lgtest

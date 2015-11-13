@@ -192,7 +192,7 @@ PetscErrorCode BSSSetKnots(BSS self, int order, BPS bps) {
   PetscFree(zs);
   return 0;
 }
-PetscErrorCode BSSSetScaler(BSS self, CScaling c_scaling) {
+PetscErrorCode BSSSetCScaling(BSS self, CScaling c_scaling) {
 
   CScaling s;
   if(c_scaling == NULL) {
@@ -209,7 +209,7 @@ PetscErrorCode BSSSetUp(BSS self) {
 
   //  set default scaler
   if(self->c_scaling == NULL) 
-    BSSSetScaler(self, NULL);
+    BSSSetCScaling(self, NULL);
   
   // copy ts_r and  ts_s
   PetscReal *zs; PetscInt num_zs;
@@ -273,7 +273,7 @@ PetscErrorCode BSSSetFromOptions(BSS self) {
   ierr = BPSSetFromOptions(bps); CHKERRQ(ierr);
   ierr = CScalingSetFromOptions(scaler); CHKERRQ(ierr);
   ierr = BSSSetKnots(self, order, bps); CHKERRQ(ierr);
-  ierr = BSSSetScaler(self, scaler); CHKERRQ(ierr);
+  ierr = BSSSetCScaling(self, scaler); CHKERRQ(ierr);
   ierr = BSSSetUp(self); CHKERRQ(ierr);
 
   return 0;

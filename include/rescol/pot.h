@@ -4,13 +4,15 @@
 extern "C" {
 #endif
 #include <petscpf.h>
+typedef PF Pot;
 
-PetscErrorCode PFSetPotentialFromOptions(PF self);
-PetscErrorCode PFSetHarm(PF self, PetscScalar a);
-PetscErrorCode PFSetPower(PF self, PetscScalar a, PetscInt n);
-PetscErrorCode PFSetCoulombNE(PF self, int q, PetscScalar a);
-PetscErrorCode PFSetSlater(PF self, PetscScalar a, int n, PetscScalar z);
-PetscErrorCode PFSetMorse(PF self, PetscScalar D0, PetscScalar a, PetscScalar Re);
+PetscErrorCode PotCreate(MPI_Comm comm, Pot *p_self);
+PetscErrorCode PotSetFromOptions(Pot self);
+PetscErrorCode PotSetHarm(Pot self, PetscScalar a);
+PetscErrorCode PotSetPower(Pot self, PetscScalar a, PetscInt n);
+PetscErrorCode PotSetCoulombNE(Pot self, int q, PetscScalar a, PetscScalar zz);
+PetscErrorCode PotSetSlater(Pot self, PetscScalar a, int n, PetscScalar z);
+PetscErrorCode PotSetMorse(Pot self, PetscScalar D0, PetscScalar a, PetscScalar Re);
 
 #ifdef __cplusplus
 }

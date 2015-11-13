@@ -8,6 +8,7 @@ extern "C" {
 #include "fd.h"
 #include "bspline.h"
 #include "dvr.h"
+#include "viewerfunc.h"
 #include "pot.h"
 
 // vtbl for FEM interface
@@ -67,7 +68,7 @@ PetscErrorCode FEMInfSR1MatNullable(FEMInf self, Mat M);
 PetscErrorCode FEMInfD2R1Mat(FEMInf self, Mat M);
 PetscErrorCode FEMInfR2invR1Mat(FEMInf self, Mat M);
 PetscErrorCode FEMInfENR1Mat(FEMInf self, int q, double a, Mat M); 
-PetscErrorCode FEMInfPOTR1Mat(FEMInf self, POT pot, Mat M);
+PetscErrorCode FEMInfPotR1Mat(FEMInf self, Pot pot, Mat M);
 PetscErrorCode FEMInfEER2Mat(FEMInf self, int q, Mat M); 
 
 #ifdef __cplusplus

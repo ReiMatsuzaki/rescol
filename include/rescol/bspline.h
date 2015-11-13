@@ -54,7 +54,7 @@ PetscErrorCode BSSDestroy(BSS *p_self);
 PetscErrorCode BSSView(BSS self, PetscViewer v);
 
 PetscErrorCode BSSSetKnots(BSS self, int order, BPS bps);
-PetscErrorCode BSSSetScaler(BSS self, CScaling cscaling);
+PetscErrorCode BSSSetCScaling(BSS self, CScaling cscaling);
 PetscErrorCode BSSSetUp(BSS self);
 PetscErrorCode BSSSetFromOptions(BSS self);
 

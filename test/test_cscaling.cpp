@@ -113,10 +113,13 @@ TEST(TestScaling, none) {
   ierr = PFDestroy(&cscaling); ASSERT_EQ(0, ierr);  
 
 }
+int _main(int argc, char **args) {
+  ::testing::InitGoogleTest(&argc, args);
+  return RUN_ALL_TESTS();  
+}
 int main (int argc, char **args) {
   SlepcInitialize(&argc, &args, (char*)0, help);
-  ::testing::InitGoogleTest(&argc, args);
-  return RUN_ALL_TESTS();
+  _main(argc, args);
   SlepcFinalize();
   return 0;
 }

@@ -45,9 +45,9 @@ eig_one.out: eig_one.o ${OBJ_FEM} oce1.o angmoment.o y1s.o eeps.o viewerfunc.o
 check_eig_one: eig_one.out
 	./$< -fem_type bss -bss_order 4 \
 	-bps_num_zs 51 -bps_zmax 51.0 -bps_type line \
-	-cscaling_type sharpECS -cscaling_r0 40.0 -cscaling_theta 25.0 \
+	-cscaling_type sharp_ecs -cscaling_r0 40.0 -cscaling_theta 25.0 \
 	-y1s_L 0 \
-	-pot_type slater -pot_v0 3.5 -pot_z 1.0 \
+	-pot_type slater -pot_v0 3.5 -pot_n 2 -pot_z 1.0 \
 	-eps_nev 2 \
 	-eps_converged_reason \
 	-eeps_view_values ::ascii_info_detail -malloc_dump \

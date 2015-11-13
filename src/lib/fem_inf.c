@@ -286,7 +286,7 @@ PetscErrorCode FEMInfENR1Mat(FEMInf self, int q, double a, Mat M) {
   return 0;
 
 }
-PetscErrorCode FEMInfPOTR1Mat(FEMInf self, POT pot, Mat M) {
+PetscErrorCode FEMInfPotR1Mat(FEMInf self, Pot pot, Mat M) {
 
   if(self->sc->PotR1Mat == NULL)
     SETERRQ(self->comm, 1, "method is null");

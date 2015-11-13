@@ -5,7 +5,6 @@ PetscErrorCode EEPSCreate(MPI_Comm comm, EEPS *p_self) {
   EEPS self;
   PetscNew(&self);
 
-  self->comm = comm;
   EPSCreate(comm, &self->eps);
   self->S = NULL;
   self->viewer_values = NULL;
@@ -54,7 +53,7 @@ PetscErrorCode EEPSReadInitSpaceOne(EEPS self, PetscViewer viewer) {
 
   PetscErrorCode ierr;
 
-  Vec x[1]; VecCreate(self->comm, &x[0]); 
+  Vec x[1]; VecCreate(PetscObjectComm((PetscObject)self), &x[0]); 
   ierr = VecLoad(x[0], viewer); CHKERRQ(ierr);
   ierr = EPSSetInitialSpace(self->eps, 1, x); CHKERRQ(ierr);
 
@@ -64,18 +63,19 @@ PetscErrorCode EEPSSetFromOptions(EEPS self) {
 
   PetscErrorCode ierr;
   PetscBool find;
+  MPI_Comm comm; PetscObjectGetComm((PetscObject)self, &comm);
 
   ierr = EPSSetFromOptions(self->eps); CHKERRQ(ierr);
  
   PetscViewer init_viewer;
   PetscViewerFormat format;
-  ierr = PetscOptionsGetViewer(self->comm, NULL, "-eeps_view_init", 
+  ierr = PetscOptionsGetViewer(comm, NULL, "-eeps_view_init", 
 			       &init_viewer, &format, &find); CHKERRQ(ierr);
   if(find) {
     ierr = EEPSReadInitSpaceOne(self, init_viewer); CHKERRQ(ierr);
   }
 
-  ierr = PetscOptionsGetViewer(self->comm, NULL, "-eeps_view_values", 
+  ierr = PetscOptionsGetViewer(comm, NULL, "-eeps_view_values", 
 			       &self->viewer_values, &format, &find); CHKERRQ(ierr);
 
   return 0;
@@ -84,10 +84,11 @@ PetscErrorCode EEPSSetFromOptions(EEPS self) {
 PetscErrorCode EEPSViewValues(EEPS self) {
 
   PetscViewerType type;
+  MPI_Comm comm; PetscObjectGetComm((PetscObject)self, &comm);
   PetscViewerGetType(self->viewer_values, &type);
 
   if(strcmp(type, "ascii") != 0) 
-    SETERRQ(self->comm, 1, "only ascii is supported");
+    SETERRQ(comm, 1, "only ascii is supported");
 
   FILE *fp;
   PetscViewerASCIIGetPointer(self->viewer_values, &fp);
@@ -107,7 +108,7 @@ PetscErrorCode EEPSViewValues(EEPS self) {
     re = kr;
     im = ki;
 #endif
-    PetscFPrintf(self->comm, fp, "%d %20.16g %20.16g %g\n", i, re, im, error);
+    PetscFPrintf(comm, fp, "%d %20.16g %20.16g %g\n", i, re, im, error);
 		 
   }
 

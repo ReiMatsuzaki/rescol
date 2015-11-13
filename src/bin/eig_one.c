@@ -1,5 +1,5 @@
 #include <rescol/oce1.h>
-#include <rescol/writer.h>
+#include <rescol/viewerfunc.h>
 #include <rescol/eeps.h>
 
 static char help[] = "solve one particle eigen energy problem";
@@ -116,7 +116,7 @@ int main(int argc, char **args) {
 
   PrintTimeStamp(comm, "Init", NULL);
   OCE1 oce;  OCE1Create(comm, &oce);
-  POT pot;   POTCreate(comm, &pot);
+  Pot pot;   PotCreate(comm, &pot);
   EEPS eeps; EEPSCreate(comm, &eeps);
   PetscViewer viewer = PETSC_VIEWER_STDOUT_SELF;
   PetscViewerFormat format;
@@ -124,7 +124,7 @@ int main(int argc, char **args) {
 
   ierr = PetscOptionsBegin(comm, "", "eig_one.c options", "none");
   ierr = OCE1SetFromOptions(oce); CHKERRQ(ierr);
-  ierr = POTSetFromOptions(pot);  CHKERRQ(ierr);  
+  ierr = PotSetFromOptions(pot);  CHKERRQ(ierr);  
   ierr = EEPSSetFromOptions(eeps); CHKERRQ(ierr);
   ierr = ViewerFuncSetFromOptions(viewer_func); CHKERRQ(ierr);
   ierr = PetscOptionsGetViewer(comm, NULL, "-viewer", &viewer, &format, NULL);
@@ -136,7 +136,7 @@ int main(int argc, char **args) {
   Mat H; 
   OCE1CreateMat(oce, &H); 
   OCE1TMat(oce, H); 
-  OCE1PlusPOTMat(oce, ROT_SCALAR, pot, H);
+  OCE1PlusPotMat(oce, ROT_SCALAR, pot, H);
   Mat S;
   PetscBool is_id;
   OCE1CreateMat(oce, &S);
@@ -162,12 +162,12 @@ int main(int argc, char **args) {
   // Output
   PrintTimeStamp(comm, "Output", NULL);
   OCE1View(oce, viewer);   
-  POTView(pot, viewer);   
+  PFView(pot, viewer);   
 
   // Finalize  
   PrintTimeStamp(comm, "Destroy", NULL);
   ierr = OCE1Destroy(&oce); CHKERRQ(ierr);
-  ierr = POTDestroy(&pot); CHKERRQ(ierr);
+  ierr = PFDestroy(&pot); CHKERRQ(ierr);
   ierr = EEPSDestroy(&eeps); CHKERRQ(ierr);
   // PetscViewerDestroy(&viewer);
   ierr = ViewerFuncDestroy(&viewer_func); CHKERRQ(ierr);

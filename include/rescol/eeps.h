@@ -12,7 +12,6 @@ extern "C" {
 */
 
 struct _p_EEPS {
-  MPI_Comm comm;
   EPS eps;
   Mat S;
   PetscViewer viewer_values;

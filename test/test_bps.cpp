@@ -21,9 +21,9 @@ TEST(TestBPS, Line) {
   for(int i = 0; i < num; i++)
     ASSERT_DOUBLE_EQ(i*1.0, zs[i]);
 
+  PetscFree(zs);
   BPSDestroy(&bps);
 }
-
 TEST(TestBPS, Exp) {
 
   PetscErrorCode ierr;
@@ -40,16 +40,18 @@ TEST(TestBPS, Exp) {
   if(getenv("SHOW_DEBUG"))
     BPSView(bps, PETSC_VIEWER_STDOUT_SELF);
 
+  PetscFree(zs);
   BPSDestroy(&bps);
 }
 
-int main(int argc, char **args) {
-
-  SlepcInitialize(&argc, &args, (char*)0, help);
+int _main(int argc, char **args) {
   ::testing::InitGoogleTest(&argc, args);
   return RUN_ALL_TESTS();
-  SlepcFinalize();
+}
+int main (int argc, char **args) {
+  PetscInitialize(&argc, &args, (char*)0, help);
+  _main(argc, args);
+  PetscFinalize();
   return 0;
-
 }
 

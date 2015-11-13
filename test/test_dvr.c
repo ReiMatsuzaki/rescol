@@ -29,6 +29,7 @@ int testXS() {
   ASSERT_DOUBLE_EQ(2.0, dvr->xs_basis[3]);
   ASSERT_DOUBLE_EQ(2.5, dvr->xs_basis[4]);  
 
+  DVRDestroy(&dvr);
   return 0;
 }
 int testSR1LSMat() {
@@ -61,7 +62,8 @@ int testSR1LSMat() {
   ASSERT_EQ(1, cols[0]);
   ierr = MatRestoreRow(S, 0, &ncols, &cols, &row); CHKERRQ(ierr);
 
-  MatDestroy(&S);
+  DVRDestroy(&dvr);
+  MatDestroy(&S);   
   return 0;
 
 }
@@ -97,6 +99,7 @@ int testD2R1LSMat() {
   ASSERT_DOUBLE_EQ(8.0/3.0, row[2]);
   ierr = MatRestoreRow(D, 1, &ncols, &cols, &row); CHKERRQ(ierr);
 
+  DVRDestroy(&dvr);
   MatDestroy(&D);
   return 0;
 }
@@ -135,6 +138,9 @@ int testENR1LSMat() {
   ASSERT_EQ(1, cols[0]);
   ierr = MatRestoreRow(V, 0, &ncols, &cols, &row); CHKERRQ(ierr);
 
+  DVRDestroy(&dvr);
+  MatDestroy(&S);
+  MatDestroy(&V);
   return 0;
 }
 int testENR1Mat() {
@@ -147,13 +153,20 @@ int testENR1Mat() {
   int nq = 3;
   BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 5);
   DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, nq, bps); DVRSetUp(dvr);
-
+  
   Mat V; DVRCreateR1Mat(dvr, &V); DVRENR1Mat(dvr, 0, 0.0, V);
+  Mat D; DVRCreateR1LSMat(dvr, &D); DVRD2R1LSMat(dvr, D);
+  Mat S; DVRCreateR1LSMat(dvr, &S); DVRSR1LSMat(dvr, S);
   
   PetscInt n, m;
   MatGetSize(V, &n, &m);
 
   ASSERT_EQ(7, n); ASSERT_EQ(7, m);
+
+  MatDestroy(&V);
+  MatDestroy(&D);
+  MatDestroy(&S);
+  DVRDestroy(&dvr);
 
   return 0;
 }
@@ -209,8 +222,8 @@ int testHAtom() {
 
   Mat S; DVRCreateR1LSMat(dvr, &S); DVRSR1LSMat(dvr, S);
 
-  Mat HH; DVRCreateR1Mat(dvr, &HH); DVRLSMatToMat(dvr, H, MAT_INITIAL_MATRIX, &HH);
-  Mat SS; DVRCreateR1Mat(dvr, &SS); DVRLSMatToMat(dvr, S, MAT_INITIAL_MATRIX, &SS);
+  Mat HH; DVRLSMatToMat(dvr, H, MAT_INITIAL_MATRIX, &HH);
+  Mat SS; DVRLSMatToMat(dvr, S, MAT_INITIAL_MATRIX, &SS);
 
   EPS eps; 
   EPSCreate(PETSC_COMM_SELF, &eps);
@@ -228,6 +241,11 @@ int testHAtom() {
   ASSERT_TRUE(nconv > 0);
   EPSGetEigenpair(eps, 0, &kr, NULL, NULL, NULL);
   ASSERT_DOUBLE_NEAR(-0.5, kr, pow(10.0, -5.0));
+
+  DVRDestroy(&dvr);
+  MatDestroy(&H); MatDestroy(&V); MatDestroy(&S);
+  MatDestroy(&HH); MatDestroy(&SS);
+  EPSDestroy(&eps);
 
   return 0;
 }
@@ -261,6 +279,12 @@ int testHAtom2() {
   ASSERT_TRUE(nconv > 0);
   EPSGetEigenpair(eps, 0, &kr, NULL, NULL, NULL);
   ASSERT_DOUBLE_NEAR(-1.0/8.0, kr, pow(10.0, -5.0));
+
+  DVRDestroy(&dvr);
+  MatDestroy(&H);
+  MatDestroy(&V);
+  MatDestroy(&L);
+  EPSDestroy(&eps);
 
   return 0;
 }
@@ -367,11 +391,15 @@ int main(int argc, char **args) {
   testD2R1LSMat();
   PrintTimeStamp(PETSC_COMM_SELF, "testENR1LSMat", NULL);
   testENR1LSMat();
-  //  testLSMat_to_Mat();
+  testENR1Mat();
+  
+  // testLSMat_to_Mat();
   PrintTimeStamp(PETSC_COMM_SELF, "testHAtom", NULL);
   testHAtom();
   PrintTimeStamp(PETSC_COMM_SELF, "testHAtom2", NULL);
   testHAtom2();
+
+
   //testHeAtom();
   //testLapack();
   SlepcFinalize();

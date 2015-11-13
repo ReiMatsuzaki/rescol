@@ -9,108 +9,6 @@ PetscReal ScalarAbs(PetscScalar x) {
 #endif
 }
 
-PetscErrorCode MatCreateFromCOOFormatFileHandler(FILE* fp, Mat* mat) {
-
-  PetscInt col, row;
-  PetscErrorCode ierr;
-  int num_data, num_row, num_col;
-  PetscScalar dat;  
-
-  if(fp == NULL) {
-    char msg[256] = "file path is NULL";
-    SETERRQ(PETSC_COMM_WORLD, 1, msg);
-  }
-
-  if(fscanf(fp, "%d %d %d", &num_row, &num_col, &num_data) == EOF) {
-    const char* msg = "Failed to read first line. Expected format is:\n num_row, num_col, num_data\0";
-    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_FILE_UNEXPECTED, msg);
-  }
-  
-  if(num_data <= 0 || num_row <= 0 || num_col <= 0 || num_row != num_col) {
-    char msg[256];
-    sprintf(msg, "Invalid head value. num_data=%d, num_row=%d, num_col=%d", 
-	    num_data, num_row, num_col);
-    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_FILE_UNEXPECTED, msg);    
-  }
-
-  // Create Mat
-  ierr = MatCreate(PETSC_COMM_WORLD, mat); CHKERRQ(ierr);
-  ierr = MatSetSizes(*mat, PETSC_DECIDE, PETSC_DECIDE, num_row, num_col); CHKERRQ(ierr);
-  ierr = MatSetFromOptions(*mat); CHKERRQ(ierr);
-  ierr = MatSetUp(*mat); CHKERRQ(ierr);
-
-  #if defined(PETSC_USE_COMPLEX)
-  PetscReal a, b;
-  while(fscanf(fp, "%d %d %lf %lf", &row, &col, &a, &b) != EOF) {
-    dat = a + b * PETSC_i;
-    ierr = MatSetValue(*mat, row, col, dat, INSERT_VALUES); CHKERRQ(ierr);
-  }
-  #else
-  while(fscanf(fp, "%d %d %lf", &row, &col, &dat) != EOF) {
-    ierr = MatSetValue(*mat, row, col, dat, INSERT_VALUES); CHKERRQ(ierr);
-  }
-  #endif
-
-  MatAssemblyBegin(*mat, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(*mat, MAT_FINAL_ASSEMBLY);
-  return 0;
-}
-PetscErrorCode MatCreateFromCOOFormatFile(char* path, Mat* mat) {
-
-  PetscErrorCode ierr;
-  FILE* fp = NULL;
-
-  if((fp = fopen(path, "r")) == NULL) {
-    char msg[256];
-    sprintf(msg, "Failed to open file. Target file path is :%s", path);
-    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_FILE_OPEN, msg);
-  }
-
-  ierr = MatCreateFromCOOFormatFileHandler(fp, mat); CHKERRQ(ierr);
-
-  fclose(fp);
-  return 0;
-}
-PetscErrorCode VecCreateFromFile(const char* path, MPI_Comm comm, Vec *v ) {
-
-  PetscErrorCode ierr;
-  FILE *fp = NULL;
-  
-  if((fp = fopen(path, "r")) == NULL) {
-    char msg[256]; 
-    sprintf(msg, "Failed to open file: %s", path);
-    SETERRQ(comm, 1, "failed to open file");
-  }
-
-  PetscInt n;
-  if(fscanf(fp, "%d", &n) == EOF) {
-    SETERRQ(comm, 1, "failed to read header (# of data)");
-  }
-
-  VecCreate(comm, v);
-  VecSetSizes(*v, PETSC_DECIDE, n);
-  VecSetFromOptions(*v);
-  VecSetUp(*v);
-
-  PetscInt i = 0;
-  double x;
-  while(fscanf(fp, "%lf", &x) != EOF) {
-    ierr = VecSetValue(*v, i, x, INSERT_VALUES); CHKERRQ(ierr);
-    i++;
-  }
-  fclose(fp);
-  VecAssemblyBegin(*v);VecAssemblyEnd(*v);
-
-  return 0;
-}
-PetscErrorCode MatSetDirFile(const char* dn, const char* fn, Mat *M) {
-  PetscErrorCode ierr;
-  char path[100];
-  sprintf(path, "%s/%s", dn, fn);
-  ierr = MatCreateFromCOOFormatFile(path, M); CHKERRQ(ierr);  
-  return 0;
-}
-
 PetscErrorCode PrintTimeStamp(MPI_Comm comm, const char* label, time_t *t) {
   time_t tt;
   time(&tt);
@@ -119,7 +17,95 @@ PetscErrorCode PrintTimeStamp(MPI_Comm comm, const char* label, time_t *t) {
   PetscPrintf(comm, "[%10s] %s", label, ctime(&tt));
   return 0;
 }
+PetscErrorCode VecNormalizeForS(Mat S, Vec x) {
 
+  PetscScalar v[1]; PetscInt idx[1] = {1};
+  VecGetValues(x, 1, idx, v);
+  PetscScalar scale_factor = v[0] / cabs(v[0]);
+  VecScale(x, 1.0/scale_factor);
+
+  PetscScalar norm0;
+  Vec Sx;  MatCreateVecs(S, &Sx, NULL); 
+  MatMult(S, x, Sx); VecDot(x, Sx, &norm0);
+
+  VecScale(x, 1.0/sqrt(norm0));
+
+  return 0;
+}
+
+PetscErrorCode VecSplit(Vec x, PetscInt n, Vec* ys) {
+  /*
+    split one vector x to n vectors ys.
+  */
+  PetscErrorCode ierr;
+  MPI_Comm comm; 
+  ierr = PetscObjectGetComm((PetscObject)x, &comm); CHKERRQ(ierr);
+
+  PetscInt nx; 
+  ierr = VecGetSize(x, &nx); CHKERRQ(ierr);
+
+  PetscInt ny = nx/n;
+
+  for(int i = 0; i < n; i++) {
+    IS is; 
+    ierr = ISCreateStride(comm, ny, i*ny, 1, &is); CHKERRQ(ierr);
+    ierr = VecGetSubVector(x, is, &ys[i]); CHKERRQ(ierr);
+    ierr = ISDestroy(&is); CHKERRQ(ierr);
+  }
+
+  return 0;
+}
+PetscErrorCode PartialCoulomb(int q, double r1, double r2, double *y) {
+
+  if(q < 0) {
+    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_ARG_OUTOFRANGE, 
+	    "q must be non negative integer");
+  }
+
+  double g = r1>r2 ? r1 : r2;
+  double s = r1>r2 ? r2 : r1;
+  *y = pow(s/g, q)/g;
+  return 0;
+}
+
+PetscErrorCode LegGauss(int n, int i, PetscScalar* x, PetscScalar* w) {
+  PetscScalar xs[45] = {
+    0.0, -0.5773502691896257, 0.5773502691896257, -0.7745966692414834, 0.0, 0.7745966692414834, -0.8611363115940526, -0.33998104358485626, 0.33998104358485626, 0.8611363115940526, -0.906179845938664, -0.5384693101056831, 0.0, 0.5384693101056831, 0.906179845938664, -0.932469514203152, -0.6612093864662645, -0.23861918608319693, 0.23861918608319693, 0.6612093864662645, 0.932469514203152, -0.9491079123427585, -0.7415311855993945, -0.4058451513773972, 0.0, 0.4058451513773972, 0.7415311855993945, 0.9491079123427585, -0.9602898564975362, -0.7966664774136267, -0.525532409916329, -0.18343464249564984, 0.18343464249564984, 0.525532409916329, 0.7966664774136267, 0.9602898564975362, -0.9681602395076261, -0.8360311073266358, -0.6133714327005904, -0.3242534234038089, 0.0, 0.3242534234038089, 0.6133714327005904, 0.8360311073266358, 0.9681602395076261};
+  PetscScalar ws[45] = {
+    2.0, 1.0, 1.0, 0.5555555555555555, 0.888888888888889, 0.5555555555555555, 0.34785484513745396, 0.6521451548625462, 0.6521451548625462, 0.34785484513745396, 0.236926885056189, 0.4786286704993665, 0.5688888888888888, 0.4786286704993665, 0.236926885056189, 0.17132449237916944, 0.36076157304813883, 0.4679139345726918, 0.4679139345726918, 0.36076157304813883, 0.17132449237916944, 0.12948496616886826, 0.2797053914892774, 0.38183005050511937, 0.41795918367347007, 0.38183005050511937, 0.2797053914892774, 0.12948496616886826, 0.10122853629037527, 0.22238103445337512, 0.3137066458778874, 0.362683783378362, 0.362683783378362, 0.3137066458778874, 0.22238103445337512, 0.10122853629037527, 0.08127438836157427, 0.18064816069485748, 0.2606106964029357, 0.31234707704000275, 0.3302393550012596, 0.31234707704000275, 0.2606106964029357, 0.18064816069485748, 0.0812743883615742};
+
+  *x = xs[n * (n-1)/2 + i];
+  *w = ws[n * (n-1)/2 + i];
+  return 0;
+}
+PetscErrorCode LobGauss(int n, int i, PetscScalar* x, PetscScalar* w) {
+  PetscScalar xs[44] = {
+    -1.0, 1.0, 
+    -1.0, 0.0, 1.0, 
+    -1.0, -0.4472135954999579, 0.4472135954999579, 1.0, 
+    -1.0, -0.6546536707079772, 0.0, 0.6546536707079772, 1.0,
+    -1.0, -0.7650553239294647, -0.2852315164806451, 0.2852315164806451, 0.7650553239294647, 1.0, 
+    -1.0, -0.830223896278567, -0.46884879347071423, 0.0, 0.46884879347071423,
+ 0.830223896278567, 1.0, 
+    -1.0, -0.8717401485096066, -0.5917001814331423, -0.20929921790247888, 0.20929921790247888, 0.5917001814331423, 0.8717401485096066, 1.0,
+    -1.0, -0.8997579954114602, -0.6771862795107377, -0.36311746382617816, 0.0,
+ 0.36311746382617816, 0.6771862795107377, 0.8997579954114602, 1.0};
+
+  PetscScalar ws[44] = {
+    1.0, 1.0, 
+    0.3333333333333333, 1.3333333333333333, 0.3333333333333333, 
+    0.16666666666666666, 0.8333333333333333, 0.8333333333333333, 0.16666666666666666, 0.1, 0.5444444444444444, 0.7111111111111111, 0.5444444444444444, 0.1, 0.06666666666666667, 0.3784749562978472, 0.5548583770354865, 0.5548583770354865, 0.3784749562978472, 0.06666666666666667, 0.047619047619047616, 0.2768260473615648, 0.4317453812098626, 0.4876190476190476, 0.4317453812098626, 0.2768260473615648, 0.047619047619047616, 0.03571428571428571, 0.21070422714350345, 0.3411226924835027, 0.4124587946587037, 0.4124587946587037, 0.3411226924835027, 0.21070422714350345, 0.03571428571428571, 0.027777777777777776, 0.1654953615608063, 0.2745387125001616, 0.34642851097304617, 0.37151927437641724, 0.34642851097304617, 0.2745387125001616, 0.1654953615608063, 0.027777777777777776};
+  
+  int idx = n*(n-1)/2 + i - 1;
+  if(idx >= 44)
+    SETERRQ(PETSC_COMM_SELF, 1, "index over flow");
+
+  *x = xs[idx];
+  *w = ws[idx];
+  return 0;
+}
+ 
+// ---- begin old code ----
 PetscErrorCode EPSWriteToFile(EPS eps, char* path_detail, char* path_eigvals, char* path_eigvecs) {
 
   /*
@@ -234,6 +220,110 @@ PetscErrorCode EPSSetGuessFromFiles(EPS eps, MPI_Comm comm, char **fn_list, int 
   ierr = EPSSetInitialSpace(eps, n, xs);
   return 0;
 }
+
+
+PetscErrorCode MatCreateFromCOOFormatFileHandler(FILE* fp, Mat* mat) {
+
+  PetscInt col, row;
+  PetscErrorCode ierr;
+  int num_data, num_row, num_col;
+  PetscScalar dat;  
+
+  if(fp == NULL) {
+    char msg[256] = "file path is NULL";
+    SETERRQ(PETSC_COMM_WORLD, 1, msg);
+  }
+
+  if(fscanf(fp, "%d %d %d", &num_row, &num_col, &num_data) == EOF) {
+    const char* msg = "Failed to read first line. Expected format is:\n num_row, num_col, num_data\0";
+    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_FILE_UNEXPECTED, msg);
+  }
+  
+  if(num_data <= 0 || num_row <= 0 || num_col <= 0 || num_row != num_col) {
+    char msg[256];
+    sprintf(msg, "Invalid head value. num_data=%d, num_row=%d, num_col=%d", 
+	    num_data, num_row, num_col);
+    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_FILE_UNEXPECTED, msg);    
+  }
+
+  // Create Mat
+  ierr = MatCreate(PETSC_COMM_WORLD, mat); CHKERRQ(ierr);
+  ierr = MatSetSizes(*mat, PETSC_DECIDE, PETSC_DECIDE, num_row, num_col); CHKERRQ(ierr);
+  ierr = MatSetFromOptions(*mat); CHKERRQ(ierr);
+  ierr = MatSetUp(*mat); CHKERRQ(ierr);
+
+  #if defined(PETSC_USE_COMPLEX)
+  PetscReal a, b;
+  while(fscanf(fp, "%d %d %lf %lf", &row, &col, &a, &b) != EOF) {
+    dat = a + b * PETSC_i;
+    ierr = MatSetValue(*mat, row, col, dat, INSERT_VALUES); CHKERRQ(ierr);
+  }
+  #else
+  while(fscanf(fp, "%d %d %lf", &row, &col, &dat) != EOF) {
+    ierr = MatSetValue(*mat, row, col, dat, INSERT_VALUES); CHKERRQ(ierr);
+  }
+  #endif
+
+  MatAssemblyBegin(*mat, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(*mat, MAT_FINAL_ASSEMBLY);
+  return 0;
+}
+PetscErrorCode MatCreateFromCOOFormatFile(char* path, Mat* mat) {
+
+  PetscErrorCode ierr;
+  FILE* fp = NULL;
+
+  if((fp = fopen(path, "r")) == NULL) {
+    char msg[256];
+    sprintf(msg, "Failed to open file. Target file path is :%s", path);
+    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_FILE_OPEN, msg);
+  }
+
+  ierr = MatCreateFromCOOFormatFileHandler(fp, mat); CHKERRQ(ierr);
+
+  fclose(fp);
+  return 0;
+}
+PetscErrorCode VecCreateFromFile(const char* path, MPI_Comm comm, Vec *v ) {
+
+  PetscErrorCode ierr;
+  FILE *fp = NULL;
+  
+  if((fp = fopen(path, "r")) == NULL) {
+    char msg[256]; 
+    sprintf(msg, "Failed to open file: %s", path);
+    SETERRQ(comm, 1, "failed to open file");
+  }
+
+  PetscInt n;
+  if(fscanf(fp, "%d", &n) == EOF) {
+    SETERRQ(comm, 1, "failed to read header (# of data)");
+  }
+
+  VecCreate(comm, v);
+  VecSetSizes(*v, PETSC_DECIDE, n);
+  VecSetFromOptions(*v);
+  VecSetUp(*v);
+
+  PetscInt i = 0;
+  double x;
+  while(fscanf(fp, "%lf", &x) != EOF) {
+    ierr = VecSetValue(*v, i, x, INSERT_VALUES); CHKERRQ(ierr);
+    i++;
+  }
+  fclose(fp);
+  VecAssemblyBegin(*v);VecAssemblyEnd(*v);
+
+  return 0;
+}
+PetscErrorCode MatSetDirFile(const char* dn, const char* fn, Mat *M) {
+  PetscErrorCode ierr;
+  char path[100];
+  sprintf(path, "%s/%s", dn, fn);
+  ierr = MatCreateFromCOOFormatFile(path, M); CHKERRQ(ierr);  
+  return 0;
+}
+
 
 PetscErrorCode VecSynthesizeSymbolic(Vec A, Vec B, Vec *C) {
   /*
@@ -373,22 +463,6 @@ PetscErrorCode VecSynthesize(Vec A, Vec B, PetscScalar c,
 
   return 0;
 }
-PetscErrorCode VecNormalizeForS(Mat S, Vec x) {
-
-  PetscScalar v[1]; PetscInt idx[1] = {1};
-  VecGetValues(x, 1, idx, v);
-  PetscScalar scale_factor = v[0] / cabs(v[0]);
-  VecScale(x, 1.0/scale_factor);
-
-  PetscScalar norm0;
-  Vec Sx;  MatCreateVecs(S, &Sx, NULL); 
-  MatMult(S, x, Sx); VecDot(x, Sx, &norm0);
-
-  VecScale(x, 1.0/sqrt(norm0));
-
-  return 0;
-}
-
 PetscErrorCode MatSynthesizeCreate(Mat A, Mat B, Mat *C) {
   PetscErrorCode ierr;
   MPI_Comm comm;   PetscObjectGetComm((PetscObject)A, &comm);
@@ -589,7 +663,7 @@ PetscErrorCode MatSynthesize3(Mat A, Mat B, Mat C,
   return 0;
 }
 
-// ---- begin old code ----
+
 PetscErrorCode MatInitSynthesize(Mat A, Mat B, MPI_Comm comm, Mat *C) {
 
   PetscInt na, nb, ma, mb;
@@ -759,77 +833,3 @@ PetscErrorCode MatSetSynthesize3Fast(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D)
 
 }
 // ---- end old code -----
-
-PetscErrorCode VecSplit(Vec x, PetscInt n, Vec* ys) {
-  /*
-    split one vector x to n vectors ys.
-  */
-  PetscErrorCode ierr;
-  MPI_Comm comm; 
-  ierr = PetscObjectGetComm((PetscObject)x, &comm); CHKERRQ(ierr);
-
-  PetscInt nx; 
-  ierr = VecGetSize(x, &nx); CHKERRQ(ierr);
-
-  PetscInt ny = nx/n;
-
-  for(int i = 0; i < n; i++) {
-    IS is; 
-    ierr = ISCreateStride(comm, ny, i*ny, 1, &is); CHKERRQ(ierr);
-    ierr = VecGetSubVector(x, is, &ys[i]); CHKERRQ(ierr);
-    ierr = ISDestroy(&is); CHKERRQ(ierr);
-  }
-
-  return 0;
-}
-
-PetscErrorCode PartialCoulomb(int q, double r1, double r2, double *y) {
-
-  if(q < 0) {
-    SETERRQ(PETSC_COMM_WORLD, PETSC_ERR_ARG_OUTOFRANGE, 
-	    "q must be non negative integer");
-  }
-
-  double g = r1>r2 ? r1 : r2;
-  double s = r1>r2 ? r2 : r1;
-  *y = pow(s/g, q)/g;
-  return 0;
-}
-
-PetscErrorCode LegGauss(int n, int i, PetscScalar* x, PetscScalar* w) {
-  PetscScalar xs[45] = {
-    0.0, -0.5773502691896257, 0.5773502691896257, -0.7745966692414834, 0.0, 0.7745966692414834, -0.8611363115940526, -0.33998104358485626, 0.33998104358485626, 0.8611363115940526, -0.906179845938664, -0.5384693101056831, 0.0, 0.5384693101056831, 0.906179845938664, -0.932469514203152, -0.6612093864662645, -0.23861918608319693, 0.23861918608319693, 0.6612093864662645, 0.932469514203152, -0.9491079123427585, -0.7415311855993945, -0.4058451513773972, 0.0, 0.4058451513773972, 0.7415311855993945, 0.9491079123427585, -0.9602898564975362, -0.7966664774136267, -0.525532409916329, -0.18343464249564984, 0.18343464249564984, 0.525532409916329, 0.7966664774136267, 0.9602898564975362, -0.9681602395076261, -0.8360311073266358, -0.6133714327005904, -0.3242534234038089, 0.0, 0.3242534234038089, 0.6133714327005904, 0.8360311073266358, 0.9681602395076261};
-  PetscScalar ws[45] = {
-    2.0, 1.0, 1.0, 0.5555555555555555, 0.888888888888889, 0.5555555555555555, 0.34785484513745396, 0.6521451548625462, 0.6521451548625462, 0.34785484513745396, 0.236926885056189, 0.4786286704993665, 0.5688888888888888, 0.4786286704993665, 0.236926885056189, 0.17132449237916944, 0.36076157304813883, 0.4679139345726918, 0.4679139345726918, 0.36076157304813883, 0.17132449237916944, 0.12948496616886826, 0.2797053914892774, 0.38183005050511937, 0.41795918367347007, 0.38183005050511937, 0.2797053914892774, 0.12948496616886826, 0.10122853629037527, 0.22238103445337512, 0.3137066458778874, 0.362683783378362, 0.362683783378362, 0.3137066458778874, 0.22238103445337512, 0.10122853629037527, 0.08127438836157427, 0.18064816069485748, 0.2606106964029357, 0.31234707704000275, 0.3302393550012596, 0.31234707704000275, 0.2606106964029357, 0.18064816069485748, 0.0812743883615742};
-
-  *x = xs[n * (n-1)/2 + i];
-  *w = ws[n * (n-1)/2 + i];
-  return 0;
-}
-PetscErrorCode LobGauss(int n, int i, PetscScalar* x, PetscScalar* w) {
-  PetscScalar xs[44] = {
-    -1.0, 1.0, 
-    -1.0, 0.0, 1.0, 
-    -1.0, -0.4472135954999579, 0.4472135954999579, 1.0, 
-    -1.0, -0.6546536707079772, 0.0, 0.6546536707079772, 1.0,
-    -1.0, -0.7650553239294647, -0.2852315164806451, 0.2852315164806451, 0.7650553239294647, 1.0, 
-    -1.0, -0.830223896278567, -0.46884879347071423, 0.0, 0.46884879347071423,
- 0.830223896278567, 1.0, 
-    -1.0, -0.8717401485096066, -0.5917001814331423, -0.20929921790247888, 0.20929921790247888, 0.5917001814331423, 0.8717401485096066, 1.0,
-    -1.0, -0.8997579954114602, -0.6771862795107377, -0.36311746382617816, 0.0,
- 0.36311746382617816, 0.6771862795107377, 0.8997579954114602, 1.0};
-
-  PetscScalar ws[44] = {
-    1.0, 1.0, 
-    0.3333333333333333, 1.3333333333333333, 0.3333333333333333, 
-    0.16666666666666666, 0.8333333333333333, 0.8333333333333333, 0.16666666666666666, 0.1, 0.5444444444444444, 0.7111111111111111, 0.5444444444444444, 0.1, 0.06666666666666667, 0.3784749562978472, 0.5548583770354865, 0.5548583770354865, 0.3784749562978472, 0.06666666666666667, 0.047619047619047616, 0.2768260473615648, 0.4317453812098626, 0.4876190476190476, 0.4317453812098626, 0.2768260473615648, 0.047619047619047616, 0.03571428571428571, 0.21070422714350345, 0.3411226924835027, 0.4124587946587037, 0.4124587946587037, 0.3411226924835027, 0.21070422714350345, 0.03571428571428571, 0.027777777777777776, 0.1654953615608063, 0.2745387125001616, 0.34642851097304617, 0.37151927437641724, 0.34642851097304617, 0.2745387125001616, 0.1654953615608063, 0.027777777777777776};
-  
-  int idx = n*(n-1)/2 + i - 1;
-  if(idx >= 44)
-    SETERRQ(PETSC_COMM_SELF, 1, "index over flow");
-
-  *x = xs[idx];
-  *w = ws[idx];
-  return 0;
-}
- 

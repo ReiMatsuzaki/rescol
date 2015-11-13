@@ -2,7 +2,7 @@
 #include <gtest/gtest.h>
 #include <rescol/oce2.h>
 
-static char help[] = "Unit test for oce_two.c";
+static char help[] = "Unit test for oce2.c";
 
 class TestOCE2 : public ::testing::Test {
 public:
