@@ -115,12 +115,17 @@ PetscErrorCode BSSCreate(MPI_Comm comm, BSS *p_self) {
 
   self->vals = NULL;
   self->derivs = NULL;
+
+  self->set_knots = PETSC_FALSE;
+  self->setup = PETSC_FALSE;
     
   *p_self = self;
   return 0;
 }
 PetscErrorCode BSSDestroy(BSS *p_self) {
   PetscErrorCode ierr;
+  ierr = BSSCheck(*p_self); CHKERRQ(ierr);
+
   BSS self = *p_self;
   ierr = BPSDestroy(&self->bps); CHKERRQ(ierr);
   ierr = PFDestroy(&self->c_scaling); CHKERRQ(ierr);
@@ -141,26 +146,52 @@ PetscErrorCode BSSDestroy(BSS *p_self) {
 
 PetscErrorCode BSSView(BSS self, PetscViewer v) {
 
-  PetscViewerType type;
-  PetscViewerGetType(v, &type);
+  PetscErrorCode ierr;
+  ierr = BSSCheck(self); CHKERRQ(ierr);
 
-  if(strcmp(type, "ascii") != 0) 
-    SETERRQ(self->comm, 1, "unsupported type");
+  PetscBool iascii, isbinary, isdraw;
+  PetscViewerType type;     PetscViewerGetType(v, &type);
+  PetscViewerFormat format; PetscViewerGetFormat(v, &format);
+  
 
-  PetscViewerASCIIPrintf(v, ">>>> B-Spline >>>>\n");
-  PetscViewerASCIIPrintf(v, "order: %d\n", self->order);  
-  PetscViewerASCIIPrintf(v, "num_ele: %d\n", self->num_ele);
-  PetscViewerASCIIPrintf(v, "num_basis: %d\n", self->num_basis);
-  BPSView(self->bps, v);  
-  PFView(self->c_scaling, v);
-  PetscViewerASCIIPrintf(v, "<<<< B-Spline <<<<\n");
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERASCII,&iascii);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERBINARY,&isbinary);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERDRAW,&isdraw);
+  CHKERRQ(ierr);    
 
+  if(iascii) {
+    PetscViewerASCIIPrintf(v, "BSS object:\n");
+    PetscViewerASCIIPushTab(v);
+    PetscViewerASCIIPrintf(v, "order: %d\n", self->order);  
+    PetscViewerASCIIPrintf(v, "num_ele: %d\n", self->num_ele);
+    PetscViewerASCIIPrintf(v, "num_basis: %d\n", self->num_basis);
+    BPSView(self->bps, v);  
+    PFView(self->c_scaling, v);
+    if(format == PETSC_VIEWER_ASCII_INFO_DETAIL) {
+      PetscViewerASCIIPrintf(v, "b_idx_list: ");
+      for(int i = 0; i < self->num_basis; i++)
+	PetscViewerASCIIPrintf(v, " %d ", self->b_idx_list[i]);	
+    }
+    PetscViewerASCIIPopTab(v);
+  } else if(isbinary) {
+
+  } else if(isdraw) {
+
+  }
+  return 0;
+}
+PetscErrorCode BSSCheck(BSS self) {
+  if(!self->setup)
+    SETERRQ(self->comm, 1, "BSS object is not setup. Call BSSSetKnots and BSSSetUp first");
   return 0;
 }
 
 PetscErrorCode BSSSetKnots(BSS self, int order, BPS bps) {
 
   PetscErrorCode ierr;
+  
 
   self->order = order;
   self->bps = bps;
@@ -190,6 +221,7 @@ PetscErrorCode BSSSetKnots(BSS self, int order, BPS bps) {
 
 
   PetscFree(zs);
+  self->set_knots = PETSC_TRUE;
   return 0;
 }
 PetscErrorCode BSSSetCScaling(BSS self, CScaling c_scaling) {
@@ -206,6 +238,10 @@ PetscErrorCode BSSSetCScaling(BSS self, CScaling c_scaling) {
 PetscErrorCode BSSSetUp(BSS self) {
 
   PetscErrorCode ierr;
+
+  // check knots are setted
+  if(!self->set_knots)
+    SETERRQ(self->comm, 1, "Knots information is not setted. Call BSSSetKnots first.");
 
   //  set default scaler
   if(self->c_scaling == NULL) 
@@ -257,7 +293,7 @@ PetscErrorCode BSSSetUp(BSS self) {
   int n_xs = self->num_ele * self->order;
   ierr = CScalingCalc(self->c_scaling, self->xs, n_xs,
 		      self->qrs, self->Rrs); CHKERRQ(ierr);
-
+  self->setup = PETSC_TRUE;
   return 0;
 }
 PetscErrorCode BSSSetFromOptions(BSS self) {
@@ -282,6 +318,7 @@ PetscErrorCode BSSSetFromOptions(BSS self) {
 PetscErrorCode BSSPsi(BSS self, Vec c, PetscReal x, PetscScalar *y) {
 
   PetscErrorCode ierr;
+  ierr = BSSCheck(self); CHKERRQ(ierr);
 
   int n; BSSGetSize(self, &n);
   Vec us; BSSCreateR1Vec(self, &us);
@@ -295,11 +332,13 @@ PetscErrorCode BSSPsi(BSS self, Vec c, PetscReal x, PetscScalar *y) {
   PetscScalar yy;
   VecTDot(us, c, &yy);
   *y = yy;
-
+  VecDestroy(&us);
   return 0;
 }
 PetscErrorCode BSSBasisPsi(BSS self, int i, PetscReal x, PetscScalar *y) {
-  
+
+  PetscErrorCode ierr;
+  ierr = BSSCheck(self); CHKERRQ(ierr);
   PetscScalar z;
   CalcBSpline(self->order, 
 	      self->ts_r, 
@@ -311,6 +350,9 @@ PetscErrorCode BSSBasisPsi(BSS self, int i, PetscReal x, PetscScalar *y) {
   return 0;
 }
 PetscErrorCode BSSDerivBasisPsi(BSS self, int i, PetscReal x, PetscScalar *y) {
+
+  PetscErrorCode ierr;
+  ierr = BSSCheck(self); CHKERRQ(ierr);
   PetscScalar z;
   CalcDerivBSpline(self->order, 
 		   self->ts_r, 
@@ -322,12 +364,18 @@ PetscErrorCode BSSDerivBasisPsi(BSS self, int i, PetscReal x, PetscScalar *y) {
   return 0;
 }
 PetscErrorCode BSSGetSize(BSS self, int *n) {
+  PetscErrorCode ierr;
+  ierr = BSSCheck(self); CHKERRQ(ierr);
   *n = self->num_basis;
   return 0;
 }
  
 // ---- Matrix -----
 PetscErrorCode BSSCreateR1Mat(BSS self, Mat *M) {
+
+  PetscErrorCode ierr;
+  ierr = BSSCheck(self); CHKERRQ(ierr);
+
   int nb = self->num_basis;
   MatCreate(self->comm, M);
   MatSetSizes(*M, PETSC_DECIDE, PETSC_DECIDE, nb, nb);
@@ -335,6 +383,10 @@ PetscErrorCode BSSCreateR1Mat(BSS self, Mat *M) {
   return 0;
 }
 PetscErrorCode BSSCreateR2Mat(BSS self, Mat *M) {
+
+  PetscErrorCode ierr;
+  ierr = BSSCheck(self); CHKERRQ(ierr);
+
   int nb = self->num_basis;
   MatCreate(self->comm, M);
   MatSetSizes(*M, PETSC_DECIDE, PETSC_DECIDE, nb*nb, nb*nb);
@@ -342,6 +394,10 @@ PetscErrorCode BSSCreateR2Mat(BSS self, Mat *M) {
   return 0;
 }
 PetscErrorCode BSSCreateR1Vec(BSS self, Vec *v) {
+
+  PetscErrorCode ierr;
+  ierr = BSSCheck(self); CHKERRQ(ierr);
+
   int nb = self->num_basis;
   VecCreate(self->comm, v);
   VecSetSizes(*v, PETSC_DECIDE, nb);
@@ -355,6 +411,9 @@ PetscErrorCode BSSSR1Mat(BSS self, Mat M) {
   int ne = self->num_ele;
   int nq = self->order;
   PetscErrorCode ierr;
+  ierr = BSSCheck(self); CHKERRQ(ierr);
+
+
   InsertMode mode = INSERT_VALUES;
 
   for(i = 0; i < nb; i++)
@@ -378,6 +437,7 @@ PetscErrorCode BSSR2invR1Mat(BSS self, Mat M) {
   int ne = self->num_ele;
   int nq = self->order;
   PetscErrorCode ierr;
+  ierr = BSSCheck(self); CHKERRQ(ierr);
   InsertMode mode = INSERT_VALUES;
 
   for(i = 0; i < nb; i++)
@@ -406,6 +466,7 @@ PetscErrorCode BSSD2R1Mat(BSS self, Mat M) {
   int ne = self->num_ele;
   int nq = self->order;
   PetscErrorCode ierr;
+  ierr = BSSCheck(self); CHKERRQ(ierr);
   InsertMode mode = INSERT_VALUES;
 
   for(i = 0; i < nb; i++)
@@ -427,6 +488,7 @@ PetscErrorCode BSSENR1Mat(BSS self, int q, PetscReal a, Mat M) {
   int ne = self->num_ele;
   int nq = order*ne;
   PetscErrorCode ierr;
+  ierr = BSSCheck(self); CHKERRQ(ierr);
   InsertMode mode = INSERT_VALUES;
 
   PetscScalar *vs; 
@@ -462,6 +524,7 @@ PetscErrorCode BSSPotR1Mat(BSS self, PF pot, Mat M) {
   int ne = self->num_ele;
   int nq = order*ne;
   PetscErrorCode ierr;
+  ierr = BSSCheck(self); CHKERRQ(ierr);
   InsertMode mode = INSERT_VALUES;
 
   PetscScalar *vs; PetscMalloc1(nq, &vs);
@@ -489,13 +552,39 @@ PetscErrorCode BSSPotR1Mat(BSS self, PF pot, Mat M) {
   MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
   return 0;  
 }
+PetscErrorCode BSSPotR1Vec(BSS self, PF pot, Vec V) {
+  int order = self->order;
+  int nb = self->num_basis;
+  int ne = self->num_ele;
+  int nq = order*ne;
 
+  PetscErrorCode ierr;
+  ierr = BSSCheck(self); CHKERRQ(ierr);
+
+  PetscScalar *vs; PetscMalloc1(nq, &vs);  
+  ierr = PFApply(pot, nq, self->xs_s, vs); CHKERRQ(ierr);
+  for(int i = 0; i < nb; i++) {
+    int k0, k1; Non0QuadIndex(i, i, order, nq, &k0, &k1);
+    PetscScalar v = 0.0;
+    for(int k = k0; k < k1; k++) {
+      v += self->vals[k+i*nq] * self->ws[k] * self->qrs[k] * vs[k];
+    }
+    ierr = VecSetValue(V, i, v, INSERT_VALUES); CHKERRQ(ierr);
+  }
+
+  PetscFree(vs);
+  VecAssemblyBegin(V);
+  VecAssemblyEnd(V);
+
+  return 0;
+}
 PetscErrorCode BSSEER2Mat(BSS self, int q, Mat M) {
 
   int k = self->order;
   int nb = self->num_basis;
   int nq = self->order * self->num_ele;
   PetscErrorCode ierr;
+  ierr = BSSCheck(self); CHKERRQ(ierr);
   InsertMode mode = INSERT_VALUES;
 
   PetscScalar *sg_ij; 
@@ -563,6 +652,7 @@ PetscErrorCode BSSEER2Mat_ver1(BSS self, int q, Mat M) {
   int nb = self->num_basis;
   int nq = self->order * self->num_ele;
   PetscErrorCode ierr;
+  ierr = BSSCheck(self); CHKERRQ(ierr);
   InsertMode mode = INSERT_VALUES;
 
   double *sg_ij;

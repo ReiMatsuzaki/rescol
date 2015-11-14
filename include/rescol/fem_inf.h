@@ -27,6 +27,7 @@ typedef struct {
   PetscErrorCode (*R2invR1Mat)();
   PetscErrorCode (*ENR1Mat)();
   PetscErrorCode (*PotR1Mat)();
+  PetscErrorCode (*PotR1Vec)();
   PetscErrorCode (*EER2Mat)();
   PetscBool overlap_is_id;  
 } FEMSc;
@@ -48,6 +49,7 @@ PetscErrorCode FEMInfCreate(MPI_Comm comm, FEMInf *inf);
 PetscErrorCode FEMInfDestroy(FEMInf *inf);
 //PetscErrorCode FEMInfCreateFD(FEMInf *inf, FD self);
 PetscErrorCode FEMInfView(FEMInf self, PetscViewer v);
+PetscErrorCode FEMInfViewFunc(FEMInf self, Vec c, ViewerFunc v);
 
 // ---- Accessor ----
 PetscErrorCode FEMInfSetFromOptions(FEMInf self);
@@ -58,6 +60,7 @@ PetscErrorCode FEMInfGetOverlapIsId(FEMInf self, PetscBool *is_id);
 // ---- calculation -----
 //PetscErrorCode FEMInfBasisPsi(FEMInf self, int i, PetscScalar x, PetscScalar *y);
 PetscErrorCode FEMInfPsi(FEMInf self, Vec c, PetscReal x, PetscScalar *y);
+PetscErrorCode FEMInfFit(FEMInf self, PF pf, KSP ksp, Vec c);
 PetscErrorCode FEMInfGuessHEig(FEMInf self, int n, int l, PetscScalar z, Vec *v);
 
 PetscErrorCode FEMInfCreateMat(FEMInf self, int dim, Mat *M);
@@ -69,6 +72,7 @@ PetscErrorCode FEMInfD2R1Mat(FEMInf self, Mat M);
 PetscErrorCode FEMInfR2invR1Mat(FEMInf self, Mat M);
 PetscErrorCode FEMInfENR1Mat(FEMInf self, int q, double a, Mat M); 
 PetscErrorCode FEMInfPotR1Mat(FEMInf self, Pot pot, Mat M);
+PetscErrorCode FEMInfPotR1Vec(FEMInf self, Pot pot, Vec V);
 PetscErrorCode FEMInfEER2Mat(FEMInf self, int q, Mat M); 
 
 #ifdef __cplusplus

@@ -49,6 +49,8 @@ TEST(Y1, Y1s) {
   Y1sSet(y1s, SIGMA, GERADE, 5);
   int n; Y1sGetSize(y1s, &n);
   ASSERT_EQ(3, n);
+  if(getenv("SHOW_DEBUG"))
+    Y1sView(y1s, PETSC_VIEWER_STDOUT_SELF);
   Y1sDestroy(&y1s);
 }
 TEST(Y2, Pq) {
@@ -101,6 +103,9 @@ TEST_F(TestY2s, LMax) {
   int LMax;
   Y2sGetMaxL(y2s, &LMax);
   ASSERT_EQ(2, LMax);
+
+  if(getenv("SHOW_DEBUG"))
+    Y2sView(y2s, PETSC_VIEWER_STDOUT_SELF);
 }
 TEST_F(TestY2s, S) {
   Mat M; Y2sCreateY2Mat(y2s, &M);

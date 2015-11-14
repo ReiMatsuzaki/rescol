@@ -9,7 +9,7 @@ PetscErrorCode NoneApply(void *ctx, PetscInt n,
   return 0;
 }
 PetscErrorCode NoneView(void *ctx, PetscViewer v) {
-  PetscViewerASCIIPrintf(v, "Complex Scaling (None)\n");
+  PetscViewerASCIIPrintf(v, "type: Complex Scaling (None)\n");
   return 0;
 }
 
@@ -27,7 +27,7 @@ PetscErrorCode UniformCSApply(void *ctx, PetscInt n,
 PetscErrorCode UniformCSView(void *ctx, PetscViewer v) {
   UniformCS* cs = (UniformCS*)ctx;
   PetscReal t = cs->theta;    
-  PetscViewerASCIIPrintf(v, "Complex Scaling (Uniform)\n");
+  PetscViewerASCIIPrintf(v, "type :  Complex Scaling (Uniform)\n");
   PetscViewerASCIIPrintf(v, "theta : %f\n", t);
   return 0;
 }
@@ -60,9 +60,9 @@ PetscErrorCode SharpECSView(void *ctx, PetscViewer v) {
   SharpECS* cs = (SharpECS*)ctx;
   PetscReal r0 = cs->r0;  
   PetscReal t = cs->theta;  
-  PetscViewerASCIIPrintf(v, "Complex Scaling (Sharp Exterior)\n");
-  PetscViewerASCIIPrintf(v, "r0    = %f\n", r0);
-  PetscViewerASCIIPrintf(v, "theta = %f\n", t);
+  PetscViewerASCIIPrintf(v, "type  : Complex Scaling (Sharp Exterior)\n");
+  PetscViewerASCIIPrintf(v, "r0    : %f\n", r0);
+  PetscViewerASCIIPrintf(v, "theta : %f\n", t);
   return 0;
 }
 PetscErrorCode SharpECSDestroy(void *ctx) {

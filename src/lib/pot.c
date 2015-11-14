@@ -111,13 +111,25 @@ PetscErrorCode SlaterApply(void *ctx, int n, const PetscScalar *x, PetscScalar *
 }
 PetscErrorCode SlaterView(void *ctx, PetscViewer v) {
   Slater *self = (Slater*)ctx;
-  PetscViewerASCIIPrintf(v, ">>> POT(Slater) >>>\n");
+  PetscErrorCode ierr;
+  PetscBool iascii, isbinary, isdraw;
+  PetscViewerType type;     PetscViewerGetType(v, &type);
+  PetscViewerFormat format; PetscViewerGetFormat(v, &format);
+
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERASCII,&iascii);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERBINARY,&isbinary);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERDRAW,&isdraw);
+  CHKERRQ(ierr);    
+
+  PetscViewerASCIIPrintf(v, "type: Potential(Slater) \n");
   PetscViewerASCIIPrintf(v, "         n -zx \n");
   PetscViewerASCIIPrintf(v, "v(x) = Ax e    \n");
   PetscViewerASCIIPrintf(v, "A = %f\n", self->a);
   PetscViewerASCIIPrintf(v, "n = %d\n", self->n);
   PetscViewerASCIIPrintf(v, "z = %f\n", self->z);
-  PetscViewerASCIIPrintf(v, "<<< POT(Slater) <<<\n");  
+
   return 0;
 }
 PetscErrorCode SlaterDestroy(void *ctx) {

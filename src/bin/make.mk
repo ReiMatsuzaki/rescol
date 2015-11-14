@@ -31,6 +31,14 @@ check_h_pi: h_pi.out
 	-bps_num_zs 101 -bps_zmax 100.0 -bps_type line \
 	-cscaling_type secs -cscaling_r0 70.0 -cscaling_theta 20.0
 
+fit.out: ${OBJ_FEM} viewerfunc.o pot.o synthesize.o wavefunc.o
+.PHONY: check_fit
+check_fit: fit.out
+	./$< -fem_type bss -bss_order 4 \
+	-bps_num_zs 51 -bps_zmax 51.0 -bps_type line \
+	-wavefunc_type heig -wavefunc_heig_n 1 -wavefunc_heig_l 0 \
+	-viewerfunc_xmax 20.0 -viewerfunc_num 200 -viewerfunc_view ascii:tmp/fit.dat
+
 
 write_pot.out: ${OBJ_FEM} oce1.o angmoment.o pot.o viewerfunc.o
 .PHONY: check_write_pot
@@ -40,7 +48,7 @@ check_write_pot: write_pot.out
 	-malloc_dump
 
 
-eig_one.out: eig_one.o ${OBJ_FEM} oce1.o angmoment.o y1s.o eeps.o viewerfunc.o
+eig_one.out: eig_one.o ${OBJ_FEM} oce1.o angmoment.o y1s.o eeps.o viewerfunc.o synthesize.o
 .PHONY: check_eig_one
 check_eig_one: eig_one.out
 	./$< -fem_type bss -bss_order 4 \
@@ -50,7 +58,7 @@ check_eig_one: eig_one.out
 	-pot_type slater -pot_v0 3.5 -pot_n 2 -pot_z 1.0 \
 	-eps_nev 2 \
 	-eps_converged_reason \
-	-eeps_view_values ::ascii_info_detail -malloc_dump \
+	-eeps_view_values ::ascii_info_detail \
 	-viewerfunc_xmax 100.0 -viewerfunc_num 10 -viewerfunc_view ascii:stdout \
 	-malloc_dump
 

@@ -15,8 +15,8 @@ PetscErrorCode testVecSplit() {
   Vec x; 
   VecCreateSeqWithArray(comm, 12, 12, x0s, &x);
 
-  Vec *xs; PetscMalloc1(3, &xs);
-  ierr = VecSplit(x, 3, xs); CHKERRQ(ierr);
+  Vec *xs;
+  ierr = VecGetSplit(x, 3, &xs); CHKERRQ(ierr);
 
   PetscScalar vs[4];
   PetscInt    idx[4] = {0, 1, 2, 3};
@@ -40,9 +40,7 @@ PetscErrorCode testVecSplit() {
   ASSERT_DOUBLE_EQ(11.0, vs[2]);
   ASSERT_DOUBLE_EQ(12.1, vs[3]);
   
-  for(int i = 0; i < 3; i++)
-    VecDestroy(&xs[i]);
-  PetscFree(xs);
+  VecRestoreSplit(x, 3, &xs);
   PetscFree(x0s);
   VecDestroy(&x);
   

@@ -115,19 +115,37 @@ PetscErrorCode DVRDestroy(DVR *p_self) {
 
 PetscErrorCode DVRView(DVR self, PetscViewer v) {
 
-  PetscViewerType type;
-  PetscViewerGetType(v, &type);
 
-  if(strcmp(type, "ascii") != 0) 
-    SETERRQ(self->comm, 1, "unsupported type");
+  PetscErrorCode ierr;
+  PetscBool iascii, isbinary, isdraw;
+  PetscViewerType type;     PetscViewerGetType(v, &type);
+  PetscViewerFormat format; PetscViewerGetFormat(v, &format);
 
-  PetscViewerASCIIPrintf(v, ">>>> FEM-DVR >>>>\n");
-  PetscViewerASCIIPrintf(v, "nq: %d\n", self->nq);  
-  PetscViewerASCIIPrintf(v, "num_basis: %d\n", self->num_basis);
-  BPSView(self->bps, v);  
-  //  ScalerView(self->scaler, v);
-  PetscViewerASCIIPrintf(v, "<<<< FEM-DVR <<<<\n");
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERASCII,&iascii);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERBINARY,&isbinary);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERDRAW,&isdraw);
+  CHKERRQ(ierr);    
 
+  if(iascii) {
+    PetscViewerASCIIPrintf(v, "BSS object:\n");
+    PetscViewerASCIIPushTab(v);
+    PetscViewerASCIIPrintf(v, "nq: %d\n", self->nq);  
+    PetscViewerASCIIPrintf(v, "num_basis: %d\n", self->num_basis);
+    BPSView(self->bps, v);  
+    BPSView(self->bps, v);  
+    if(format == PETSC_VIEWER_ASCII_INFO_DETAIL) {
+      PetscViewerASCIIPrintf(v, "xs: ");
+      for(int i = 0; i < self->nq; i++)
+	PetscViewerASCIIPrintf(v, " %f ", self->xs[i]);	
+    }
+    PetscViewerASCIIPopTab(v);
+  } else if(isbinary) {
+
+  } else if(isdraw) {
+
+  }
   return 0;
 }
 

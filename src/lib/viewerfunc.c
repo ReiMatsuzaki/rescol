@@ -27,26 +27,33 @@ PetscErrorCode ViewerFuncDestroy(ViewerFunc *p_self) {
   return 0;
 }
 
-PetscErrorCode ViewerFuncView(ViewerFunc self, PetscViewer viewer) {
- 
-  PetscViewerType type;
-  PetscViewerGetType(viewer, &type);
+PetscErrorCode ViewerFuncView(ViewerFunc self, PetscViewer v) {
 
-  if(strcmp(type, "ascii") == 0) {
+  PetscErrorCode ierr;
 
-    FILE *fp;
-    PetscViewerASCIIGetPointer(viewer, &fp);
-    PetscFPrintf(self->comm, fp, ">>>> ViewerFunc >>>>\n");
-    PetscFPrintf(self->comm, fp, "num: %d\n", self->num);
-    PetscFPrintf(self->comm, fp, "x[0]: %d\n", self->xs[0]);
-    PetscFPrintf(self->comm, fp, "x[num-1]: %d\n", self->xs[self->num-1]);
-    PetscFPrintf(self->comm, fp, "<<<< ViewerFunc <<<<\n");
+  PetscBool iascii, isbinary, isdraw;
+  PetscViewerType type;     PetscViewerGetType(v, &type);
+  PetscViewerFormat format; PetscViewerGetFormat(v, &format);
 
-  } else {
-    SETERRQ(self->comm, 1, "unsupported type");
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERASCII,&iascii);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERBINARY,&isbinary);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERDRAW,&isdraw);
+  CHKERRQ(ierr);    
+
+  if(iascii) {
+    PetscViewerASCIIPrintf(v, "ViewerFunc object:\n");
+    PetscViewerASCIIPushTab(v);
+    PetscViewerASCIIPrintf(v, "num: %d\n", self->num);
+    PetscViewerASCIIPrintf(v, "x[0]: %d\n", self->xs[0]);
+    PetscViewerASCIIPrintf(v, "x[num-1]: %d\n", self->xs[self->num-1]);
+    PetscViewerASCIIPopTab(v);
+  } else if(isbinary) {
+
+  } else if(isdraw) {
+
   }
-  
- 
   return 0;
 }
 
@@ -58,8 +65,6 @@ PetscErrorCode ViewerFuncSetBase(ViewerFunc self, PetscViewer base) {
   return 0;
 }
 PetscErrorCode ViewerFuncSetRange(ViewerFunc self, int num, PetscReal xmax) {
-
-  printf("%d, %f\n", num, xmax);
 
   self->num = num;
   PetscReal h = xmax/num;  

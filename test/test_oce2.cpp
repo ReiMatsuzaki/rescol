@@ -6,22 +6,19 @@ static char help[] = "Unit test for oce2.c";
 
 class TestOCE2 : public ::testing::Test {
 public:
-  BPS bps;
-  BSS bss;
-  FEMInf fem;
-  Y2s y2s;
   OCE2 oce2;
 
   virtual void SetUp() {
     MPI_Comm comm = MPI_COMM_SELF;
     
-    BPSCreate(&bps, comm); BPSSetExp(bps, 30.0, 21, 5.0);
-    BSSCreate(&bss, 2, bps, NULL, comm);
-    FEMInfCreateBSS(&fem, bss);
-    Y2sCreate(&y2s, comm); Y2sSet(y2s, SIGMA, GERADE, PLUS, 2);
+    BPS bps; BPSCreate(comm, &bps); BPSSetExp(bps, 30.0, 21, 5.0);
+    BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, 2, bps); BSSSetUp(bss);
+    FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetBSS(fem, bss);
 
-    OCE2Create(&oce2, MPI_COMM_SELF); 
-    OCE2Set(oce2, fem, y2s); 
+    Y2s y2s; Y2sCreate(comm, &y2s); Y2sSet(y2s, SIGMA, GERADE, PLUS, 2);
+
+    OCE2Create(comm, &oce2); OCE2Set(oce2, fem, y2s);
+    
   }
   virtual void TearDown() {
     OCE2Destroy(&oce2);
@@ -30,15 +27,19 @@ public:
 };
 TEST_F(TestOCE2, He) {
 
-  if(getenv("SHOW_DEBUG"))
-    OCE2View(oce2);
-
-  Mat H, S;
+  PetscErrorCode ierr;
+  if(getenv("SHOW_DEBUG")) {
+    ierr = OCE2View(oce2, PETSC_VIEWER_STDOUT_SELF); ASSERT_EQ(0, ierr);
+  }
   
-  OCE2SetTMat(oce2, &H);
-  OCE2PlusVneMat(oce2, 0.0, 1.0, &H);
-  OCE2PlusVeeMat(oce2, &H);
-  OCE2SetSMat(oce2, &S);
+
+  Mat H; 
+  ierr = OCE2TMat(oce2, MAT_INITIAL_MATRIX, &H); ASSERT_EQ(0, ierr);
+  ierr = OCE2PlusVneMat(oce2, 0.0, 1.0, H); ASSERT_EQ(0, ierr);
+  ierr = OCE2PlusVeeMat(oce2, H); ASSERT_EQ(0, ierr);
+
+  Mat S;  
+  ierr = OCE2SMat(oce2, MAT_INITIAL_MATRIX, &S, NULL); ASSERT_EQ(0, ierr);
 
   EPS eps;
   EPSCreate(oce2->comm, &eps);  

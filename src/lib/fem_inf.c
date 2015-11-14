@@ -1,4 +1,5 @@
 #include <rescol/fem_inf.h>
+#include <petscdraw.h>
 
 // ----- Interface -----
 
@@ -21,6 +22,7 @@ PetscErrorCode FEMInfSetFD(FEMInf self, FD target) {
     FD_Sc.R2invR1Mat = FDR2invR1Mat;
     FD_Sc.ENR1Mat = FDENR1Mat;    
     FD_Sc.PotR1Mat = NULL;
+    FD_Sc.PotR1Vec = NULL;
     FD_Sc.EER2Mat = FDEER2Mat;        
 
     FD_Sc.overlap_is_id = PETSC_TRUE;    
@@ -51,6 +53,7 @@ PetscErrorCode FEMInfSetBSS(FEMInf self, BSS target) {
     BSS_Sc.R2invR1Mat = BSSR2invR1Mat;
     BSS_Sc.ENR1Mat = BSSENR1Mat;    
     BSS_Sc.PotR1Mat = BSSPotR1Mat;    
+    BSS_Sc.PotR1Vec = BSSPotR1Vec;
     BSS_Sc.EER2Mat = BSSEER2Mat;
     BSS_Sc.overlap_is_id = PETSC_FALSE;
     init = 1;
@@ -80,6 +83,7 @@ PetscErrorCode FEMInfSetDVR(FEMInf self, DVR target) {
     DVR_Sc.R2invR1Mat = DVRR2invR1Mat;
     DVR_Sc.ENR1Mat = DVRENR1Mat;
     DVR_Sc.PotR1Mat = NULL;
+    DVR_Sc.PotR1Vec = NULL;
     DVR_Sc.EER2Mat = NULL;
     DVR_Sc.overlap_is_id = PETSC_TRUE;
     init = 1;
@@ -121,18 +125,48 @@ PetscErrorCode FEMInfView(FEMInf self, PetscViewer v) {
   if(self->sc->View == NULL)
     SETERRQ(self->comm, 1, "method is null");
 
+  PetscErrorCode ierr;
+  PetscBool iascii, isbinary, isdraw;
+  PetscViewerType type;     PetscViewerGetType(v, &type);
+  PetscViewerFormat format; PetscViewerGetFormat(v, &format);
+
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERASCII,&iascii);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERBINARY,&isbinary);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERDRAW,&isdraw);
+  CHKERRQ(ierr);    
+
+  PetscViewerASCIIPrintf(v, "FEMInf object:\n");  
+  PetscViewerASCIIPushTab(v);
   self->sc->View(self->obj, v);
+  PetscViewerASCIIPopTab(v);
 
   return 0;
 }
-PetscErrorCode FEMInfViewFunc(FEMInf self, Vec c, ViewerFunc v) {
+PetscErrorCode FEMInfViewFunc_ASCII(FEMInf self, Vec c, ViewerFunc v) {
+    PetscInt num;
+    PetscReal *xs;
+    ViewerFuncGetXs(v, &num, &xs);
 
-  PetscViewerType type;
-  PetscViewerGetType(v->base, &type);
-  if(strcmp(type, "ascii") != 0) {
-    char msg[100]; sprintf(msg, "unsupported type: %s", type);
-    SETERRQ(self->comm, 1, msg);
-  }
+    for(int i = 0; i < num; i++) {
+      PetscReal x = xs[i];
+      PetscScalar y; FEMInfPsi(self, c, x, &y);
+#if defined(PETSC_USE_COMPLEX)
+      PetscReal re = PetscRealPart(y);
+      PetscReal im = PetscImaginaryPart(y);
+      PetscViewerASCIIPrintf(v->base, "%f %f %f\n", x, re, im);
+#else
+      PetscViewerASCIIPrintf(v->base, "%f %f\n", x, y); CHKERRQ(ierr);
+#endif
+    }
+
+    return 0;
+}
+PetscErrorCode FEMInfViewFunc_Draw(FEMInf self, Vec c, ViewerFunc v) {
+
+  PetscDraw draw; PetscViewerDrawGetDraw(v->base, 0, &draw);
+  PetscDrawLG lg; PetscDrawLGCreate(draw, 1, &lg);
 
   PetscInt num;
   PetscReal *xs;
@@ -140,14 +174,39 @@ PetscErrorCode FEMInfViewFunc(FEMInf self, Vec c, ViewerFunc v) {
 
   for(int i = 0; i < num; i++) {
     PetscReal x = xs[i];
-    PetscScalar y; FEMInfPsi(self, c, x, &y);
+    PetscScalar y[1]; FEMInfPsi(self, c, x, &y[0]);
 #if defined(PETSC_USE_COMPLEX)
-    PetscReal re = PetscRealPart(y);
-    PetscReal im = PetscImaginaryPart(y);
-    PetscViewerASCIIPrintf(v->base, "%f %f %f\n", x, re, im);
+    PetscReal re[1] = {PetscRealPart(y[0])};
+    //    PetscReal im[1] = {PetscImaginaryPart(y[0])};
+    PetscDrawLGAddPoint(lg, &xs[i], re);
 #else
-    PetscViewerASCIIPrintf(v->base, "%f %f\n", x, y); CHKERRQ(ierr);
+    PetscDrawLGAddPoint(lg, &xs[i], y);
 #endif
+  }  
+  PetscDrawLGDraw(lg);
+  return 0;
+}
+PetscErrorCode FEMInfViewFunc(FEMInf self, Vec c, ViewerFunc v) {
+
+  PetscErrorCode ierr;
+  PetscBool iascii, isbinary, isdraw;
+  //  PetscViewerType type;     PetscViewerGetType(v, &type);
+  //  PetscViewerFormat format; PetscViewerGetFormat(v, &format);
+
+  ierr = PetscObjectTypeCompare((PetscObject)v->base,PETSCVIEWERASCII,&iascii);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v->base,PETSCVIEWERBINARY,&isbinary);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v->base,PETSCVIEWERDRAW,&isdraw);
+  CHKERRQ(ierr);    
+  PetscPrintf(self->comm, "I am in ViewFunc\n");
+  if(iascii) {
+    ierr = FEMInfViewFunc_ASCII(self, c, v); CHKERRQ(ierr);
+  } else if(isdraw) {
+    PetscPrintf(self->comm, "I am in Draw\n");
+    ierr = FEMInfViewFunc_Draw(self, c, v); CHKERRQ(ierr);
+  } else {
+     PetscPrintf(self->comm, "I am in otherwise\n");
   }
   return 0;
 }
@@ -184,6 +243,23 @@ PetscErrorCode FEMInfSetFromOptions(FEMInf self) {
   return 0;
 }
 
+PetscErrorCode FEMInfFit(FEMInf self, PF pf, KSP ksp, Vec c) {
+
+  PetscErrorCode ierr;
+  PetscBool is_id; FEMInfGetOverlapIsId(self, &is_id);
+  
+  Mat S; FEMInfCreateMat(self, 1, &S); FEMInfSR1Mat(self, S);
+  Vec V; FEMInfCreateVec(self, 1, &V); FEMInfPotR1Vec(self, pf, V);
+
+  ierr = KSPSetOperators(ksp, S, S); CHKERRQ(ierr);
+  ierr = KSPSetFromOptions(ksp); CHKERRQ(ierr);
+  ierr = KSPSolve(ksp, V, c); CHKERRQ(ierr);
+
+  MatDestroy(&S);
+  VecDestroy(&V);
+  return 0;
+
+}
 PetscErrorCode FEMInfGetOverlapIsId(FEMInf this, PetscBool *is_id) {
   *is_id = this->sc->overlap_is_id;  
   return 0;
@@ -293,6 +369,16 @@ PetscErrorCode FEMInfPotR1Mat(FEMInf self, Pot pot, Mat M) {
 
   self->sc->PotR1Mat(self->obj, pot, M);
   return 0;
+}
+PetscErrorCode FEMInfPotR1Vec(FEMInf self, Pot pot, Vec V) {
+
+  if(self->sc->PotR1Vec == NULL)
+    SETERRQ(self->comm, 1, "method is null");
+
+  self->sc->PotR1Vec(self->obj, pot, V);
+  return 0;
+  return 0;
+
 }
 PetscErrorCode FEMInfEER2Mat(FEMInf self, int q, Mat M) {
 

@@ -133,14 +133,12 @@ int main(int argc, char **args) {
 
   // Matrix
   PrintTimeStamp(comm, "Mat", NULL);
-  Mat H; 
-  OCE1CreateMat(oce, &H); 
-  OCE1TMat(oce, H); 
+  Mat H;
+  OCE1TMat(oce, MAT_INITIAL_MATRIX, &H); 
   OCE1PlusPotMat(oce, ROT_SCALAR, pot, H);
   Mat S;
   PetscBool is_id;
-  OCE1CreateMat(oce, &S);
-  OCE1SMat(oce, S, &is_id);
+  OCE1SMat(oce, MAT_INITIAL_MATRIX, &S, &is_id);
 
   // solve
   PrintTimeStamp(comm, "EPS", NULL);
@@ -169,10 +167,11 @@ int main(int argc, char **args) {
   ierr = OCE1Destroy(&oce); CHKERRQ(ierr);
   ierr = PFDestroy(&pot); CHKERRQ(ierr);
   ierr = EEPSDestroy(&eeps); CHKERRQ(ierr);
-  // PetscViewerDestroy(&viewer);
+  // ierr = PetscViewerDestroy(&viewer); CHKERRQ(ierr);
   ierr = ViewerFuncDestroy(&viewer_func); CHKERRQ(ierr);
   ierr = MatDestroy(&H);  CHKERRQ(ierr);
   ierr = MatDestroy(&S); CHKERRQ(ierr);
   ierr = SlepcFinalize(); CHKERRQ(ierr);
+
   return 0;
 }

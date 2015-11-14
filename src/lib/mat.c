@@ -33,7 +33,31 @@ PetscErrorCode VecNormalizeForS(Mat S, Vec x) {
   return 0;
 }
 
-PetscErrorCode VecSplit(Vec x, PetscInt n, Vec* ys) {
+PetscErrorCode VecGetSplit(Vec x, PetscInt n, Vec **ys) {
+  /*
+    split one vector x to n vectors ys.
+  */
+  PetscErrorCode ierr;
+  MPI_Comm comm; 
+  ierr = PetscObjectGetComm((PetscObject)x, &comm); CHKERRQ(ierr);
+
+  PetscInt nx; 
+  ierr = VecGetSize(x, &nx); CHKERRQ(ierr);
+
+  ierr = PetscMalloc1(n, ys); CHKERRQ(ierr);
+
+  PetscInt ny = nx/n;
+
+  for(int i = 0; i < n; i++) {
+    IS is; 
+    ierr = ISCreateStride(comm, ny, i*ny, 1, &is); CHKERRQ(ierr);
+    ierr = VecGetSubVector(x, is, &(*ys)[i]); CHKERRQ(ierr);
+    ierr = ISDestroy(&is); CHKERRQ(ierr);
+  }
+
+  return 0;
+}
+PetscErrorCode VecRestoreSplit(Vec x, PetscInt n, Vec **ys) {
   /*
     split one vector x to n vectors ys.
   */
@@ -49,12 +73,15 @@ PetscErrorCode VecSplit(Vec x, PetscInt n, Vec* ys) {
   for(int i = 0; i < n; i++) {
     IS is; 
     ierr = ISCreateStride(comm, ny, i*ny, 1, &is); CHKERRQ(ierr);
-    ierr = VecGetSubVector(x, is, &ys[i]); CHKERRQ(ierr);
+    ierr = VecRestoreSubVector(x, is, &(*ys)[i]); CHKERRQ(ierr);
     ierr = ISDestroy(&is); CHKERRQ(ierr);
   }
 
+  PetscFree(*ys);
+
   return 0;
 }
+
 PetscErrorCode PartialCoulomb(int q, double r1, double r2, double *y) {
 
   if(q < 0) {

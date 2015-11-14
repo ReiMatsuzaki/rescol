@@ -40,17 +40,31 @@ PetscErrorCode OCE1Destroy(OCE1 *p_self) {
 
 PetscErrorCode OCE1View(OCE1 self, PetscViewer v) {
 
-  PetscViewerType type;
-  PetscViewerGetType(v, &type);
+  PetscErrorCode ierr;
+  PetscBool iascii, isbinary, isdraw;
+  PetscViewerType type;     PetscViewerGetType(v, &type);
+  PetscViewerFormat format; PetscViewerGetFormat(v, &format);
 
-  if(strcmp(type, "ascii") != 0) 
-    SETERRQ(self->comm, 1, "unsupported type");
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERASCII,&iascii);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERBINARY,&isbinary);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERDRAW,&isdraw);
+  CHKERRQ(ierr);    
 
-  PetscViewerASCIIPrintf(v, ">>>> One Center Expansion 1 >>>>\n");
-  PetscViewerASCIIPrintf(v, "mu: %f\n", self->mu);
-  FEMInfView(self->fem, v);
-  Y1sView(self->y1s, v);
-  PetscViewerASCIIPrintf(v, "<<<< One Center Expansion 1 <<<<\n");
+  if(iascii) {
+    PetscViewerASCIIPrintf(v, "OCE1 object:\n");
+    PetscViewerASCIIPushTab(v);
+    PetscViewerASCIIPrintf(v, "mu: %f\n", self->mu);
+    FEMInfView(self->fem, v);
+    Y1sView(self->y1s, v);
+
+    PetscViewerASCIIPopTab(v);
+  } else if(isbinary) {
+
+  } else if(isdraw) {
+
+  }
   return 0;
 }
 PetscErrorCode OCE1ViewFunc(OCE1 self, Vec c, ViewerFunc v) {
@@ -70,10 +84,8 @@ PetscErrorCode OCE1ViewFunc(OCE1 self, Vec c, ViewerFunc v) {
   int num_r, num_y;
   OCE1GetSizes(self, &num_r, &num_y);
 
-  Vec *cs; 
-  ierr = PetscMalloc1(num_y, &cs); CHKERRQ(ierr);
-  ierr = VecSplit(c, num_y, cs); CHKERRQ(ierr);
 
+  Vec *cs; ierr = VecGetSplit(c, num_y, &cs); CHKERRQ(ierr);
   for(int i = 0; i < num_xs; i++) {
     PetscReal x = xs[i];
     PetscViewerASCIIPrintf(v->base, "%f ", xs[i]);
@@ -91,9 +103,7 @@ PetscErrorCode OCE1ViewFunc(OCE1 self, Vec c, ViewerFunc v) {
     PetscViewerASCIIPrintf(v->base, "\n");
   }
 
-  for(int i = 0; i < num_y; i++)
-    VecDestroy(&cs[i]);
-  PetscFree(cs);
+  ierr = VecRestoreSplit(c, num_y, &cs); CHKERRQ(ierr);
 
   return 0;
 }
@@ -247,17 +257,7 @@ PetscErrorCode OCE1PlusPotMat(OCE1 self, RotSym sym, Pot pot, Mat M) {
   Mat V;
   ierr = OCE1PotMat(self, sym, pot, MAT_INITIAL_MATRIX, &V); CHKERRQ(ierr);
   ierr = MatAXPY(M, 1.0, V, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
-  
-  /*
-  Mat V;
-  ierr = MatSynthesize(r1, self->s_y, 1.0, MAT_INITIAL_MATRIX, &V); 
-  CHKERRQ(ierr);
-  MatDestroy(&r1);
-
-  ierr = MatAXPY(M, 1.0, V, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
   MatDestroy(&V);
-  */
-
   return 0;
 }
 PetscErrorCode OCE1PlusVneMat(OCE1 self, PetscReal a, PetscReal z, Mat M) {

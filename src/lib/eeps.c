@@ -25,7 +25,9 @@ PetscErrorCode EEPSDestroy(EEPS *p_self) {
 
 PetscErrorCode EEPSSetOperators(EEPS self, Mat H, Mat S ) {
 
-  EPSSetOperators(self->eps, H, S);
+  PetscErrorCode ierr;
+  ierr = EPSSetOperators(self->eps, H, S); CHKERRQ(ierr);
+  
   self->S = S;
 
 #if defined(PETSC_USE_COMPLEX)
@@ -39,7 +41,6 @@ PetscErrorCode EEPSSetOperators(EEPS self, Mat H, Mat S ) {
   else
     EPSSetProblemType(self->eps, EPS_GHEP);
 #endif
-  
   return 0;
 }
 PetscErrorCode EEPSSetTarget(EEPS self, PetscScalar target) {
@@ -63,7 +64,7 @@ PetscErrorCode EEPSSetFromOptions(EEPS self) {
 
   PetscErrorCode ierr;
   PetscBool find;
-  MPI_Comm comm; PetscObjectGetComm((PetscObject)self, &comm);
+  MPI_Comm comm; PetscObjectGetComm((PetscObject)self->eps, &comm);
 
   ierr = EPSSetFromOptions(self->eps); CHKERRQ(ierr);
  
@@ -74,17 +75,15 @@ PetscErrorCode EEPSSetFromOptions(EEPS self) {
   if(find) {
     ierr = EEPSReadInitSpaceOne(self, init_viewer); CHKERRQ(ierr);
   }
-
   ierr = PetscOptionsGetViewer(comm, NULL, "-eeps_view_values", 
 			       &self->viewer_values, &format, &find); CHKERRQ(ierr);
-
   return 0;
 }
 
 PetscErrorCode EEPSViewValues(EEPS self) {
 
   PetscViewerType type;
-  MPI_Comm comm; PetscObjectGetComm((PetscObject)self, &comm);
+  MPI_Comm comm; PetscObjectGetComm((PetscObject)self->eps, &comm);
   PetscViewerGetType(self->viewer_values, &type);
 
   if(strcmp(type, "ascii") != 0) 
@@ -152,6 +151,7 @@ PetscErrorCode EEPSGetEigenvector(EEPS self, int i, Vec vec) {
     PetscScalar scale;
     MatMult(self->S, vec, Sx); VecTDot(vec, Sx, &scale);
     VecScale(vec, 1.0/sqrt(scale));
+    VecDestroy(&Sx);
   }
 
   return 0;

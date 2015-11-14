@@ -69,24 +69,40 @@ PetscErrorCode Y2sDestroy(Y2s *p_self) {
 
 }
 
-PetscErrorCode Y2sView(Y2s self, PetscViewer viewer) {
+PetscErrorCode Y2sView(Y2s self, PetscViewer v) {
 
-  PetscViewerType type;
-  PetscViewerGetType(viewer, &type);
+  PetscErrorCode ierr;
+  PetscBool iascii, isbinary, isdraw;
+  PetscViewerType type;     PetscViewerGetType(v, &type);
+  PetscViewerFormat format; PetscViewerGetFormat(v, &format);
 
-  if(strcmp(type, "ascii") != 0) 
-    SETERRQ(self->comm, 1, "unsupported type");
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERASCII,&iascii);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERBINARY,&isbinary);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERDRAW,&isdraw);
+  CHKERRQ(ierr);    
 
-  int n; Y2sGetSize(self, &n);
-  PetscViewerASCIIPrintf(viewer, "num: %d\n", n);
-  PetscViewerASCIIPrintf(viewer, "(L1, L2, L, M)\n");
-  for(int i = 0; i < n; i++) {
-    Y2 y = self->y2_list[i];
-    PetscViewerASCIIPrintf(viewer, "(%d, %d, %d, %d)\n",
-		y.l1, y.l2, y.l, y.m);
+  if(iascii) {
+    PetscViewerASCIIPrintf(v, "Y2s object:\n");
+    PetscViewerASCIIPushTab(v);
+    PetscViewerASCIIPrintf(v, "num: %d\n", self->num);    
+    PetscViewerASCIIPrintf(v, "Y[(L1, L2), L, M] = {\n");
+    PetscViewerASCIIPushTab(v);
+    for(int i = 0; i < self->num; i++) {
+      Y2 y = self->y2_list[i];
+      PetscViewerASCIIPrintf(v, "Y[(%d, %d), %d, %d],\n",
+			     y.l1, y.l2, y.l, y.m);      
+    }
+    PetscViewerASCIIPopTab(v);
+    PetscViewerASCIIPrintf(v, "}\n");    
+    PetscViewerASCIIPopTab(v);
+  } else if(isbinary) {
+
+  } else if(isdraw) {
+
   }
   return 0;
-  
 }
 
 PetscErrorCode Y2sSet(Y2s self, int m, int g_or_u, int p_or_m, int lmax) {

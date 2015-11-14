@@ -35,13 +35,32 @@ PetscErrorCode BPSCheckPreallocated(BPS self) {
 PetscErrorCode BPSView(BPS self, PetscViewer v) {
 
   PetscErrorCode ierr;
+  PetscBool iascii, isbinary, isdraw;
+
   ierr = BPSCheckPreallocated(self); CHKERRQ(ierr);
 
-  PetscViewerASCIIPrintf(v, ">>>> BPS >>>>\n");
-  PetscViewerASCIIPrintf(v, "type: %s\n", self->type);
-  PetscViewerASCIIPrintf(v, "num_of_points: %d\n", self->num_zs);
-  PetscViewerASCIIPrintf(v, "zmax: %f\n", self->zs[self->num_zs-1]);  
-  PetscViewerASCIIPrintf(v, "<<<< BPS <<<<\n");
+  if(v == NULL)
+    PetscViewerASCIIGetStdout(self->comm, &v);
+
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERASCII,&iascii);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERBINARY,&isbinary);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERDRAW,&isdraw);
+  CHKERRQ(ierr);  
+
+  if(iascii) {
+    PetscViewerASCIIPrintf(v, "BPS object:\n");
+    PetscViewerASCIIPushTab(v);
+    PetscViewerASCIIPrintf(v, "type:   %s\n", self->type);
+    PetscViewerASCIIPrintf(v, "num_zs: %d\n", self->num_zs);
+    PetscViewerASCIIPrintf(v, "zmax:   %f\n", self->zs[self->num_zs-1]);  
+    PetscViewerASCIIPopTab(v);
+  } else if(isbinary) {
+
+  } else if(isdraw) {
+
+  }
   return 0;
 
 }

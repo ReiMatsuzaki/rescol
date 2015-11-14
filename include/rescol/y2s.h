@@ -31,7 +31,7 @@ PetscErrorCode Y2sDestroy(Y2s *p_self);
 PetscErrorCode Y2sView(Y2s self, PetscViewer viewer);
 
 PetscErrorCode Y2sSet(Y2s self, int m, int g_or_u, int p_or_m, int lmax);
-PetscErrorCode Y2sSetOptions(Y2s p_self);
+PetscErrorCode Y2sSetFromOptions(Y2s p_self);
 
 PetscErrorCode Y2sGetSize(Y2s self, int *n);
 PetscErrorCode Y2sGetMaxL(Y2s self, int *L);

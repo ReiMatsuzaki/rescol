@@ -43,7 +43,8 @@ PetscErrorCode VecNormalizeForS(Mat S, Vec x);
   //  PetscErrorCode MatSetSynthesize3Old(Mat A, Mat B, Mat C, PetscScalar d, MPI_Comm comm, Mat *D);
   //PetscErrorCode MatSetSynthesize3Fast(Mat A, Mat B, Mat C, MPI_Comm comm, Mat *D);
 
-PetscErrorCode VecSplit(Vec x, PetscInt n, Vec* ys);
+PetscErrorCode VecGetSplit(Vec x, PetscInt n, Vec **ys);
+PetscErrorCode VecRestoreSplit(Vec x, PetscInt n, Vec** ys);
 
 PetscErrorCode PartialCoulomb(int q, double r1, double r2, double *y);
 PetscErrorCode LegGauss(int n, int i, PetscScalar *x, PetscScalar *w);

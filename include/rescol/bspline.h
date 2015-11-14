@@ -33,6 +33,8 @@ struct _p_BSS {
   PetscReal* vals; // bspline values on quadrature points
   PetscReal* derivs; // derivative values
 
+  PetscBool set_knots; 
+  PetscBool setup; 
 };
 typedef struct _p_BSS* BSS;
 
@@ -52,6 +54,7 @@ PetscErrorCode BSSCreate(MPI_Comm comm, BSS *p_self);
 PetscErrorCode BSSDestroy(BSS *p_self);
 
 PetscErrorCode BSSView(BSS self, PetscViewer v);
+PetscErrorCode BSSCheck(BSS self);
 
 PetscErrorCode BSSSetKnots(BSS self, int order, BPS bps);
 PetscErrorCode BSSSetCScaling(BSS self, CScaling cscaling);
@@ -62,6 +65,7 @@ PetscErrorCode BSSPsi(BSS self, Vec c, PetscReal x, PetscScalar *y);
 PetscErrorCode BSSBasisPsi(BSS self, int i, PetscReal x, PetscScalar *y);
 PetscErrorCode BSSDerivBasisPsi(BSS self, int i, PetscReal x, PetscScalar *y);
 PetscErrorCode BSSGetSize(BSS self, int *n);
+  
 
 PetscErrorCode BSSCreateR1Mat(BSS self, Mat *M);
 PetscErrorCode BSSCreateR2Mat(BSS self, Mat *M);
@@ -72,6 +76,7 @@ PetscErrorCode BSSR2invR1Mat(BSS self, Mat M);
 PetscErrorCode BSSD2R1Mat(BSS self, Mat D);
 PetscErrorCode BSSENR1Mat(BSS self, int q, PetscReal  a, Mat V);
 PetscErrorCode BSSPotR1Mat(BSS self, PF pot, Mat M);
+PetscErrorCode BSSPotR1Vec(BSS self, PF pot, Vec v);
 PetscErrorCode BSSEER2Mat(BSS self, int q, Mat V);
 PetscErrorCode BSSEER2Mat_ver1(BSS self, int q, Mat V);
 
