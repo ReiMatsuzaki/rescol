@@ -1,4 +1,5 @@
 #include <rescol/oce2.h>
+#include <rescol/eeps.h>
 
 #if defined(PETSC_USE_COMPLEX)
 #define ABS cabs
@@ -34,30 +35,102 @@ struct _p_H2 {
 
   // -----  Constant -----
   MPI_Comm comm;
-  char in_dir[100];
-  char out_dir[100];
-  char guess_type[10];
-  char eri_option[10];
-
-  OCE2 oce2;
-
+  OCE2 oce;
+  PetscViewer viewer;
   Mat H0;
   Mat S;
-  
+  PetscBool s_is_id;
   PetscReal d_bondlength; // delta of bond length
   PetscInt num_bondlength; // number of bond length for caluclation
 
-  // ---- varable -----
+  // variable
   PetscReal bondlength;  // initial bond length
   Mat H;
-  Vec *guess;
-  int num_guess; // # of guess vector to use
-  int max_num_guess; // size of array "guess"
+  EEPS eps_old; // EEPS object used previous calculation.
 };
-
 typedef struct _p_H2* H2;
 
-PetscErrorCode H2CreateFromOptions(H2 *h2, MPI_Comm comm) {
+PetscErrorCode H2Create(H2 *p_h2) {
+
+  PetscErrorCode ierr;
+  H2 h2;
+  ierr = PetscNew(&h2); CHKERRQ(ierr);
+  h2->comm = PETSC_COMM_SELF;
+  OCE2Create(h2->comm, &h2->oce);
+
+  h2->viewer = PETSC_VIEWER_STDOUT_SELF;
+  h2->H0 = NULL;
+  h2->S = NULL;
+  h2->d_bondlength = 0.1;
+  h2->num_bondlength = 1;
+  h2->bondlength = 0.0;
+  h2->H = NULL;
+  h2->eps_old = NULL;
+
+  *p_h2 = h2;
+  return 0;
+}
+PetscErrorCode H2Destroy(H2 *p_h2) {
+  PetscErrorCode ierr;
+  H2 self = *p_h2;
+  ierr = OCE2Destroy(&self->oce); CHKERRQ(ierr);
+  if(self->H0 != NULL) { ierr = MatDestroy(&self->H0); CHKERRQ(ierr); }  
+  if(self->S != NULL) { ierr = MatDestroy(&self->S); CHKERRQ(ierr); }  
+  if(self->H != NULL) { ierr = MatDestroy(&self->H); CHKERRQ(ierr); }
+  if(self->eps_old) { ierr = EEPSDestroy(&self->eps_old); CHKERRQ(ierr); }
+  PetscFree(self);
+  return 0;
+}
+PetscErrorCode H2SetFromOptions(H2 h2) {
+  PetscErrorCode ierr;
+  ierr = PetscOptionsGetReal(NULL, "-bondlength", &h2->bondlength, NULL);  CHKERRQ(ierr);
+  ierr = PetscOptionsGetReal(NULL, "-d_bondlength", &h2->d_bondlength, NULL); CHKERRQ(ierr);
+  ierr = PetscOptionsGetInt(NULL, "-num_bondlength", &h2->num_bondlength, NULL); CHKERRQ(ierr);
+
+  ierr = OCE2SetFromOptions(h2->oce); CHKERRQ(ierr);
+  ierr = OCE2TMat(h2->oce, MAT_INITIAL_MATRIX, &h2->H0); CHKERRQ(ierr);
+  ierr = OCE2PlusVeeMat(h2->oce, h2->H0); CHKERRQ(ierr);
+
+  ierr = OCE2SMat(h2->oce, MAT_INITIAL_MATRIX, &h2->S, &h2->s_is_id); CHKERRQ(ierr);
+
+  return 0;
+}
+PetscErrorCode H2SetH(H2 h2) {
+  PetscErrorCode ierr;
+  PetscReal a = h2->bondlength/2.0;
+  if(h2->H == NULL) {
+    ierr = MatConvert(h2->H0, MATSAME, MAT_INITIAL_MATRIX, &h2->H); CHKERRQ(ierr);
+  } else {
+    ierr = MatCopy(h2->H0, h2->H, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
+  }
+
+  ierr = OCE2PlusVneMat(h2->oce, a, 1.0, h2->H); CHKERRQ(ierr);
+  return 0;
+}
+PetscErrorCode H2Solve(H2 h2) {
+  PetscErrorCode ierr;
+  EEPS eps;
+  EEPSCreate(h2->comm, &eps);  
+  if(h2->s_is_id) {
+    ierr = EEPSSetOperators(eps, h2->H, NULL); CHKERRQ(ierr);
+  } else {
+    ierr = EEPSSetOperators(eps, h2->H, h2->S); CHKERRQ(ierr);
+  }
+
+  if(h2->eps_old) { EEPSSetInitSpaceFromOther(eps, PETSC_DEFAULT, h2->H, h2->eps_old->eps); }
+
+  ierr = EEPSSetTarget(eps, -4.1); CHKERRQ(ierr);
+  ierr = EEPSSetFromOptions(eps); CHKERRQ(ierr);
+
+  ierr = EEPSSolve(eps); CHKERRQ(ierr);
+
+  if(h2->eps_old) { ierr = EEPSDestroy(&h2->eps_old); CHKERRQ(ierr); }
+  h2->eps_old = eps;
+  return 0;
+}
+
+/*
+PetscErrorCode oldH2CreateFromOptions(H2 *h2, MPI_Comm comm) {
 
   PrintTimeStamp(comm, "Init", NULL);
   PetscErrorCode ierr;
@@ -108,7 +181,7 @@ PetscErrorCode H2CreateFromOptions(H2 *h2, MPI_Comm comm) {
   *h2 = _h2;
   return 0;
 }
-PetscErrorCode H2Destroy(H2 *h2) {
+PetscErrorCode oldH2Destroy(H2 *h2) {
   PetscErrorCode ierr;
   H2 this = *h2;
 
@@ -130,7 +203,7 @@ PetscErrorCode H2Destroy(H2 *h2) {
   
   return 0;
 }
-PetscErrorCode H2SetBasic(H2 this) {
+PetscErrorCode oldH2SetBasic(H2 this) {
 
   PrintTimeStamp(this->comm, "Mat0", NULL);
   PetscErrorCode ierr;
@@ -151,7 +224,7 @@ PetscErrorCode H2SetBasic(H2 this) {
 
    return 0;
  }
-PetscErrorCode H2SetH0_and_S(H2 this) {
+PetscErrorCode oldH2SetH0_and_S(H2 this) {
   PetscErrorCode ierr;
 
   PrintTimeStamp(this->comm, "TMat", NULL);
@@ -171,7 +244,7 @@ PetscErrorCode H2SetH0_and_S(H2 this) {
 
   return 0;
 }
-PetscErrorCode H2SetH_as_H0_plus_NE(H2 this) {
+PetscErrorCode oldH2SetH_as_H0_plus_NE(H2 this) {
 
   PetscErrorCode ierr;
 
@@ -226,7 +299,9 @@ PetscErrorCode CheckSymmetry(H2 this, Vec cs, PetscBool *is_sym) {
   PetscFree(vs);
   return 0;
 }
-PetscErrorCode H2Solve(H2 this) {
+PetscErrorCode oldH2Solve(H2 this) {
+
+
 
   PrintTimeStamp(this->comm, "EPS", NULL);
   MPI_Comm comm = this->comm;
@@ -270,11 +345,12 @@ PetscErrorCode H2Solve(H2 this) {
   EPSDestroy(&eps);
   return 0;
 }
-PetscErrorCode H2DestroyMini(H2 this) {
+PetscErrorCode oldH2DestroyMini(H2 this) {
   PrintTimeStamp(this->comm, "Destroy", NULL);
   MatDestroy(&this->H);
   return 0;
 }
+*/
 
 int main(int argc, char **args) {
   PetscErrorCode ierr;
@@ -287,25 +363,30 @@ int main(int argc, char **args) {
 #else
   PetscPrintf(comm, "Scalar: real\n");
 #endif
-  PetscOptionsBegin(comm, "", "h2mole.c options", "none");
-  ierr = H2CreateFromOptions(&h2, comm); CHKERRQ(ierr);
-  PetscOptionsEnd();
 
-  OCE2View(h2->oce2);
-  
-  ierr = H2SetBasic(h2); CHKERRQ(ierr);
-  ierr = H2SetH0_and_S(h2); CHKERRQ(ierr);
+
+  PrintTimeStamp(comm, "Create", NULL);
+  ierr = H2Create(&h2); CHKERRQ(ierr);
+
+  PrintTimeStamp(comm, "Set", NULL);
+  ierr = H2SetFromOptions(h2); CHKERRQ(ierr);
+
+  PrintTimeStamp(comm, "View", NULL);
+
+
+  OCE2View(h2->oce, h2->viewer);
 
   for(int i = 0; i < h2->num_bondlength; i++) {
-    PetscPrintf(comm, "\n");
-    ierr = H2SetH_as_H0_plus_NE(h2); CHKERRQ(ierr);
+    PrintTimeStamp(comm, "Set H", NULL);
+    PetscPrintf(comm, "bond_length = %f\n", h2->bondlength);
+    ierr = H2SetH(h2); CHKERRQ(ierr);
+    PrintTimeStamp(comm, "solve", NULL);
     ierr = H2Solve(h2); CHKERRQ(ierr);
-    ierr = H2DestroyMini(h2); CHKERRQ(ierr);
-
     h2->bondlength += h2->d_bondlength;
   }
 
-  ierr = H2Destroy(&h2);CHKERRQ(ierr);
+  PrintTimeStamp(comm, "Finalize", NULL);
+  ierr = H2Destroy(&h2); CHKERRQ(ierr);
   ierr = SlepcFinalize(); CHKERRQ(ierr);
   return 0;
 }

@@ -11,12 +11,11 @@ PetscErrorCode HarmApply(void *ctx, int n, const PetscScalar *x, PetscScalar *y)
 }
 PetscErrorCode HarmView(void *ctx, PetscViewer v) {
   Harm *self = (Harm*)ctx;
-  PetscViewerASCIIPrintf(v, "<<< POT(harm) <<<\n");  
+  PetscViewerASCIIPrintf(v, "type: Potential(Harm)\n");
   PetscViewerASCIIPrintf(v, "       a  2 \n");
   PetscViewerASCIIPrintf(v, "v(x) = - x  \n");
   PetscViewerASCIIPrintf(v, "       2    \n");
   PetscViewerASCIIPrintf(v, "a = %f\n", self->a);
-  PetscViewerASCIIPrintf(v, "<<< POT(harm) <<<\n");  
   return 0;
 }
 PetscErrorCode HarmDestroy(void *ctx) {
@@ -38,13 +37,12 @@ PetscErrorCode PowerApply(void *ctx, int n, const PetscScalar *x, PetscScalar *y
 }
 PetscErrorCode PowerView(void *ctx, PetscViewer v) {
   Power *self = (Power*)ctx;
-  PetscViewerASCIIPrintf(v, ">>> POT(Power) >>>\n");
+  PetscViewerASCIIPrintf(v, "type: Potential(Power)\n");
   PetscViewerASCIIPrintf(v, "          n \n");
   PetscViewerASCIIPrintf(v, "v(x) = A x  \n");
   PetscViewerASCIIPrintf(v, "            \n");
   PetscViewerASCIIPrintf(v, "A = %f\n", self->a);
   PetscViewerASCIIPrintf(v, "n = %d\n", self->n);
-  PetscViewerASCIIPrintf(v, "<<< POT(Power) <<<\n");  
   return 0;
 }
 PetscErrorCode PowerDestroy(void *ctx) {
@@ -78,7 +76,7 @@ PetscErrorCode CoulombNEApply(void *ctx, int n, const PetscScalar *x, PetscScala
 }
 PetscErrorCode CoulombNEView(void *ctx, PetscViewer v) {
   CoulombNE *self = (CoulombNE*)ctx;
-  PetscViewerASCIIPrintf(v, ">>> POT(CoulombNE) >>>\n");
+  PetscViewerASCIIPrintf(v, "type: Potential(CoulombNE)\n");
   PetscViewerASCIIPrintf(v, "           s^q   \n");
   PetscViewerASCIIPrintf(v, "v(x) = z ---------\n");
   PetscViewerASCIIPrintf(v, "          g^{q+1} \n");
@@ -87,7 +85,6 @@ PetscErrorCode CoulombNEView(void *ctx, PetscViewer v) {
   PetscViewerASCIIPrintf(v, "a = %f\n", self->a);
   PetscViewerASCIIPrintf(v, "q = %d\n", self->q);
   PetscViewerASCIIPrintf(v, "z = %f\n", self->zz);
-  PetscViewerASCIIPrintf(v, "<<< POT(CoulombNE) <<<\n");  
   return 0;
 }
 PetscErrorCode CoulombNEDestroy(void *ctx) {
@@ -154,13 +151,11 @@ PetscErrorCode MorseApply(void *ctx, int n, const PetscScalar *x, PetscScalar *y
 }
 PetscErrorCode MorseView(void *ctx, PetscViewer v) {
   Morse *self = (Morse*)ctx;
-  PetscViewerASCIIPrintf(v, ">>> POT(Morse) >>>\n");
-  PetscViewerASCIIPrintf(v, "                           2\n");
+  PetscViewerASCIIPrintf(v, "type: Potential(Mourse)\n");
   PetscViewerASCIIPrintf(v, "v(x) = D0 (1-exp[-a(x-Re)]) \n");
   PetscViewerASCIIPrintf(v, "D0 = %f\n", self->D0);
   PetscViewerASCIIPrintf(v, "a = %f\n", self->a);
   PetscViewerASCIIPrintf(v, "Re = %f\n", self->Re);
-  PetscViewerASCIIPrintf(v, "<<< POT(Morse) <<<\n");  
   return 0;
 }
 PetscErrorCode MorseDestroy(void *ctx) {
@@ -254,6 +249,10 @@ PetscErrorCode PotSetFromOptions(Pot self) {
 
     PotSetMorse(self, D0, a, Re);
 
+  } else if(strcmp(type, "coulomb") == 0) {
+    PetscReal z = -1.0;
+    ierr = PetscOptionsGetReal(NULL, "-pot_z", &z, &find); CHKERRQ(ierr);
+    ierr = PotSetCoulombNE(self, 0, 0.0, z); CHKERRQ(ierr);
   } else {
     char msg[100]; sprintf(msg, "unsupported pot_type: %s", type);
     SETERRQ(comm, 1, msg);

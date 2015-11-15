@@ -42,18 +42,25 @@ PetscErrorCode OCE2Destroy(OCE2 *oce2) {
   return 0;
 }
 
-PetscErrorCode OCE2Set(OCE2 this, FEMInf fem, Y2s y2s) {
+PetscErrorCode OCE2Set(OCE2 self, FEMInf fem, Y2s y2s) {
 
-  this->fem = fem;
-  this->y2s = y2s;
+  if(self == NULL) 
+    SETERRQ(self->comm, 1, "Object is NULL");
+
+  self->fem = fem;
+  self->y2s = y2s;
   return 0;
 }
 PetscErrorCode OCE2SetFromOptions(OCE2 self) {
 
   PetscErrorCode ierr;
-  MPI_Comm comm; PetscObjectGetComm((PetscObject)self, &comm);
-  FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetFromOptions(fem);
-  Y2s y2s;    Y2sCreate(comm, &y2s);    Y2sSetFromOptions(y2s);
+  MPI_Comm comm = self->comm;
+  FEMInf fem; 
+  ierr = FEMInfCreate(comm, &fem); CHKERRQ(ierr); 
+  ierr = FEMInfSetFromOptions(fem); CHKERRQ(ierr); 
+  Y2s y2s;    
+  ierr = Y2sCreate(comm, &y2s); CHKERRQ(ierr); 
+  Y2sSetFromOptions(y2s); CHKERRQ(ierr); 
 
   ierr = OCE2Set(self, fem, y2s); CHKERRQ(ierr);
 
@@ -188,7 +195,7 @@ PetscErrorCode OCE2TMat(OCE2 self, MatReuse scall, Mat *M) {
     ierr = MatAXPY(*M, 1.0, L, DIFFERENT_NONZERO_PATTERN);
     MatDestroy(&L);
   }
-  MatDestroy(&l1_y2);  
+  MatDestroy(&l2_y2);  
   MatDestroy(&l_r1);
   return 0;
 }
@@ -240,7 +247,7 @@ PetscErrorCode OCE2PlusVeeMat(OCE2 self, Mat M) {
   PetscErrorCode ierr;
   
   int lmax; Y2sGetMaxL(self->y2s, &lmax);
-  int qmax = 2*lmax;
+  int qmax = 2*lmax + 1;
 
   for(int q = 0; q < qmax; q++) {
     PetscBool non0;

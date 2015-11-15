@@ -1,16 +1,23 @@
-h2mole.out: h2mole.o ${OBJ_FEM} oce2.o angmoment.o
+
 he_guess.out: he_guess.o ${OBJ_FEM} oce2.o angmoment.o
 h_pi.out: h_pi.o ${OBJ_FEM} angmoment.o
 
 eps_help.out:
 
+h2mole.out: h2mole.o ${OBJ_FEM} oce2.o angmoment.o eeps.o y2s.o synthesize.o y1s.o
 .PHONY: check_h2mole_bss
-check_h2mole_bss: he_guess.out h2mole.out
-	rm -f tmp/*
-	./he_guess.out -z 1.5 -in_dir tmp -out_dir tmp -guess_type calc \
+check_h2mole_bss: h2mole.out
+	./h2mole.out -fem_type bss -bss_order 2 \
+	-bps_num_zs 21 -bps_zmax 20.0 -bps_type exp \
+	-y2s_rot sigma -y2s_parity gerade -y2s_mirror plus -y2s_lmax 0 \
+	-eps_nev 1 -eps_max_it 1000 -eps_type jd -eps_view_values ascii -eps_target -4.0 \
+	-bondlength 0.0 -num_bondlength 2 -d_bondlength 0.5 -malloc_dump
+
+
+#	./he_guess.out -z 1.5 -in_dir tmp -out_dir tmp -guess_type calc \
 	-fem_type bss -bss_order 2 -bps_num_zs 21 -bps_type exp -bps_zmax 30.0
-	@echo 
-	./h2mole.out -eri direct -guess_type read \
+#	@echo 
+#	./h2mole.out -eri direct -guess_type read \
 	-in_dir tmp -out_dir tmp  \
 	-fem_type bss -bss_order 2 -bps_num_zs 21 -bps_type exp -bps_zmax 30.0 \
 	-y2s_rot sigma -y2s_parity gerade -y2s_mirror plus -y2s_lmax 2 \
@@ -60,6 +67,14 @@ check_eig_one: eig_one.out
 	-eps_converged_reason \
 	-eeps_view_values ::ascii_info_detail \
 	-viewerfunc_xmax 100.0 -viewerfunc_num 10 -viewerfunc_view ascii:stdout \
+	-malloc_dump
+
+.PHONY: check_eig_one_h
+check_eig_one_h: eig_one.out
+	./$< -fem_type bss -bss_order 4 -bps_num_zs 21 -bps_zmax 20.0 -bps_type exp \
+	-y1s_L 0 \
+	-pot_type coulomb -pot_z -1.0 \
+	-eps_nev 2 -eps_target -1.0 -eps_view_values ascii \
 	-malloc_dump
 
 

@@ -60,6 +60,10 @@ TEST_F(TestOCE2, He) {
   EPSGetEigenpair(eps, 0, &kr, NULL, NULL, NULL);
   
   ASSERT_NEAR(PetscRealPart(kr), -2.858256, 0.000001);
+
+  MatDestroy(&H);
+  MatDestroy(&S);
+  EPSDestroy(&eps);
 }
 
 /*
@@ -103,10 +107,13 @@ TEST(TestOCE2Dvr, Dvr) {
 
 }
 */
+int _main (int argc, char **args) {
+   ::testing::InitGoogleTest(&argc, args);
+  return RUN_ALL_TESTS();
+}
 int main (int argc, char **args) {
   SlepcInitialize(&argc, &args, (char*)0, help);
-  ::testing::InitGoogleTest(&argc, args);
-  return RUN_ALL_TESTS();
+  _main(argc, args);
   SlepcFinalize();
   return 0;
 }

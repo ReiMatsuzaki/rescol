@@ -22,7 +22,7 @@ PetscErrorCode EEPSDestroy(EEPS *p_self);
 
 PetscErrorCode EEPSSetOperators(EEPS self, Mat H, Mat S );
 PetscErrorCode EEPSSetTarget(EEPS self, PetscScalar target);
-PetscErrorCode EEPSSetInitSpace(EEPS self, int num_guess, Vec *guess);
+PetscErrorCode EEPSSetInitSpaceFromOther(EEPS self, int n, Mat H, EPS other);
 PetscErrorCode EEPSSetFromOptions(EEPS self);
 
 PetscErrorCode EEPSSolve(EEPS self);

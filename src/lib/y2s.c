@@ -343,7 +343,7 @@ PetscErrorCode Y2sPq12Y2Mat(Y2s self, int q, Mat M, PetscBool *non0) {
   for(int i = 0; i < n; i++) 
     for(int j = 0; j < n; j++) {
       PetscReal v = Y2ElePq12(self->y2_list[i], q, self->y2_list[j]);
-      if(fabs(v) > FLT_EPSILON) {
+      if(fabs(v) > 4.0*FLT_EPSILON) {
 	find = PETSC_TRUE;
 	MatSetValue(M, i, j, v, INSERT_VALUES);
       }
