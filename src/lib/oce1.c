@@ -265,7 +265,7 @@ PetscErrorCode OCE1PlusVneMat(OCE1 self, PetscReal a, PetscReal z, Mat M) {
   PetscErrorCode ierr;
 
   int lmax; Y1sGetMaxL(self->y1s, &lmax);
-  int qmax = 2*lmax;
+  int qmax = 2*lmax + 1;
   PetscReal zz = -2.0*z;
 
   for(int q = 0; q < qmax; q++) {
@@ -293,3 +293,222 @@ PetscErrorCode OCE1PlusVneMat(OCE1 self, PetscReal a, PetscReal z, Mat M) {
   return 0;
   
 }
+
+PetscErrorCode OceH2plusMatMultH(Mat H, Vec x, Vec y) {
+  PetscErrorCode ierr;
+  OceH2plus ctx;
+  
+  ierr = MatShellGetContext(H, &ctx); CHKERRQ(ierr);
+
+  ierr = MatMatDecomposedMult(ctx->d2_r1, ctx->s_y1, -0.5, x, y); CHKERRQ(ierr);
+  ierr = MatMatDecomposedMultAdd(ctx->r2inv_r1, ctx->lambda_y1, 0.5, x, y); CHKERRQ(ierr);
+
+  for(int i = 0; i < ctx->nq; i++) {
+    ierr = MatMatDecomposedMultAdd(ctx->ne_r1[i], ctx->pq_y1[i], -2.0, x, y); 
+    CHKERRQ(ierr);
+  }
+
+  return 0;
+}
+PetscErrorCode OceH2plusMatMultS(Mat S, Vec x, Vec y) {
+  PetscErrorCode ierr;
+  OceH2plus ctx;
+  
+  ierr = MatShellGetContext(S, &ctx); CHKERRQ(ierr);
+  ierr = MatMatDecomposedMult(ctx->s_r1, ctx->s_y1, 1.0, x, y); CHKERRQ(ierr);
+
+  return 0;
+}
+
+PetscErrorCode OCE1CreateH2plus(OCE1 self, PetscReal a, PetscReal z, OceH2plus *p_ctx) {
+  PetscErrorCode ierr;
+  OceH2plus ctx; 
+  ierr = PetscNew(&ctx); CHKERRQ(ierr);
+
+  ctx->a = a; ctx->z = z;
+
+  FEMInfCreateMat(self->fem,1 , &ctx->s_r1); 
+  FEMInfCreateMat(self->fem,1 , &ctx->d2_r1); 
+  FEMInfCreateMat(self->fem,1 , &ctx->r2inv_r1); 
+  Y1sCreateY1Mat(self->y1s , &ctx->s_y1);
+  Y1sCreateY1Mat(self->y1s , &ctx->lambda_y1); 
+
+  if(self->s_r == NULL) {
+    ierr = OCE1CalcSr(self); CHKERRQ(ierr);
+  }
+  if(self->s_y == NULL) {
+    ierr = OCE1CalcSy(self); CHKERRQ(ierr);
+  }
+
+  // calculate ctx 
+  MatCopy(self->s_r, ctx->s_r1, DIFFERENT_NONZERO_PATTERN);
+  FEMInfD2R1Mat(self->fem, ctx->d2_r1);
+  FEMInfR2invR1Mat(self->fem, ctx->r2inv_r1);  
+  MatCopy(self->s_y, ctx->s_y1, DIFFERENT_NONZERO_PATTERN);
+  Y1sLambdaY1Mat(self->y1s, ctx->lambda_y1);
+
+  int lmax; Y1sGetMaxL(self->y1s, &lmax);
+  int qmax = 2*lmax+1; 
+  ierr = PetscMalloc1(qmax, &ctx->q); CHKERRQ(ierr);
+  ierr = PetscMalloc1(qmax, &ctx->ne_r1); CHKERRQ(ierr);
+  ierr = PetscMalloc1(qmax, &ctx->pq_y1); CHKERRQ(ierr);
+  int idx = 0;
+  for(int q = 0; q < qmax; q++) {
+    Mat pq_y, pq_r;
+    PetscBool non0;
+    ierr = Y1sCreateY1Mat(self->y1s, &pq_y);      CHKERRQ(ierr);
+    ierr = FEMInfCreateMat(self->fem, 1, &pq_r); CHKERRQ(ierr);
+    ierr = Y1sPqY1Mat(self->y1s, q, pq_y, &non0); CHKERRQ(ierr);
+    if(non0) {
+      ierr = FEMInfENR1Mat(self->fem, q, a, pq_r); CHKERRQ(ierr);
+      ctx->q[idx] = q;
+      ctx->ne_r1[idx] = pq_r;
+      ctx->pq_y1[idx] = pq_y;
+      idx++;
+    } else {
+      MatDestroy(&pq_y);
+      MatDestroy(&pq_r);
+    }
+  }
+  ctx->nq = idx;
+
+  *p_ctx = ctx;
+  return 0;
+}
+PetscErrorCode OCE1H2plusMat(OCE1 self, OceH2plus ctx, Mat *H, Mat *S, PetscBool *is_id) {
+			     
+  PetscErrorCode ierr;
+
+  // set overlap property
+  PetscBool _is_id;
+  FEMInfGetOverlapIsId(self->fem, &_is_id);
+  if(is_id != NULL)
+    *is_id = _is_id;
+
+  // Mat creation
+  Mat _H, _S;
+  int nr, ny; FEMInfGetSize(self->fem, &nr); Y1sGetSize(self->y1s, &ny);
+  int n = nr*ny;
+  ierr = MatCreateShell(self->comm, PETSC_DECIDE, PETSC_DECIDE, 
+			n, n, ctx, &_H); CHKERRQ(ierr);
+  ierr = MatCreateShell(self->comm, PETSC_DECIDE, PETSC_DECIDE, 
+			n, n, ctx, &_S);  CHKERRQ(ierr);
+
+  // set context
+  ierr = MatShellSetOperation(_H, MATOP_MULT, 
+			      (void(*)(void))OceH2plusMatMultH); CHKERRQ(ierr);
+  ierr = MatShellSetOperation(_S, MATOP_MULT, 
+			      (void(*)(void))OceH2plusMatMultS);CHKERRQ(ierr);
+  *H = _H;
+  *S = _S;
+
+  return 0;
+}
+PetscErrorCode OCE1H2plusMat_direct(OCE1 self, OceH2plus ctx, Mat *H, Mat *S, PetscBool *is_id) {
+  
+  PetscErrorCode ierr;
+
+  PetscReal a = ctx->a;
+  PetscReal z = ctx->z;
+
+  Mat _H;
+  ierr = OCE1TMat(self, MAT_INITIAL_MATRIX, &_H); CHKERRQ(ierr);
+  ierr = OCE1PlusVneMat(self, a, z, _H); CHKERRQ(ierr);
+  *H = _H;
+
+  Mat _S;
+  ierr = OCE1SMat(self, MAT_INITIAL_MATRIX, &_S, is_id); CHKERRQ(ierr);
+  *S = _S;
+  return 0;
+}
+PetscErrorCode OCE1H2plusDestroy(OceH2plus *p_ctx) {
+  PetscErrorCode ierr;
+  OceH2plus ctx = *p_ctx;
+  ierr = MatDestroy(&ctx->s_r1); CHKERRQ(ierr);
+  ierr = MatDestroy(&ctx->d2_r1); CHKERRQ(ierr);
+  ierr = MatDestroy(&ctx->r2inv_r1); CHKERRQ(ierr);
+
+  ierr = MatDestroy(&ctx->s_y1); CHKERRQ(ierr);
+  ierr = MatDestroy(&ctx->lambda_y1); CHKERRQ(ierr);
+
+  for(int q = 0; q < ctx->nq; q++) {
+    ierr = MatDestroy(&ctx->ne_r1[q]); CHKERRQ(ierr);
+    ierr = MatDestroy(&ctx->pq_y1[q]); CHKERRQ(ierr);
+  }
+  ierr = PetscFree(ctx->q); CHKERRQ(ierr);
+  ierr = PetscFree(ctx->ne_r1); CHKERRQ(ierr);
+  ierr = PetscFree(ctx->pq_y1); CHKERRQ(ierr);
+
+  PetscFree(*p_ctx);
+
+  return 0;
+}
+
+/*
+PetscErrorCode OceH2plusCreate(OceH2plus *p_self) {
+  PetscErrorCode ierr;
+  OceH2plus self;  
+  ierr = PetscNew(&self); CHKERRQ(ierr);
+  *p_self = self;
+  return 0;	       
+}
+PetscErrorCode OceH2plusDestroy(OceH2plus *p_self) {
+  PetscErrorCode ierr;
+  OceH2plus self = *p_self;
+  ierr = PetscFree(self); CHKERRQ(ierr);
+  return 0;
+}
+
+PetscErrorCode OceH2plusCalc(OceH2plus self, FEMInf fem, Y1s y1s) {
+
+  FEMInfGetSize(fem, &self->nr);
+  Y1sGetSize(y1s, &self->ny);
+  FEMInfGetOverlapIsId(fem, &self->is_id);
+
+  FEMInfCreateMat(fem, 1, &self->s_r1);     FEMInfSR1Mat(fem, self->s_r1);
+  FEMInfCreateMat(fem, 1, &self->d2_r1);    FEMInfD2R1Mat(fem, self->d2_r1);  
+  FEMInfCreateMat(fem, 1, &self->r2inv_r1); FEMInfD2R1Mat(fem, self->r2inv_r1);  
+
+  Y1sCreateY1Mat(y1s, &self->s_y1); Y1sSY1Mat(y1s, self->s_y1);
+  Y1sCreateY1Mat(y1s, &self->lambda_y1); Y1sLambdaY1Mat(y1s, self->lambda_y1);  
+
+  return 0;
+}
+PetscErrorCode OceH2PlusCreateMat(OceH2plus self, Mat *M);
+PetscErrorCode OceH2plusHMat(OceH2plus self, Mat H);
+PetscErrorCode OceH2plusSMat(OceH2plus self, Mat S, PetscBool *is_id);
+
+PetscErrorCode OceH2plusView(OceH2plus self, PetscViewer v) {
+  PetscErrorCode ierr;
+  PetscBool iascii, isbinary, isdraw;
+  
+  ierr = OceH2plusCheckState(self); CHKERRQ(ierr);
+  
+  if(v == NULL)
+    PetscViewerASCIIGetStdout(self->comm, &v);
+  
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERASCII,&iascii);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERBINARY,&isbinary);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERDRAW,&isdraw);
+  CHKERRQ(ierr);  
+  
+  if(iascii) {
+    PetscViewerASCIIPrintf(v, "OceH2plus object:\n");
+    PetscViewerASCIIPushTab(v);
+    
+    PetscViewerASCIIPopTab(v);
+  } else if(isbinary) {
+    
+  } else if(isdraw) {
+    
+  }
+  return 0;
+  
+}
+
+*/
+
+
+

@@ -8,10 +8,10 @@ static char help[] = "Unit test for oce1.c";
 class TestOCE1 :public ::testing::Test {
 public:
   MPI_Comm comm;
-  OCE1 oce;
+  OCE1 oce;   
   virtual void SetUp() {
     comm = PETSC_COMM_SELF;
-    Y1s y1s;    Y1sCreate(comm, &y1s); Y1sSetOne(y1s, 0, 1);
+    Y1s y1s; Y1sCreate(comm, &y1s); Y1sSetOne(y1s, 0, 1);
     BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 20.0, 21);
     int order = 5;
     BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);  BSSSetUp(bss);
@@ -22,7 +22,6 @@ public:
     OCE1Destroy(&this->oce);
   }
 };
-
 TEST_F(TestOCE1, HAtom) {
 
   if(getenv("SHOW_DEBUG"))
@@ -68,6 +67,110 @@ TEST_F(TestOCE1, HAtom2) {
   EEPSDestroy(&eps);
   
 }
+
+class TestOCE1H2plus :public ::testing::Test {
+public:
+  MPI_Comm comm;
+  OCE1 oce;   
+  virtual void SetUp() {
+    comm = PETSC_COMM_SELF;
+    /*
+    Y1s y1s; Y1sCreate(comm, &y1s); Y1sSet(y1s, SIGMA, GERADE, 10);
+    BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 50.0, 101);
+    int order = 5;
+    BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);  BSSSetUp(bss);
+    FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetBSS(fem, bss);
+    */
+    Y1s y1s; Y1sCreate(comm, &y1s); Y1sSet(y1s, SIGMA, GERADE, 4);
+    BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 40.0, 41);
+    int order = 4;
+    BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);  BSSSetUp(bss);
+    FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetBSS(fem, bss);
+    OCE1Create(comm, &this->oce); OCE1Set(this->oce, fem, y1s);    
+  }
+  virtual void TearDown() {
+    OCE1Destroy(&this->oce);
+  }
+};
+TEST_F(TestOCE1H2plus, H2plusMat) {
+
+  PetscErrorCode ierr;
+  OceH2plus h2plus;
+  ierr = OCE1CreateH2plus (oce, 0.3, 1.0, &h2plus); ASSERT_EQ(0, ierr);
+
+  int nr, ny; OCE1GetSizes(oce, &nr, &ny);
+
+  Mat H, S, H0, S0;
+  ierr = OCE1H2plusMat(oce, h2plus, &H, &S, NULL);  ASSERT_EQ(0, ierr);
+  ierr = OCE1H2plusMat_direct(oce, h2plus, &H0, &S0, NULL);  ASSERT_EQ(0, ierr);
+
+  PetscScalar *val; PetscMalloc1(nr*ny, &val);
+  for(int i = 0; i < nr*ny; i++)
+    val[i] = i*0.2;
+  Vec x;  VecCreateSeqWithArray(comm, nr*ny, nr*ny, val, &x);
+  Vec y;  VecCreate(comm, &y); VecSetSizes(y, PETSC_DECIDE, nr*ny); VecSetUp(y);
+  Vec y0; VecCreate(comm, &y0);VecSetSizes(y0, PETSC_DECIDE, nr*ny); VecSetUp(y0);
+
+  MatMult(H, x, y);
+  MatMult(H0, x, y0);
+
+  VecAXPY(y, -1.0, y0);
+  PetscReal norm;
+  VecNorm(y, NORM_1, &norm);
+  ASSERT_NEAR(0.0, norm/(nr*ny), pow(10.0,-10.0));
+  
+  VecDestroy(&x); VecDestroy(&y); VecDestroy(&y0);
+  MatDestroy(&H); MatDestroy(&S); MatDestroy(&H0); MatDestroy(&S0);
+  ierr = OCE1H2plusDestroy(&h2plus);  ASSERT_EQ(0, ierr);
+  PetscFree(val);
+}
+TEST_F(TestOCE1H2plus, H2plusEPS) {
+
+  PetscErrorCode ierr;
+  OceH2plus h2plus;
+  ierr = OCE1CreateH2plus (oce, 1.0, 1.0, &h2plus); ASSERT_EQ(0, ierr);
+  Mat H, S;
+  ierr = OCE1H2plusMat(oce, h2plus, &H, &S, NULL);  ASSERT_EQ(0, ierr);
+
+  EEPS eps; 
+  ierr = EEPSCreate(comm, &eps);  ASSERT_EQ(0, ierr);
+  ierr = EEPSSetOperators(eps, H, S); ASSERT_EQ(0, ierr);
+  ierr = EEPSSetTarget(eps, -3.2); ASSERT_EQ(0, ierr);
+  ierr = EEPSSolve(eps); ASSERT_EQ(0, ierr);
+
+  PetscScalar k;
+  ierr = EPSGetEigenpair(eps->eps, 0, &k, 0, 0, 0);  ASSERT_EQ(0, ierr);
+  ASSERT_NEAR(-1.1026342144949, PetscRealPart(k), 0.03); 
+  
+  ierr = EEPSDestroy(&eps); ASSERT_EQ(0, ierr);
+  ierr = OCE1H2plusDestroy(&h2plus);  ASSERT_EQ(0, ierr);
+  ierr = MatDestroy(&H); ASSERT_EQ(0, ierr);
+  ierr = MatDestroy(&S); ASSERT_EQ(0, ierr);
+}
+TEST_F(TestOCE1H2plus, H2plusEPS_direct) {
+
+  PetscErrorCode ierr;
+  OceH2plus h2plus;
+  ierr = OCE1CreateH2plus (oce, 1.0, 1.0, &h2plus); ASSERT_EQ(0, ierr);
+  Mat H, S;
+  ierr = OCE1H2plusMat_direct(oce, h2plus, &H, &S, NULL);  ASSERT_EQ(0, ierr);
+
+  EEPS eps; 
+  ierr = EEPSCreate(comm, &eps);  ASSERT_EQ(0, ierr);
+  ierr = EEPSSetOperators(eps, H, S); ASSERT_EQ(0, ierr);
+  ierr = EEPSSetTarget(eps, -3.2); ASSERT_EQ(0, ierr);
+  ierr = EEPSSolve(eps); ASSERT_EQ(0, ierr);
+
+  PetscScalar k;
+  ierr = EPSGetEigenpair(eps->eps, 0, &k, 0, 0, 0);  ASSERT_EQ(0, ierr);
+  ASSERT_NEAR(-1.1026342144949, PetscRealPart(k), 0.03); 
+  
+  ierr = EEPSDestroy(&eps); ASSERT_EQ(0, ierr);
+  ierr = OCE1H2plusDestroy(&h2plus);  ASSERT_EQ(0, ierr);
+  ierr = MatDestroy(&H); ASSERT_EQ(0, ierr);
+  ierr = MatDestroy(&S); ASSERT_EQ(0, ierr);
+}
+
 int _main(int argc, char **args) {
  ::testing::InitGoogleTest(&argc, args);
   return RUN_ALL_TESTS();

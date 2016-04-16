@@ -1,4 +1,17 @@
+#include <string.h>
+#include <stdlib.h>
 #include <rescol/pot.h>
+
+int str_nele(const char *str, char key) {
+
+  int num = strlen(str);
+  int cumsum = 0;
+  for(int i = 0; i < num; i++) {
+    if(str[i] == key)
+      cumsum++;
+  }
+  return cumsum;
+}
 
 typedef struct {
   PetscScalar a;
@@ -165,6 +178,42 @@ PetscErrorCode MorseDestroy(void *ctx) {
   return 0;
 }
 
+typedef struct {
+  int num;
+  PF *pfs;
+} Combination;
+PetscErrorCode CombinationApply(void *ctx, int n, const PetscScalar *x, PetscScalar *y) {
+  PetscErrorCode ierr;
+  Combination *self = (Combination*)ctx;
+  PetscScalar *y_tmp; PetscMalloc1(n, &y_tmp);
+  for(int i = 0; i < n; i++)
+    y[i] = 0.0;
+  for(int j = 0; j < self->num; j++) {
+    PFApply(self->pfs[j], n, x, y_tmp);
+    for(int i = 0; i < n; i++)
+      y[i] += y_tmp[i];
+  }
+  ierr = PetscFree(y_tmp); CHKERRQ(ierr);
+  return 0;
+}
+PetscErrorCode CombinationView(void *ctx, PetscViewer v) {
+  PetscErrorCode ierr;
+  Combination *self = (Combination*)ctx;
+  PetscViewerASCIIPrintf(v, "type: Combination of PF object\n");
+  PetscViewerASCIIPrintf(v, "# of PF: %d\n", self->num);
+  for(int i = 0; i < self->num; i++) {
+    PetscViewerASCIIPrintf(v, "No %d:\n", i);
+    ierr = PFView(self->pfs[i], v); CHKERRQ(ierr);
+  }
+  return 0;
+}
+PetscErrorCode CombinationDestroy(void *ctx) {
+  PetscErrorCode ierr;
+  Combination *self = (Combination*)ctx;
+  ierr = PetscFree(self->pfs); CHKERRQ(ierr);
+  ierr = PetscFree(self); CHKERRQ(ierr);
+  return 0;
+}
 
 PetscErrorCode PotCreate(MPI_Comm comm, Pot *p_self) {
   PetscErrorCode ierr;
@@ -199,6 +248,15 @@ PetscErrorCode PotSetMorse(Pot self, PetscScalar D0, PetscScalar a, PetscScalar 
   Morse *ctx; PetscNew(&ctx);
   ctx->D0 = D0; ctx->a = a; ctx->Re = Re;
   PFSet(self, MorseApply, NULL, MorseView, MorseDestroy, ctx);
+  return 0;
+}
+PetscErrorCode PotSetCombination(Pot self, int num, Pot *pfs) {
+  Combination *ctx; PetscNew(&ctx);
+  ctx->num = num;
+  PetscMalloc1(num, &ctx->pfs);
+  for(int i = 0; i < num; i++)
+    ctx->pfs[i] = pfs[i];
+  PFSet(self, CombinationApply, NULL, CombinationView, CombinationDestroy, ctx);
   return 0;
 }
 PetscErrorCode PotSetFromOptions(Pot self) {
@@ -257,6 +315,160 @@ PetscErrorCode PotSetFromOptions(Pot self) {
     char msg[100]; sprintf(msg, "unsupported pot_type: %s", type);
     SETERRQ(comm, 1, msg);
   }
+  return 0;
+}
+PetscErrorCode PotSetFromStr_Combination(Pot self, char str[]) {
+  MPI_Comm comm; PetscObjectGetComm((PetscObject)self, &comm);
+  PetscErrorCode ierr;
+  int num_prim = str_nele(str, '|') + 1;
+  PF *pfs; PetscMalloc1(num_prim, &pfs);
+
+  char **prim;
+  PetscMalloc1(num_prim, &prim);
+  prim[0] = strtok(str, "|");
+  for(int i = 1; i < num_prim; i++) {
+    prim[i] = strtok(NULL, "|");
+  }
+
+  for(int i = 0; i < num_prim; i++) {
+
+    if(prim[i] == NULL) {
+      char msg[100]; 
+      sprintf(msg, "null found. i = %d. str = %s", i, str);
+      SETERRQ(comm, 1, msg);
+    }
+
+    ierr = PotCreate(comm, &pfs[i]); CHKERRQ(ierr);
+    ierr = PotSetFromStr(pfs[i], prim[i]); CHKERRQ(ierr);
+
+  }
+
+  ierr = PotSetCombination(self, num_prim, pfs); CHKERRQ(ierr);
+  PetscFree(prim);
+  return 0;
+}
+PetscErrorCode PotSetFromStr_Slater(Pot self, char str[]) {
+  MPI_Comm comm; PetscObjectGetComm((PetscObject)self, &comm);
+  char *err;
+  char *str_c;
+  double c;
+  str_c = strtok(NULL, " ");
+  if(str_c == NULL) {
+    char msg[100]; sprintf(msg, "c is not found. original string: %s", str);
+    SETERRQ(comm, 1, msg);
+  }
+  c = atof(str_c);
+  if(fabs(c) < 0.00000000001)
+    SETERRQ(comm, 1, "coefficient c is 0");
+
+  char *str_n;
+  int n;
+  str_n = strtok(NULL, " ");
+  if(str_n == NULL) {
+    char msg[100]; sprintf(msg, "n is not found. Original string: %s", str);
+    SETERRQ(comm, 1, msg);
+  }
+  n = strtol(str_n, &err, 10);
+  if(err == '\0')
+    SETERRQ(comm, 1, "conversion failed for n");
+    
+  char *str_z;
+  double z;
+  str_z = strtok(NULL, " ");
+  if(str_z == NULL) {
+    char msg[100]; sprintf(msg, "z is not found. Original string: %s", str);
+    SETERRQ(comm, 1, msg);
+  }
+  z = atof(str_z);
+  if(fabs(z) < 0.00000000001)
+    SETERRQ(comm, 1, "orbital exponent z is 0");
+
+  PotSetSlater(self, c, n, z);
+  return 0;
+}
+PetscErrorCode PotSetFromStr_Power(Pot self, char str[]) {
+
+  MPI_Comm comm; PetscObjectGetComm((PetscObject)self, &comm);
+  char *err;
+
+  char *str_c;
+  double c;
+  str_c = strtok(NULL, " ");
+  if(str_c == NULL)
+    SETERRQ(comm, 1, "c is not found");
+  c = atof(str_c);
+  if(fabs(c) < 0.00000000001)
+    SETERRQ(comm, 1, "coefficient c is 0");
+  
+  char *str_n;
+  int n;
+  str_n = strtok(NULL, " ");
+  if(str_n == NULL)
+    SETERRQ(comm, 1, "n is not found");
+  n = strtol(str_n, &err, 10);
+  if(err == '\0')
+    SETERRQ(comm, 1, "conversion failed for n");
+  
+  PotSetPower(self, c, n);
+  return 0;
+
+}
+PetscErrorCode PotSetFromStr(Pot self, const char str_in[]) {
+
+  MPI_Comm comm; PetscObjectGetComm((PetscObject)self, &comm);
+  PetscErrorCode ierr;
+
+  char str[101];
+  if(strlen(str_in) > 100)
+    SETERRQ(comm, 1, "length of str_in must be shorter than 100");
+  strcpy(str, str_in);
+
+  
+  if(str_nele(str_in, '|') != 0) {
+    ierr = PotSetFromStr_Combination(self, str); CHKERRQ(ierr);
+    return 0;
+  }
+
+  char *name;
+  name = strtok(str, " ");
+  if(name == NULL) {
+    SETERRQ(comm, 1, "name is not found in str\n"); 
+  }
+
+  if(strcmp(name, "sto") == 0) {
+    ierr = PotSetFromStr_Slater(self, str); CHKERRQ(ierr);
+    return 0;
+  }
+  else if(strcmp(name, "pow") == 0) {
+    ierr = PotSetFromStr_Power(self, str); CHKERRQ(ierr);
+    return 0;    
+  }
+  else {
+    SETERRQ(comm, 1, "Unsupported name");
+  }
+}
+PetscErrorCode PotSetFromOptions2(Pot self, const char prefix[]) {
+
+  MPI_Comm comm; PetscObjectGetComm((PetscObject)self, &comm);
+  PetscErrorCode ierr;
+  PetscBool find;
+
+  char option_name[100] = "-";
+  strcat(option_name, prefix);
+  strcat(option_name, "-pot");
+
+  char option_res[100];
+
+  ierr = PetscOptionsGetString(NULL, option_name, option_res, 100, &find); CHKERRQ(ierr);
+
+  if(!find) {
+    char msg[1000];
+    sprintf(msg, "Not found option. option_name = %s.", option_name);
+    SETERRQ(comm, 1, msg);
+  }
+
+  ierr = PotSetFromStr(self, option_res);
+
   return 0;
 }
 

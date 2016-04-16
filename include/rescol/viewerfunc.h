@@ -1,7 +1,7 @@
 #ifndef FUNCVIEWER_H
 #define FUNCVIEWER_H
 #ifdef __cplusplus
-// extern "C" {
+extern "C" {
 #endif 
 #include <petscviewer.h>
 
@@ -17,6 +17,7 @@ typedef struct _p_ViewerFunc* ViewerFunc;
 PetscErrorCode ViewerFuncCreate(MPI_Comm comm, ViewerFunc *p_self);
 PetscErrorCode ViewerFuncDestroy(ViewerFunc *p_self);
 
+PetscViewer ViewerFuncGetBase();
 PetscErrorCode ViewerFuncView(ViewerFunc self, PetscViewer viewer);
 
 PetscErrorCode ViewerFuncSetBase(ViewerFunc self, PetscViewer base);
@@ -28,6 +29,6 @@ PetscBool ViewerFuncIsActive(ViewerFunc self);
 PetscErrorCode ViewerFuncCheckAcrive(ViewerFunc self);
 
 #ifdef __cplusplus
-  // }
+ }
 #endif
 #endif

@@ -38,7 +38,9 @@ struct _p_H2 {
   OCE2 oce;
   PetscViewer viewer;
   Mat H0;
-  Mat S;
+  Mat S; 
+  
+  PetscViewer init_view;
   PetscBool s_is_id;
   PetscReal d_bondlength; // delta of bond length
   PetscInt num_bondlength; // number of bond length for caluclation
@@ -58,9 +60,11 @@ PetscErrorCode H2Create(H2 *p_h2) {
   h2->comm = PETSC_COMM_SELF;
   OCE2Create(h2->comm, &h2->oce);
 
+  
   h2->viewer = PETSC_VIEWER_STDOUT_SELF;
   h2->H0 = NULL;
   h2->S = NULL;
+  h2->init_view = NULL;
   h2->d_bondlength = 0.1;
   h2->num_bondlength = 1;
   h2->bondlength = 0.0;
@@ -83,9 +87,18 @@ PetscErrorCode H2Destroy(H2 *p_h2) {
 }
 PetscErrorCode H2SetFromOptions(H2 h2) {
   PetscErrorCode ierr;
+  PetscBool find;
+  char path[256];
+  
+  ierr = PetscOptionsGetString(NULL, "-init_path", path, 256, &find); CHKERRQ(ierr);
+  if(find) {
+    ierr = PetscViewerBinaryOpen(h2->comm, path, FILE_MODE_READ, &h2->init_view); CHKERRQ(ierr);  
+  }
+
   ierr = PetscOptionsGetReal(NULL, "-bondlength", &h2->bondlength, NULL);  CHKERRQ(ierr);
   ierr = PetscOptionsGetReal(NULL, "-d_bondlength", &h2->d_bondlength, NULL); CHKERRQ(ierr);
-  ierr = PetscOptionsGetInt(NULL, "-num_bondlength", &h2->num_bondlength, NULL); CHKERRQ(ierr);
+  ierr = PetscOptionsGetInt(NULL, "-num_bondlength", &h2->num_bondlength, NULL); CHKERRQ(ierr);  
+
 
   ierr = OCE2SetFromOptions(h2->oce); CHKERRQ(ierr);
   ierr = OCE2TMat(h2->oce, MAT_INITIAL_MATRIX, &h2->H0); CHKERRQ(ierr);
@@ -111,19 +124,38 @@ PetscErrorCode H2Solve(H2 h2) {
   PetscErrorCode ierr;
   EEPS eps;
   EEPSCreate(h2->comm, &eps);  
+
+  // set operator
   if(h2->s_is_id) {
     ierr = EEPSSetOperators(eps, h2->H, NULL); CHKERRQ(ierr);
   } else {
     ierr = EEPSSetOperators(eps, h2->H, h2->S); CHKERRQ(ierr);
   }
 
-  if(h2->eps_old) { EEPSSetInitSpaceFromOther(eps, PETSC_DEFAULT, h2->H, h2->eps_old->eps); }
+  // set initial space
+  if(h2->eps_old) { 
+    PrintTimeStamp(h2->comm, "set init", NULL);
+    EEPSSetInitSpaceFromOther(eps, PETSC_DEFAULT, h2->H, h2->eps_old->eps);
+  } else if(h2->init_view) {
+    
+    PrintTimeStamp(h2->comm, "Read init", NULL);
+    Vec x[1]; MatCreateVecs(h2->H, NULL, &x[0]);
+    ierr = VecLoad(x[0], h2->init_view); CHKERRQ(ierr);
+    ierr = EPSSetInitialSpace(eps->eps, 1, x);
 
+    ierr = VecDestroy(&x[0]); CHKERRQ(ierr);
+    ierr = PetscViewerDestroy(&h2->init_view); CHKERRQ(ierr);    
+  }
+
+  // set other
   ierr = EEPSSetTarget(eps, -4.1); CHKERRQ(ierr);
   ierr = EEPSSetFromOptions(eps); CHKERRQ(ierr);
 
+  // solve
+  PrintTimeStamp(h2->comm, "solve", NULL);
   ierr = EEPSSolve(eps); CHKERRQ(ierr);
 
+  // finalize
   if(h2->eps_old) { ierr = EEPSDestroy(&h2->eps_old); CHKERRQ(ierr); }
   h2->eps_old = eps;
   return 0;
@@ -364,7 +396,6 @@ int main(int argc, char **args) {
   PetscPrintf(comm, "Scalar: real\n");
 #endif
 
-
   PrintTimeStamp(comm, "Create", NULL);
   ierr = H2Create(&h2); CHKERRQ(ierr);
 
@@ -372,15 +403,15 @@ int main(int argc, char **args) {
   ierr = H2SetFromOptions(h2); CHKERRQ(ierr);
 
   PrintTimeStamp(comm, "View", NULL);
-
-
   OCE2View(h2->oce, h2->viewer);
+  if(h2->init_view)
+    PetscViewerView(h2->init_view, h2->viewer);
 
   for(int i = 0; i < h2->num_bondlength; i++) {
     PrintTimeStamp(comm, "Set H", NULL);
     PetscPrintf(comm, "bond_length = %f\n", h2->bondlength);
     ierr = H2SetH(h2); CHKERRQ(ierr);
-    PrintTimeStamp(comm, "solve", NULL);
+    PrintTimeStamp(comm, "eps", NULL);
     ierr = H2Solve(h2); CHKERRQ(ierr);
     h2->bondlength += h2->d_bondlength;
   }

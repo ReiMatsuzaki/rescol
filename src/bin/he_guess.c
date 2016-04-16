@@ -1,6 +1,8 @@
-#include <rescol/mat.h>
 #include <rescol/fem_inf.h>
-#include <rescol/angmoment.h>
+#include <rescol/y2s.h>
+#include <rescol/eeps.h>
+#include <rescol/wavefunc.h>
+#include <rescol/synthesize.h>
 
 static char help[] = "create initial guess for He atom from hydrogen eigen function";
 /*
@@ -24,130 +26,136 @@ static char help[] = "create initial guess for He atom from hydrogen eigen funct
   -guess_type
 */
 
-PetscErrorCode CalcHVec(FEMInf this, PetscReal z, PetscInt L, MPI_Comm comm, Vec *x, PetscScalar *e) {
+PetscErrorCode CalcHVec(FEMInf fem, PetscReal z, int L, Vec *x, PetscScalar *e) {
 
   PetscErrorCode ierr;
-  PetscBool s_is_id; FEMInfGetOverlapIsId(this, &s_is_id);
+  PetscBool s_is_id; FEMInfGetOverlapIsId(fem, &s_is_id);
   
-  Mat H;
-  FEMInfSetD2R1Mat(this, &H); MatScale(H, -0.5);
+  Mat H; FEMInfCreateMat(fem, 1, &H); FEMInfD2R1Mat(fem, H); MatScale(H, -0.5);
   if(L!=0) {
-    Mat R2inv;
-    ierr = FEMInfSetR2invR1Mat(this, &R2inv); CHKERRQ(ierr);
+    Mat R2inv; FEMInfCreateMat(fem, 1, &R2inv); FEMInfR2invR1Mat(fem, R2inv);
     MatAXPY(H, L*(L+1)*0.5, R2inv, DIFFERENT_NONZERO_PATTERN); 
     MatDestroy(&R2inv);
   }
-  Mat V;
-  ierr = FEMInfSetENR1Mat(this, 0, 0.0, &V); CHKERRQ(ierr);
-  MatAXPY(H, -z, V, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
+  Mat V; FEMInfCreateMat(fem, 1, &V); FEMInfENR1Mat(fem, 0, 0.0, V);
+  MatAXPY(H, -z, V, DIFFERENT_NONZERO_PATTERN); 
   MatDestroy(&V);
 
-  EPS eps;
-  EPSCreate(comm, &eps); 
+  
+
+  EEPS eps; EEPSCreate(fem->comm, &eps); 
+  
   if(s_is_id) {
-    EPSSetOperators(eps, H, NULL);
-    EPSSetProblemType(eps, EPS_HEP);
+    EEPSSetOperators(eps, H, NULL);
   }
   else {
-    Mat S;
-    ierr = FEMInfSetSR1Mat(this, &S); CHKERRQ(ierr);
-    EPSSetOperators(eps, H, S);
-    EPSSetProblemType(eps, EPS_GHEP);
+    Mat S; FEMInfCreateMat(fem, 1, &S); FEMInfSR1Mat(fem, S);
+    EEPSSetOperators(eps, H, S);
   }
-  EPSSetWhichEigenpairs(eps, EPS_TARGET_MAGNITUDE);
-  EPSSetTarget(eps, -0.6); 
-  EPSSetFromOptions(eps); 
-  ierr = EPSSolve(eps); CHKERRQ(ierr);
+  EEPSSetTarget(eps, -0.6); 
+  EEPSSetFromOptions(eps);
+  
+  ierr = EEPSSolve(eps); CHKERRQ(ierr);
 
   PetscInt n;
   ierr = MatCreateVecs(H, NULL, x); CHKERRQ(ierr);
-  EPSGetConverged(eps, &n);
+  EPSGetConverged(eps->eps, &n);
   if (n == 0) {
     SETERRQ(PETSC_COMM_WORLD, 1, "Calculation Failed");
   }
-  EPSGetEigenpair(eps, 0, e, NULL, *x, NULL);
+  EPSGetEigenpair(eps->eps, 0, e, NULL, *x, NULL);
   
-  EPSDestroy(&eps);
+  EEPSDestroy(&eps);
   MatDestroy(&H); 
 
+  return 0;
+}
+PetscErrorCode FitHVec(FEMInf fem, PetscReal z, int n, int L, Vec *x) {
+  MPI_Comm comm =fem->comm;
+  PetscErrorCode ierr;
+  KSP ksp; KSPCreate(comm, &ksp);
+  WaveFunc f; WaveFuncCreate(comm, &f); WaveFuncSetHEig(f, n, L, z);
+
+  Vec xx;
+  ierr = FEMInfCreateVec(fem, 1, &xx);
+  ierr = FEMInfFit(fem, f, ksp, xx); CHKERRQ(ierr);
+  *x = xx;
+
+  KSPDestroy(&ksp);
+  PFDestroy(&f);
   return 0;
 }
 
 int main(int argc, char **args) {
 
   PetscErrorCode ierr;
-  FEMInf fem;
-  Y2s y2s;
   MPI_Comm comm = PETSC_COMM_SELF;
+  ierr = SlepcInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);
+
+  FEMInf fem;        
+  Y2s y2s;           
   PetscReal z = 2.0;
   PetscInt L1 = 0;
   PetscInt L2 = 0;
-  char in_dir[100] = ".";
-  char out_dir[100] = ".";
   char guess_type[10] = "calc";
+//  char out_path[256] = "";
+  PetscViewer viewer = PETSC_VIEWER_STDOUT_SELF;
+  PetscViewer vec_viewer;
+  PetscViewerFormat format;
   
   // Initialize
-  ierr = SlepcInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);
-  PetscPrintf(comm, "\nhe_guess start\n");
-  time_t t0; PrintTimeStamp(comm, "Init", &t0 );
-  PetscOptionsBegin(comm, "", "he_guess.c options", "none");
+  PrintTimeStamp(comm, "Init", NULL );
+
   PetscOptionsGetReal(NULL, "-z", &z, NULL);
   PetscOptionsGetInt(NULL, "-L1", &L1, NULL);
   PetscOptionsGetInt(NULL, "-L2", &L2, NULL);
-  PetscOptionsGetString(NULL, "-in_dir", in_dir, 100, NULL);
-  PetscOptionsGetString(NULL, "-out_dir", out_dir, 100, NULL);
   PetscOptionsGetString(NULL, "-guess_type", guess_type, 10, NULL);
-  ierr = FEMInfCreateFromOptions(&fem, comm); CHKERRQ(ierr);
-  ierr = Y2sCreateFromOptions(&y2s, comm); CHKERRQ(ierr);
-  PetscOptionsEnd();  
+  PetscOptionsGetViewer(comm, NULL, "-vec_viewer", &vec_viewer, &format, NULL);
+//  PetscOptionsGetString(NULL, "-out_path", out_path, 256, NULL);
+  ierr = FEMInfCreate(comm, &fem);  CHKERRQ(ierr);
+  ierr = FEMInfSetFromOptions(fem); CHKERRQ(ierr);
+  ierr = Y2sCreate(comm, &y2s);     CHKERRQ(ierr);
+  ierr = Y2sSetFromOptions(y2s);    CHKERRQ(ierr);
 
   // Calculate Hydrogen
   Vec x1, x2;
   if(strcmp(guess_type, "calc") == 0) {
     PrintTimeStamp(comm, "calc H atom", NULL);
     PetscScalar e1, e2;
-    ierr = CalcHVec(fem, z, L1, comm, &x1, &e1); CHKERRQ(ierr);
-    ierr = CalcHVec(fem, z, L2, comm, &x2, &e2); CHKERRQ(ierr);
+    ierr = CalcHVec(fem, z, L1, &x1, &e1); CHKERRQ(ierr);
+    ierr = CalcHVec(fem, z, L2, &x2, &e2); CHKERRQ(ierr);
     PetscPrintf(comm, "eig1: %f\n", e1);
     PetscPrintf(comm, "eig2: %f\n", e2);    
-  } else if (strcmp(guess_type, "eig") == 0) {
-    PrintTimeStamp(comm, "get eig", NULL);
-    ierr = FEMInfGuessHEig(fem, 1, L1, z, &x1);
-    ierr = FEMInfGuessHEig(fem, 1, L2, z, &x2);
+  } else if (strcmp(guess_type, "fit") == 0) {
+    PrintTimeStamp(comm, "fit H atom", NULL);
+    ierr = FitHVec(fem, z, 1, L1, &x1); CHKERRQ(ierr);
+    ierr = FitHVec(fem, z, 1, L2, &x2); CHKERRQ(ierr);
   } else {
-    SETERRQ(comm, 1, "-guess_type <- {calc, eig}");
+    SETERRQ(comm, 1, "-guess_type <- {calc, fit}");
   }
 
   // y2
-  Vec y2;
+  Vec y2; Y2sCreateY2Vec(y2s, &y2);
   PrintTimeStamp(comm, "Y2", NULL);
-  ierr = Y2sSetGuessY2Vec(y2s, L1, L2, &y2); CHKERRQ(ierr);
-  /*
-  char path[100]; sprintf(path, "%s/guess_y2vec.dat", in_dir);
-  ierr = VecCreateFromFile(path, comm, &y2);
-  */
+  ierr = Y2sGuessY2Vec(y2s, L1, L2, y2); CHKERRQ(ierr);
 
   // r2y2
   Vec r2, r2y2;
-  ierr = VecSetSynthesize(x1, x2, 1.0, comm, &r2); CHKERRQ(ierr);
-  ierr = VecSetSynthesize(r2, y2, 1.0, comm, &r2y2); CHKERRQ(ierr);
+  ierr = VecVecSynthesize(x1, x2, 1.0, MAT_INITIAL_MATRIX, &r2); CHKERRQ(ierr);
+  ierr = VecVecSynthesize(r2, y2, 1.0, MAT_INITIAL_MATRIX, &r2y2); CHKERRQ(ierr);
   
   // output
   PrintTimeStamp(comm, "Output", NULL);
-  PetscViewer viewer;
-  char out_path[100]; sprintf(out_path, "%s/guess.vec.dat", out_dir);
-  PetscViewerBinaryOpen(comm, out_path, FILE_MODE_WRITE, &viewer);
-  VecView(r2y2, viewer);
-
+  VecView(r2y2, vec_viewer);
   PetscPrintf(comm, "z: %lf\n", z);
   PetscPrintf(comm, "L1: %d\n", L1);
   PetscPrintf(comm, "L2: %d\n", L2);
-  PetscPrintf(comm, "in_dir: %s\n", in_dir);
-  PetscPrintf(comm, "out_dir: %s\n", out_dir);
+  FEMInfView(fem, viewer);
 
-  FEMInfFPrintf(fem, stdout, 0);
-  
   PrintTimeStamp(comm, "Finalize", NULL);
+  FEMInfDestroy(&fem);
+  Y2sDestroy(&y2s);
+  PetscViewerDestroy(&vec_viewer);
   VecDestroy(&x1); VecDestroy(&x2); VecDestroy(&y2);
   VecDestroy(&r2); VecDestroy(&r2y2);
   PetscPrintf(comm, "he_guess end\n");

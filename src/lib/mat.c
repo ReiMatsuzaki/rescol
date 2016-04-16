@@ -1,5 +1,123 @@
 #include <rescol/mat.h>
 
+PetscErrorCode VecGetAllValues(Vec A, PetscScalar **x) {
+
+  int n; VecGetSize(A, &n);
+  int *i; PetscMalloc1(n, &i);
+  PetscScalar *y; PetscMalloc1(n, &y);
+  for(int idx = 0; idx < n; idx++) {
+    i[idx] = idx;
+  }
+  VecGetValues(A, n, i, y);
+  PetscFree(i);
+  *x = y;  
+  return 0;
+  
+}
+PetscErrorCode MatMatDecomposedMult_impl(Mat A, Mat B, PetscScalar t, Vec X, Vec Y, InsertMode mode) {
+  PetscErrorCode ierr;
+  int ma, na, mb, nb; MatGetSize(A, &ma, &na); MatGetSize(B, &mb, &nb);
+  PetscScalar *x; VecGetAllValues(X, &x);
+
+  for(int ia = 0; ia < ma; ia++) {
+    const PetscScalar *a; 
+    PetscInt ncol_a;
+    const PetscInt *col_a;
+    ierr = MatGetRow(A, ia, &ncol_a, &col_a, &a); CHKERRQ(ierr);
+
+    for(int ib = 0; ib < mb; ib++) {
+      const PetscScalar *b; 
+      PetscInt ncol_b;
+      const PetscInt *col_b;
+      ierr = MatGetRow(B, ib, &ncol_b, &col_b, &b); CHKERRQ(ierr);
+
+      int iy = ia + ib*ma;
+      PetscScalar y = 0.0;      
+      for(int idx_a = 0; idx_a < ncol_a; idx_a++) {
+        for(int idx_b = 0; idx_b < ncol_b; idx_b++) {
+	  int idx_x = col_a[idx_a] + col_b[idx_b]*na;
+          y += a[idx_a] * b[idx_b] * x[idx_x] * t;
+        }
+      }
+      
+      ierr = MatRestoreRow(B, ib, &ncol_b, &col_b, &b); CHKERRQ(ierr);
+      ierr = VecSetValue(Y, iy, y, mode); CHKERRQ(ierr);
+    }
+    ierr = MatRestoreRow(A, ia, &ncol_a, &col_a, &a); CHKERRQ(ierr);
+  }
+  
+  PetscFree(x);
+  VecAssemblyBegin(Y); VecAssemblyEnd(Y);
+  return 0;
+}
+PetscErrorCode MatMatDecomposedMult(Mat A, Mat B, PetscScalar t, Vec X, Vec Y) {
+  PetscErrorCode ierr;
+  ierr = MatMatDecomposedMult_impl(A, B, t, X, Y, INSERT_VALUES); CHKERRQ(ierr);
+  return 0;
+}
+PetscErrorCode MatMatDecomposedMultAdd(Mat A, Mat B, PetscScalar t, Vec X, Vec Y) {
+  PetscErrorCode ierr;
+  ierr = MatMatDecomposedMult_impl(A, B, t, X, Y, ADD_VALUES); CHKERRQ(ierr);
+  return 0;
+}
+
+PetscErrorCode MatMatMatDecomposedMult_impl(Mat A, Mat B, Mat C, PetscScalar t, Vec X, Vec Y, InsertMode mode) {
+    PetscErrorCode ierr;
+  int ma, na, mb, nb, mc, nc; 
+  MatGetSize(A, &ma, &na); MatGetSize(B, &mb, &nb); MatGetSize(C, &mc, &nc);
+  PetscScalar *x; VecGetAllValues(X, &x);
+
+  for(int ia = 0; ia < ma; ia++) {
+    const PetscScalar *a; 
+    PetscInt ncol_a;
+    const PetscInt *col_a;
+    ierr = MatGetRow(A, ia, &ncol_a, &col_a, &a); CHKERRQ(ierr);
+
+    for(int ib = 0; ib < mb; ib++) {
+      const PetscScalar *b; 
+      PetscInt ncol_b;
+      const PetscInt *col_b;
+      ierr = MatGetRow(B, ib, &ncol_b, &col_b, &b); CHKERRQ(ierr);
+      
+      for(int ic = 0; ic < mc; ic++) {
+	const PetscScalar *c; 
+	PetscInt ncol_c;
+	const PetscInt *col_c;
+	ierr = MatGetRow(C, ic, &ncol_c, &col_c, &c); CHKERRQ(ierr);
+
+	int iy = ia + ib*ma + ic*ma*mb;
+	PetscScalar y = 0.0;      
+	for(int idx_a = 0; idx_a < ncol_a; idx_a++) 
+	  for(int idx_b = 0; idx_b < ncol_b; idx_b++) 
+	    for(int idx_c = 0; idx_c < ncol_c; idx_c++) {
+	      int idx_x = col_a[idx_a] + col_b[idx_b]*na + col_c[idx_c]*na*nb;
+	      y += a[idx_a] * b[idx_b] * c[idx_c] * x[idx_x] * t;
+	  }
+
+	ierr = MatRestoreRow(C, ic, &ncol_c, &col_c, &c); CHKERRQ(ierr);
+	ierr = VecSetValue(Y, iy, y, mode); CHKERRQ(ierr);
+      }
+      ierr = MatRestoreRow(B, ib, &ncol_b, &col_b, &b); CHKERRQ(ierr);
+    }
+    ierr = MatRestoreRow(A, ia, &ncol_a, &col_a, &a); CHKERRQ(ierr);
+  }
+  
+  PetscFree(x);
+  VecAssemblyBegin(Y); VecAssemblyEnd(Y);
+  return 0;  
+}
+PetscErrorCode MatMatMatDecomposedMultAdd(Mat A, Mat B, Mat C, PetscScalar t, Vec X, Vec Y) {
+
+  PetscErrorCode ierr;
+  ierr = MatMatMatDecomposedMult_impl(A, B, C, t, X, Y, ADD_VALUES);
+  return 0;
+}
+PetscErrorCode MatMatMatDecomposedMult(Mat A, Mat B, Mat C, PetscScalar t, Vec X, Vec Y) {
+  PetscErrorCode ierr;
+  ierr = MatMatMatDecomposedMult_impl(A, B, C, t, X, Y, INSERT_VALUES);
+  return 0;
+}
+
 PetscReal ScalarAbs(PetscScalar x) {
 
 #if defined(PETSC_USE_COMPLEX)
@@ -7,6 +125,23 @@ PetscReal ScalarAbs(PetscScalar x) {
 #else
   return fabs(x);
 #endif
+}
+
+PetscErrorCode VecArrayLoad(PetscViewer viewer, int *n, Vec **xs) {
+
+  // info file?
+  int num_guess = 1;
+
+  Vec *ys; PetscMalloc1(num_guess, &ys);
+  MPI_Comm comm = PetscObjectComm((PetscObject)viewer);
+  for(int i = 0; i < num_guess; i++) {
+    Vec x; VecCreate(comm, &x); 
+    VecLoad(x, viewer);
+    ys[i] = x;
+  }
+  *xs = ys;
+  *n = num_guess;
+  return 0;
 }
 
 PetscErrorCode PrintTimeStamp(MPI_Comm comm, const char* label, time_t *t) {

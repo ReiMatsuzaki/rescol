@@ -21,7 +21,6 @@ static char help[] = "solve H2^+ problem";
 */
 
 int main(int argc, char **args) {
-
   PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
   ierr = SlepcInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);

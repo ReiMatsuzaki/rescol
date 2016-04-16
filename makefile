@@ -14,7 +14,7 @@ CFLAGS+=-std=gnu99
 CXXFLAGS=
 LIBS=-lgsl -lgtest
 
-OBJ_FEM= fem_inf.o fd.o bspline.o dvr.o bps.o mat.o pot.o cscaling.o viewerfunc.o
+OBJ_FEM= fem_inf.o fd.o bspline.o dvr.o bps.o mat.o pot.o cscaling.o viewerfunc.o synthesize.o op.o
 
 include $(subst .c,.d,${SOURCE_LIST})
 include ${RESCOL_DIR}/test/make.mk
@@ -62,4 +62,5 @@ myrm:
 	rm -f ${TEST_BIN_DIR}/*.out
 	rm -f ./*.o
 	rm -f ./*.out
+	rm -f ./*.dat
 

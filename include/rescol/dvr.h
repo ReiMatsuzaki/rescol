@@ -1,6 +1,5 @@
 #ifndef DVR_H
 #define DVR_H
-
 #ifdef __cplusplus
 extern "C" {
 #endif 

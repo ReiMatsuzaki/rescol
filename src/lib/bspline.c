@@ -183,8 +183,12 @@ PetscErrorCode BSSView(BSS self, PetscViewer v) {
   return 0;
 }
 PetscErrorCode BSSCheck(BSS self) {
+  if(self == NULL)
+    SETERRQ(self->comm, 1, "object is null");
+  
   if(!self->setup)
     SETERRQ(self->comm, 1, "BSS object is not setup. Call BSSSetKnots and BSSSetUp first");
+
   return 0;
 }
 
@@ -377,9 +381,9 @@ PetscErrorCode BSSCreateR1Mat(BSS self, Mat *M) {
   ierr = BSSCheck(self); CHKERRQ(ierr);
 
   int nb = self->num_basis;
-  MatCreate(self->comm, M);
-  MatSetSizes(*M, PETSC_DECIDE, PETSC_DECIDE, nb, nb);
-  MatSetUp(*M);
+  ierr = MatCreate(self->comm, M);  CHKERRQ(ierr);
+  ierr = MatSetSizes(*M, PETSC_DECIDE, PETSC_DECIDE, nb, nb);  CHKERRQ(ierr);
+  ierr = MatSetUp(*M);  CHKERRQ(ierr);
   return 0;
 }
 PetscErrorCode BSSCreateR2Mat(BSS self, Mat *M) {
@@ -577,6 +581,26 @@ PetscErrorCode BSSPotR1Vec(BSS self, PF pot, Vec V) {
   VecAssemblyEnd(V);
 
   return 0;
+}
+PetscErrorCode BSSOpMat(BSS self, Op op, Mat M) {
+
+  SETERRQ(self->comm, 1, "not implemented");
+
+  /*
+  PetscErrorCode ierr;
+  if(OpIsType(op, OpD2)) {
+    ierr = BSSD2R1Mat(self, M); CHKERRQ(ierr);
+  } else if(OpIsType(op, OpPF)) {
+    PF pf;
+    ierr = OpGetPF(op, &pf);
+    ierr = BSSPotR1Mat(self, pf, M); CHKERRQ(ierr);
+  } else if(OpIsType(op, OpPartialVee)) {
+  SETERRQ(self->comm, 1, "unsupported tpye");
+  } else 
+    SETERRQ(self->comm, 1, "unsupported tpye");
+
+  return 0;
+  */
 }
 PetscErrorCode BSSEER2Mat(BSS self, int q, Mat M) {
 

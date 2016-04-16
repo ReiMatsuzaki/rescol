@@ -1,6 +1,5 @@
 #ifndef FEM_INF_H
 #define FEM_INF_H
-
 #ifdef __cplusplus
 extern "C" {
 #endif 

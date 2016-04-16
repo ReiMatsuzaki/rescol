@@ -199,14 +199,11 @@ PetscErrorCode FEMInfViewFunc(FEMInf self, Vec c, ViewerFunc v) {
   CHKERRQ(ierr);
   ierr = PetscObjectTypeCompare((PetscObject)v->base,PETSCVIEWERDRAW,&isdraw);
   CHKERRQ(ierr);    
-  PetscPrintf(self->comm, "I am in ViewFunc\n");
   if(iascii) {
     ierr = FEMInfViewFunc_ASCII(self, c, v); CHKERRQ(ierr);
   } else if(isdraw) {
-    PetscPrintf(self->comm, "I am in Draw\n");
     ierr = FEMInfViewFunc_Draw(self, c, v); CHKERRQ(ierr);
   } else {
-     PetscPrintf(self->comm, "I am in otherwise\n");
   }
   return 0;
 }
@@ -250,6 +247,9 @@ PetscErrorCode FEMInfFit(FEMInf self, PF pf, KSP ksp, Vec c) {
   
   Mat S; FEMInfCreateMat(self, 1, &S); FEMInfSR1Mat(self, S);
   Vec V; FEMInfCreateVec(self, 1, &V); FEMInfPotR1Vec(self, pf, V);
+
+  int n; FEMInfGetSize(self, &n);
+  VecSetSizes(c, PETSC_DECIDE, n);
 
   ierr = KSPSetOperators(ksp, S, S); CHKERRQ(ierr);
   ierr = KSPSetFromOptions(ksp); CHKERRQ(ierr);

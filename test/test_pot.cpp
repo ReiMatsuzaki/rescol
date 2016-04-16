@@ -4,6 +4,83 @@
 
 static char help[] = "unit test for pot.c";
 
+TEST(String, str_nele) {
+  EXPECT_EQ(2, str_nele("aaa|bbbb|ccc", '|'));
+}
+void test_str2pot(const char str[], Pot p_ref, double x0, PetscErrorCode* p_ierr) {
+
+  MPI_Comm comm;
+  PetscObjectGetComm((PetscObject)p_ref, &comm);
+  
+  Pot pot; PotCreate(comm, &pot);
+  *p_ierr = PotSetFromStr(pot, str);
+  
+  PetscScalar y_ref[1];
+  PetscScalar y[1];
+  PetscScalar x[1] = {x0};
+  PFApply(p_ref, 1, x, y_ref);
+  PFApply(pot,   1, x, y);
+  ASSERT_DOUBLE_EQ(PetscRealPart(y_ref[0]), PetscRealPart(y[0]));
+  PFDestroy(&pot);
+
+}
+TEST(TestPOT, str2pot) {
+
+  PetscErrorCode ierr;
+  MPI_Comm comm = MPI_COMM_SELF;
+
+  char str_sto[] = "sto 1.1 2 1.2";
+  Pot p_sto; PotCreate(comm, &p_sto); PotSetSlater(p_sto, 1.1, 2, 1.2);
+  test_str2pot(str_sto, p_sto, 0.2, &ierr);
+
+  char str_rm[] = "pow 1.2 -3";
+  Pot p_rm; PotCreate(comm, &p_rm); PotSetPower(p_rm, 1.2, -3);
+  test_str2pot(str_rm, p_rm, 1.1, &ierr); 
+
+  char str_comb[] = " sto 1.1 2 1.2 |  pow 1.2 -3 ";
+  Pot pfs[2]; pfs[0] = p_sto; pfs[1] = p_rm;
+  Pot p_comb; PotCreate(comm, &p_comb); PotSetCombination(p_comb, 2, pfs);
+  test_str2pot(str_comb, p_comb, 1.3, &ierr);
+  PFDestroy(&p_comb);
+
+  PFDestroy(&p_sto);
+  PFDestroy(&p_rm);
+
+  Pot p; PotCreate(comm, &p);
+  /* below comments produce error
+     PotSetFromOptions2(p, "driv");
+  ierr = PotSetFromStr(p, "sto 0 -2 3"); 
+  ierr = PotSetFromStr(p, "sto 2.0 -2"); 
+  ierr = PotSetFromStr(p, "pow 0.0 2"); 
+  ierr = PotSetFromStr(p, "pow 1.1"); 
+  */
+  PFDestroy(&p);
+
+
+}
+TEST(TestPOT, sum_pot) {
+  
+  PetscErrorCode ierr;
+  MPI_Comm comm = MPI_COMM_SELF;
+
+  Pot vs[2]; 
+  PotCreate(comm, &vs[0]); PotSetSlater(vs[0], 1.1, 2, 0.3);
+  PotCreate(comm, &vs[1]); PotSetSlater(vs[1], 0.2, 3, 1.3);
+
+  Pot pot; PotCreate(comm, &pot);
+  ierr = PotSetCombination(pot, 2, vs);
+
+  PetscScalar x[1] = {0.55};
+  PetscScalar y1[1], y2[1], y_calc[1];
+  PFApply(vs[0], 1, x, y1);
+  PFApply(vs[1], 1, x, y2);
+  PFApply(pot,   1, x, y_calc);
+  
+  ASSERT_DOUBLE_EQ(PetscRealPart(y1[0]+y2[0]), PetscRealPart(y_calc[0]));
+
+  //  PFView(pot, PETSC_VIEWER_STDOUT_SELF);
+
+}
 TEST(TestPOT, Harmonic) {
   Pot harm; PotCreate(MPI_COMM_SELF, &harm); PotSetHarm(harm, 2.5);
 

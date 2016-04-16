@@ -138,6 +138,46 @@ int testH_DVR() {
   
   return 0;
 }
+int testFit_BSS() {
+
+  MPI_Comm comm = PETSC_COMM_SELF;
+  PrintTimeStamp(comm, "FIT_BSS", NULL);
+
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 301);
+  CScaling c_scaling; CScalingCreate(comm, &c_scaling);
+  CScalingSetSharpECS(c_scaling, 70.0, 20.0);
+  
+  BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, 5, bps);
+  BSSSetUp(bss);
+  BSSSetCScaling(bss, c_scaling); BSSSetUp(bss);
+  FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetBSS(fem, bss);
+
+  Pot sto; PotCreate(comm, &sto); PotSetSlater(sto, 1.1, 2, 1.2);
+
+  KSP ksp; KSPCreate(comm, &ksp); 
+
+  Vec c;   VecCreate(comm, &c); VecSetType(c, "seq");
+
+  FEMInfFit(fem, sto, ksp, c);
+  PetscScalar x = 2.2;
+  PetscScalar y_calc;
+  FEMInfPsi(fem, c, x, &y_calc);
+
+  PetscScalar xs[1] = {x};
+  PetscScalar ys[1];
+  PFApply(sto, 1, xs, ys);
+  PetscScalar y_ref = ys[0];
+  
+  ASSERT_DOUBLE_NEAR(y_ref, y_calc, pow(10.0, -6.0));
+
+  PFDestroy(&sto);
+  VecDestroy(&c);
+  KSPDestroy(&ksp);
+  FEMInfDestroy(&fem);
+  
+  
+  return 0;
+}
 
 int main(int argc, char **args) {
 
@@ -147,6 +187,7 @@ int main(int argc, char **args) {
   testH_BSS();
   testPOT_BSS();
   testH_DVR();
+  testFit_BSS();
 
   SlepcFinalize();
   return 0;

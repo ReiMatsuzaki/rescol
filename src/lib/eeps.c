@@ -1,4 +1,5 @@
 #include <rescol/eeps.h>
+#include <rescol/mat.h>
 
 PetscErrorCode EEPSCreate(MPI_Comm comm, EEPS *p_self) {
 
@@ -50,23 +51,24 @@ PetscErrorCode EEPSSetTarget(EEPS self, PetscScalar target) {
 
   return 0;
 }
-PetscErrorCode EEPSReadInitSpaceOne(EEPS self, PetscViewer viewer) {
+PetscErrorCode EEPSReadInitSpace(EEPS self, PetscViewer viewer) {
 
   PetscErrorCode ierr;
 
-  Vec x[1]; 
-  ierr = VecCreate(PetscObjectComm((PetscObject)self->eps), &x[0]);  CHKERRQ(ierr);
+  Vec *xs;
+  int n = 2;
+
+  ierr = VecArrayLoad(viewer, &n, &xs); CHKERRQ(ierr);
+  ierr = EPSSetInitialSpace(self->eps, n, xs); CHKERRQ(ierr);
+	       
 
   /*
-  printf("EEPSREadInitSpaceOne\n");
-  PetscViewer alt_v;
-  ierr = PetscViewerBinaryOpen(PETSC_COMM_SELF, "evec.dat", FILE_MODE_READ, &alt_v); CHKERRQ(ierr);
-  ierr = PetscViewerView(viewer, PETSC_VIEWER_STDOUT_SELF); CHKERRQ(ierr);
-  ierr = VecLoad(x[0], alt_v); CHKERRQ(ierr);
-  */
+  Vec x[1]; 
+  ierr = VecCreate(PetscObjectComm((PetscObject)self->eps), &x[0]);  CHKERRQ(ierr);
   ierr = VecLoad(x[0], viewer); CHKERRQ(ierr);
+  
   ierr = EPSSetInitialSpace(self->eps, 1, x); CHKERRQ(ierr);
-
+  */
   return 0;
 }
 PetscErrorCode EEPSSetInitSpaceFromOther(EEPS self, int n, Mat H, EPS other) {
@@ -86,9 +88,9 @@ PetscErrorCode EEPSSetInitSpaceFromOther(EEPS self, int n, Mat H, EPS other) {
   }  
   ierr = EPSSetInitialSpace(self->eps, n_init, xs); CHKERRQ(ierr);
   for(int i = 0; i < n_init; i++) {
-    ierr = VecDestroy(&xs[i]); CHKERRQ(ierr);
-    PetscFree(xs);
+    ierr = VecDestroy(&xs[i]); CHKERRQ(ierr);    
   }
+  ierr = PetscFree(xs); CHKERRQ(ierr);
   return 0;
 }
 PetscErrorCode EEPSSetFromOptions(EEPS self) {
@@ -113,7 +115,7 @@ PetscErrorCode EEPSSetFromOptions(EEPS self) {
   if(find) {
     PetscViewer viewer;
     ierr = PetscViewerBinaryOpen(comm, path, FILE_MODE_READ, &viewer); CHKERRQ(ierr);
-    ierr = EEPSReadInitSpaceOne(self, viewer); CHKERRQ(ierr);
+    ierr = EEPSReadInitSpace(self, viewer); CHKERRQ(ierr);
     ierr = PetscViewerDestroy(&viewer); CHKERRQ(ierr);
   }
   PetscViewerFormat format;

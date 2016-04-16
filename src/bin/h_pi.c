@@ -1,5 +1,8 @@
 #include <rescol/fem_inf.h>
+#include <rescol/pot.h>
+#include <rescol/y1s.h>
 #include <rescol/angmoment.h>
+#include <rescol/viewerfunc.h>
 
 static char help[] = "solve H atom photoionization problem";
 
@@ -16,24 +19,29 @@ PetscErrorCode CalcMat(FEMInf fem, int L, Mat *H, Mat *S) {
   char label[10]; sprintf(label, "L+%d", L);
   PrintTimeStamp(fem->comm, label, NULL);
 
+  FEMInfCreateMat(fem, 1, H);
+  FEMInfCreateMat(fem, 1, S);
+
   PetscBool s_is_id; FEMInfGetOverlapIsId(fem, &s_is_id);
   if(s_is_id)
     S = NULL;
   else {
-    ierr = FEMInfSetSR1Mat(fem, S); CHKERRQ(ierr); CHKERRQ(ierr);
+    ierr = FEMInfSR1Mat(fem, *S); CHKERRQ(ierr); CHKERRQ(ierr);
   }
   
-  ierr = FEMInfSetD2R1Mat(fem, H); CHKERRQ(ierr);
+  ierr = FEMInfD2R1Mat(fem, *H); CHKERRQ(ierr);
   MatScale(*H, -0.5);
 
   if(L != 0) {
     Mat A;
-    ierr = FEMInfSetR2invR1Mat(fem, &A); CHKERRQ(ierr);
+    FEMInfCreateMat(fem, 1, &A);
+    ierr = FEMInfR2invR1Mat(fem, A); CHKERRQ(ierr);
     MatAXPY(*H, 0.5*L*(L+1), A, DIFFERENT_NONZERO_PATTERN);
   }
 
   Mat V;
-  FEMInfSetENR1Mat(fem, 0, 0.0, &V);
+  FEMInfCreateMat(fem, 1, &V);
+  FEMInfENR1Mat(fem, 0, 0.0, V);
   MatAXPY(*H, -1.0, V, DIFFERENT_NONZERO_PATTERN);
 
   return 0;
@@ -108,9 +116,10 @@ PetscErrorCode SolveFinal(FEMInf fem, int L1, PetscScalar energy,
   if(getenv("SHOW_DEBUG"))
     printf("mat_ele_cos = %f\n", PetscRealPart(mat_ele_cos));
 
-  POT dp_length; 
-  ierr = POTPowerCreate(&dp_length, mat_ele_cos, 1.0); CHKERRQ(ierr);
-  ierr = FEMInfSetPOTR1Mat(fem, dp_length, &D); CHKERRQ(ierr);
+  PF dp_length; PotCreate(PETSC_COMM_SELF, &dp_length);
+  ierr = PotSetPower(dp_length, mat_ele_cos, 1); CHKERRQ(ierr);
+  ierr  =FEMInfCreateMat(fem, 1, &D);
+  ierr = FEMInfPotR1Mat(fem, dp_length, D); CHKERRQ(ierr);
 
   Vec driv;
   MatCreateVecs(L, &driv, NULL);
@@ -139,34 +148,25 @@ int main(int argc, char **args) {
 
   PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
-  FEMInf fem;
+  FEMInf fem; FEMInfCreate(comm, &fem);
+  ViewerFunc viewer; ViewerFuncCreate(comm, &viewer);
   PetscReal w = 1.0;
   int L0 = 0;
   int L1 = 1;
 
   ierr = SlepcInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);
   PrintTimeStamp(comm, "Init", NULL);
-  PetscOptionsBegin(comm, "", "h2plus.c options", "none");
+  PetscOptionsBegin(comm, "", "h_pi.c options", "none");
   ierr = PetscOptionsGetInt(NULL, "-L0", &L0, NULL); CHKERRQ(ierr);
   ierr = PetscOptionsGetInt(NULL, "-L1", &L1, NULL); CHKERRQ(ierr);  
   ierr = PetscOptionsGetReal(NULL, "-w", &w, NULL); CHKERRQ(ierr);  
-  ierr = FEMInfCreateFromOptions(&fem, comm); CHKERRQ(ierr);  
+  ierr = FEMInfSetFromOptions(fem); CHKERRQ(ierr);  
+  ierr = ViewerFuncSetFromOptions(viewer); CHKERRQ(ierr);
   PetscOptionsEnd();
-
-  int numx = 800;
-
-  PetscReal *xs; PetscMalloc1(numx, &xs); 
-  for(int i = 0; i < numx; i++)
-    xs[i] = i * 0.1;
-  FILE *fp; 
   
   Vec x0, x1;
   PetscScalar e0, alpha;
   ierr = SolveInit(fem, L0, &e0, &x0); CHKERRQ(ierr);
-  FILE *fp0;
-  ierr = PetscFOpen(comm, "tmp/h_pi_psi0.dat", "w", &fp0); CHKERRQ(ierr);
-  ierr = FEMInfWritePsi(fem, xs, numx , x0, fp0); CHKERRQ(ierr);
-  ierr = PetscFClose(comm, fp0); CHKERRQ(ierr);
 
   if(getenv("SHOW_DEBUG")) {
     printf("E0=%f\n", PetscRealPart(e0));
@@ -174,16 +174,16 @@ int main(int argc, char **args) {
 
   ierr = SolveFinal(fem, L1, e0+w, x0, &x1, &alpha); CHKERRQ(ierr);
 
-  FEMInfView(fem);
+  FEMInfView(fem, PETSC_VIEWER_STDOUT_SELF);
   PetscPrintf(comm, "alpha: %f, %f\n", 
 	      PetscRealPart(alpha), 
 	      PetscImaginaryPart(alpha));
 
-  ierr = PetscFOpen(comm, "tmp/h_pi_psi.dat", "w", &fp); CHKERRQ(ierr);
-  ierr = FEMInfWritePsi(fem, xs, numx , x1, fp); CHKERRQ(ierr);
-  ierr = PetscFClose(comm, fp); CHKERRQ(ierr);
+  //  ierr = PetscFOpen(comm, "tmp/h_pi_psi.dat", "w", &fp); CHKERRQ(ierr);
+  ierr = FEMInfViewFunc(fem, x1, viewer); CHKERRQ(ierr);
+  //  ierr = PetscFClose(comm, fp); CHKERRQ(ierr);
 
-  FEMInfDestroy(&fem);
+  // ierr = FEMInfDestroy(&fem); CHKERRQ(ierr);
   
   return 0;  
 }

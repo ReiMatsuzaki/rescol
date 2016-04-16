@@ -27,6 +27,9 @@ PetscErrorCode ViewerFuncDestroy(ViewerFunc *p_self) {
   return 0;
 }
 
+PetscViewer ViewerFuncGetBase(ViewerFunc self) {
+  return self->base;
+}
 PetscErrorCode ViewerFuncView(ViewerFunc self, PetscViewer v) {
 
   PetscErrorCode ierr;
@@ -100,6 +103,8 @@ PetscErrorCode ViewerFuncSetFromOptions(ViewerFunc self) {
 
   if(find_xmax && find_num) {
     ierr = ViewerFuncSetRange(self ,num, xmax); CHKERRQ(ierr);
+  } else {
+    SETERRQ(self->comm, 1, "-viewerfunc_num and -viewerfunc_xmax is necessary");
   }
 
   return 0;

@@ -1,6 +1,5 @@
 #ifndef ANGMOMENT_H
 #define ANGMOMENT_H
-
 #ifdef __cplusplus
 extern "C" {
 #endif 

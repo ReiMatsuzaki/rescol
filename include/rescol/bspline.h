@@ -9,6 +9,7 @@ extern "C" {
 #include "mat.h"
 #include "bps.h"
 #include "cscaling.h"
+#include "op.h"
 
 struct _p_BSS {
   MPI_Comm comm;
@@ -77,6 +78,7 @@ PetscErrorCode BSSD2R1Mat(BSS self, Mat D);
 PetscErrorCode BSSENR1Mat(BSS self, int q, PetscReal  a, Mat V);
 PetscErrorCode BSSPotR1Mat(BSS self, PF pot, Mat M);
 PetscErrorCode BSSPotR1Vec(BSS self, PF pot, Vec v);
+PetscErrorCode BSSOpMat(BSS self, Op op, Mat M);
 PetscErrorCode BSSEER2Mat(BSS self, int q, Mat V);
 PetscErrorCode BSSEER2Mat_ver1(BSS self, int q, Mat V);
 

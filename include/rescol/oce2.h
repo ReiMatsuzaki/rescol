@@ -46,6 +46,34 @@ PetscErrorCode OCE2VneMat(OCE2 self, PetscReal a, PetscReal z,
 PetscErrorCode OCE2VeeMat(OCE2 self, MatReuse scall, Mat *M);
 PetscErrorCode OCE2PlusVneMat(OCE2 self, PetscReal a, PetscReal z, Mat M);
 PetscErrorCode OCE2PlusVeeMat(OCE2 self, Mat M);
+
+struct _p_OceH2mole {
+
+  PetscReal a;
+  PetscReal z;
+
+  Mat s_r1;
+  Mat d2_r1;
+  Mat r2inv_r1;
+
+  Mat s_y;
+  Mat lambda_y;
+
+  int nq;
+  int *q;
+  Mat *ne_r1;
+  Mat *ee_r2;
+  Mat *pq1A_y;
+  Mat *pq2A_y;
+  Mat *pq12_y;
+
+};
+typedef struct _p_OceH2mole* OceH2mole;
+PetscErrorCode OCE2CreateH2mole(OCE2 self, PetscReal a, PetscReal z, OceH2mole *p_ctx);
+PetscErrorCode OCE2H2moleMat(OCE2 self, OceH2mole *p_ctx, Mat *H, Mat *S, PetscBool *is_id);
+PetscErrorCode OCE2H2moleMat_direct(OCE2 self, OceH2mole *p_ctx, Mat *H, Mat *S, PetscBool *is_id);
+PetscErrorCode OCE2H2moleDestroy(OceH2mole *p_ctx);
+
 #ifdef __cplusplus
 }
 #endif 

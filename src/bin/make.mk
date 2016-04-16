@@ -1,42 +1,76 @@
+# ==== Solve Driv Eq ====
+# see 2016/4/16
+driv1d.out: driv1d.o ${OBJ_FEM}
+.PHONY: check_driv1d
+check_driv1d: driv1d.out
+	./$< -fem_type bss -bss_order 8 \
+	-bps_num_zs 501 -bps_zmax 100.0 -bps_type line \
+	-cscaling_type sharp_ecs -cscaling_r0 70.0 -cscaling_theta 20.0 \
+	-energy_range 0.5 \
+	-driv-pot "sto -2.0 2 1.0" \
+	-pot_type single \
+	-v0-pot "pow -1.0 -1|pow 1.0 -2" \
+	-viewerfunc_view ascii:tmp/driv1d.dat -viewerfunc_num 100 -viewerfunc_xmax 100.0
+	head tmp/driv1d.dat
+	./$< -fem_type bss -bss_order 8 \
+	-bps_num_zs 501 -bps_zmax 100.0 -bps_type line \
+	-cscaling_type sharp_ecs -cscaling_r0 70.0 -cscaling_theta 20.0 \
+	-energy_range 0.3:0.5:2 \
+	-driv-pot "sto -2.0 2 1.0" \
+	-pot_type double \
+	-v0-pot "pow -1.0 -1|pow 1.0 -2" \
+	-v1-pot "sto -1.0 0 1.0" \
+	-viewerfunc_view ascii:tmp/driv1d.dat -viewerfunc_num 100 -viewerfunc_xmax 100.0
+	head tmp/driv1d.dat
+	@echo "Reference from 2016/4/12/*.dat"
+	@echo "# alpha = -4.770452, -0.235177"
+	@echo "# amplitude = 0.60+0.32j"
+	@echo "# phase = 0.493"
+	@echo "# |amp| = 0.685"	
+	@echo "1.000000 -1.020201 0.477956 "
+install_driv1d: driv1d.out
+	cp driv1d.out ~/bin/driv1d
 
-he_guess.out: he_guess.o ${OBJ_FEM} oce2.o angmoment.o
-h_pi.out: h_pi.o ${OBJ_FEM} angmoment.o
+
+h_pi.out: h_pi.o ${OBJ_FEM} y1s.o angmoment.o
 
 eps_help.out:
 
 h2mole.out: h2mole.o ${OBJ_FEM} oce2.o angmoment.o eeps.o y2s.o synthesize.o y1s.o
+basis=-fem_type bss -fem_type bss -bss_order 2 -bps_num_zs 21 -bps_zmax 20.0 -bps_type exp -y2s_rot sigma -y2s_parity gerade -y2s_mirror plus -y2s_lmax 0
 .PHONY: check_h2mole_bss
-check_h2mole_bss: h2mole.out
-	./h2mole.out -fem_type bss -bss_order 2 \
-	-bps_num_zs 21 -bps_zmax 20.0 -bps_type exp \
-	-y2s_rot sigma -y2s_parity gerade -y2s_mirror plus -y2s_lmax 0 \
+check_h2mole_bss: h2mole.out he_guess.out
+	./he_guess.out $(basis) \
+	-guess_type fit -z 1.5 -L1 0 -L2 0 \
+	-vec_viewer binary:guess.dat
+	./h2mole.out $(basis) \
 	-eps_nev 1 -eps_max_it 1000 -eps_type jd -eps_view_values ascii -eps_target -4.0 \
-	-bondlength 0.0 -num_bondlength 2 -d_bondlength 0.5 -malloc_dump
+	-init_path guess.dat \
+	-bondlength 0.0 -num_bondlength 1 -d_bondlength 0.5 -malloc_dump
+#	./h2mole.out $(basis) \
+	-eps_nev 2 -eps_max_it 1000 -eps_type jd -eps_view_values ascii -eps_target -4.0 \
+	-init_path guess2.dat \
+	-bondlength 0.0 -num_bondlength 1 -d_bondlength 0.5 -malloc_dump
 
-
-#	./he_guess.out -z 1.5 -in_dir tmp -out_dir tmp -guess_type calc \
-	-fem_type bss -bss_order 2 -bps_num_zs 21 -bps_type exp -bps_zmax 30.0
-#	@echo 
-#	./h2mole.out -eri direct -guess_type read \
-	-in_dir tmp -out_dir tmp  \
-	-fem_type bss -bss_order 2 -bps_num_zs 21 -bps_type exp -bps_zmax 30.0 \
-	-y2s_rot sigma -y2s_parity gerade -y2s_mirror plus -y2s_lmax 2 \
-	-eps_nev 1 -eps_max_it 1000 -eps_type jd \
-	-bondlength 0.0 -num_bondlength 1 -d_bondlength 0.5
-
+he_guess.out: he_guess.o ${OBJ_FEM} oce2.o angmoment.o y2s.o y1s.o eeps.o synthesize.o wavefunc.o
 .PHONY: check_he_guess
-check_he_guess: he_guess.out
+check_he_guess: he_guess.out 
 	-rm tmp/*
-	./he_guess.out -z 1.0 \
-	-in_dir tmp -out_dir tmp \
-	-guess_type eig \
-	-fem_type fd -fd_num 100 -fd_xmax 20.0
+	./he_guess.out \
+	-fem_type bss -fem_type bss -bss_order 2 -bps_num_zs 21 -bps_zmax 20.0 -bps_type exp \
+	-guess_type fit -z 1.0 -L1 0 -L2 0 \
+	-vec_viewer binary:guess.dat -malloc_dump
+
 
 .PHONY: check_h_pi
 check_h_pi: h_pi.out
 	./$< -fem_type bss -bss_order 4 \
 	-bps_num_zs 101 -bps_zmax 100.0 -bps_type line \
-	-cscaling_type secs -cscaling_r0 70.0 -cscaling_theta 20.0
+	-cscaling_type sharp_ecs -cscaling_r0 70.0 -cscaling_theta 20.0 \
+	-viewerfunc_view ascii:tmp/h_pi.dat -viewerfunc_num 100 -viewerfunc_xmax 100.0
+	head tmp/h_pi.dat
+install_h_pi: h_pi.out
+	cp h_pi.out ~/bin/h_pi
 
 fit.out: ${OBJ_FEM} viewerfunc.o pot.o synthesize.o wavefunc.o
 .PHONY: check_fit

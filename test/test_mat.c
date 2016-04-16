@@ -1,7 +1,7 @@
 #include <slepceps.h>
 #include "unittest.h"
 #include <rescol/mat.h>
-
+#include <rescol/synthesize.h>
 
 static char help[] = "Unit test for angmoment.c \n\n";
 
@@ -45,6 +45,83 @@ PetscErrorCode testVecSplit() {
   VecDestroy(&x);
   
 
+  return 0;
+}
+int testMatMatDecomposedMult() {
+  PetscErrorCode ierr;
+  MPI_Comm comm = PETSC_COMM_SELF;
+  Mat A, B;
+  Vec x, y0, y1;
+  MatCreate(comm, &A); MatSetSizes(A, PETSC_DECIDE, PETSC_DECIDE, 2, 3); MatSetUp(A);
+  MatCreate(comm, &B); MatSetSizes(B, PETSC_DECIDE, PETSC_DECIDE, 4, 5); MatSetUp(B);
+  VecCreate(comm, &x); VecSetSizes(x, PETSC_DECIDE, 15); VecSetUp(x);
+  VecCreate(comm, &y0); VecSetSizes(y0, PETSC_DECIDE, 8); VecSetUp(y0);
+  VecCreate(comm, &y1); VecSetSizes(y1, PETSC_DECIDE, 8); VecSetUp(y1);
+
+  MatSetValue(A, 0, 0, 1.0, INSERT_VALUES);
+  MatSetValue(A, 1, 0, 3.0, INSERT_VALUES);
+  MatSetValue(A, 1, 1, 1.0, INSERT_VALUES);
+  MatSetValue(A, 1, 2, 2.0, INSERT_VALUES);
+  MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+
+  MatSetValue(B, 0, 0, 1.0, INSERT_VALUES);
+  MatSetValue(B, 1, 0, 3.0, INSERT_VALUES);
+  MatSetValue(B, 1, 1, 1.0, INSERT_VALUES);
+  MatSetValue(B, 1, 2, 2.0, INSERT_VALUES);
+  MatSetValue(B, 3, 4, 1.0, INSERT_VALUES);
+  MatSetValue(B, 0, 3, 2.0, INSERT_VALUES);
+  MatAssemblyBegin(B, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(B, MAT_FINAL_ASSEMBLY);
+
+  for(int i = 0; i < 15; i++)
+    VecSetValue(x, i, 0.1+1.0*i, INSERT_VALUES);
+  VecAssemblyBegin(x); VecAssemblyEnd(x);
+  
+  Mat C; 
+  ierr = MatMatSynthesize(A, B, 1.2, MAT_INITIAL_MATRIX, &C); CHKERRQ(ierr);
+
+  ierr = MatMult(C, x, y0); CHKERRQ(ierr);
+  ierr = MatMatDecomposedMult(A, B, 1.2, x, y1); CHKERRQ(ierr);
+
+  VecAXPY(y0, -1.0, y1);
+  PetscReal norm;
+  VecNorm(y0, NORM_1, &norm);
+  ASSERT_DOUBLE_EQ(0.0, PetscRealPart(norm));
+  
+  MatDestroy(&A); MatDestroy(&B); MatDestroy(&C);
+  VecDestroy(&x); VecDestroy(&y0); VecDestroy(&y1);
+
+  return 0;
+}
+int testMatMatMatDecomposedMult() {
+  MPI_Comm comm = PETSC_COMM_SELF;
+  PetscErrorCode ierr;
+  Mat A; MatCreate(comm, &A); MatSetSizes(A, PETSC_DECIDE, PETSC_DECIDE, 2, 3);
+  Mat B; MatCreate(comm, &B); MatSetSizes(B, PETSC_DECIDE, PETSC_DECIDE, 3, 4);
+  Mat C; MatCreate(comm, &C); MatSetSizes(C, PETSC_DECIDE, PETSC_DECIDE, 2, 5);
+  Vec x; VecCreate(comm, &x); VecSetSizes(x, PETSC_DECIDE, 60);
+  Vec y0;VecCreate(comm, &y0);VecSetSizes(y0,PETSC_DECIDE, 12);
+  Vec y1;VecCreate(comm, &y1);VecSetSizes(y1,PETSC_DECIDE, 12);
+
+  MatSetUp(A); MatSetUp(B); MatSetUp(C); VecSetUp(x); VecSetUp(y0); VecSetUp(y1);
+  ierr = MatSetRandom(A, NULL); CHKERRQ(ierr);
+  ierr = MatSetRandom(B, NULL); CHKERRQ(ierr);
+  ierr = MatSetRandom(C, NULL); CHKERRQ(ierr);
+  ierr = VecSetRandom(x, NULL); CHKERRQ(ierr);
+
+  ierr = MatMatMatDecomposedMult(A, B, C, 1.2, x, y0);
+
+  Mat D; MatMatMatSynthesize(A, B, C, 1.2, MAT_INITIAL_MATRIX, &D);
+  ierr = MatMult(D, x, y1); CHKERRQ(ierr);
+
+  VecAXPY(y0, -1.0, y1);
+  PetscReal norm;
+  VecNorm(y0, NORM_1, &norm);
+  ASSERT_DOUBLE_NEAR(0.0, PetscRealPart(norm), pow(10.0, -10.0));
+
+  MatDestroy(&A); MatDestroy(&B); MatDestroy(&C); MatDestroy(&D);
+  VecDestroy(&x); VecDestroy(&y0); VecDestroy(&y1);
   return 0;
 }
 int testLegGauss() {
@@ -118,11 +195,31 @@ int testPartialCoulomb() {
   ASSERT_DOUBLE_EQ(0.0, v);
   return 0;
 }
+int testVecArrayLoad() {
+
+/*
+  MPI_Comm comm = PETSC_COMM_SELF;
+  char path[256] = "tmpvec.dat";
+  PetscErrorCode ierr;
+  PetscViewer viewer;
+  ierr = PetscViewerBinaryOpen(comm, path, FILE_MODE_READ, &viewer); CHKERRQ(ierr);  
+  
+  Vec *xs; 
+  int n;
+  VecArrayLoad(PETSC_VIEWER_STDOUT_SELF, &n, &xs);
+
+*/  
+  return 0;
+}
 
 int main(int argc, char **args) {
   
   SlepcInitialize(&argc, &args, (char*)0, help);
   MPI_Comm comm = PETSC_COMM_SELF;
+  PrintTimeStamp(comm, "MatMatDecomposedMult", NULL);
+  testMatMatDecomposedMult();
+  PrintTimeStamp(comm, "MatMatMatDecomposedMult", NULL);
+  testMatMatMatDecomposedMult();  
   PrintTimeStamp(comm, "VecSplit", NULL);
   testVecSplit();
   PrintTimeStamp(comm, "LegGauss", NULL);

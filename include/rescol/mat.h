@@ -8,7 +8,14 @@ extern "C" {
 #include <time.h>
 #include <slepceps.h>
 
+PetscErrorCode MatMatDecomposedMult(Mat A, Mat B, PetscScalar t, Vec X, Vec Y);
+PetscErrorCode MatMatDecomposedMultAdd(Mat A, Mat B, PetscScalar t, Vec X, Vec Y);
+PetscErrorCode MatMatMatDecomposedMult(Mat A, Mat B, Mat C, PetscScalar t, Vec X, Vec Y);
+PetscErrorCode MatMatMatDecomposedMultAdd(Mat A, Mat B, Mat C, PetscScalar t, Vec X, Vec Y);
+
 PetscReal ScalarAbs(PetscScalar x);
+
+PetscErrorCode VecArrayLoad(PetscViewer viewer, int *n, Vec **xs);
 
   //PetscErrorCode MatCreateFromCOOFormatFileHandler(FILE* path, Mat* mat);
   //PetscErrorCode MatCreateFromCOOFormatFile(char* path, Mat* mat);

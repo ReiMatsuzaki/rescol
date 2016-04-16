@@ -268,4 +268,43 @@ PetscErrorCode OCE2PlusVeeMat(OCE2 self, Mat M) {
 }
 
 
+PetscErrorCode OCE2CreateH2mole(OCE2 self, PetscReal a, PetscReal z, OceH2mole *p_ctx) {
+  PetscErrorCode ierr;
+  OceH2mole ctx;
 
+  ierr = PetscNew(&ctx); CHKERRQ(ierr);
+  *p_ctx = ctx;
+  
+  FEMInfCreateMat(self->fem, 1, &ctx->s_r1);
+  FEMInfCreateMat(self->fem, 1, &ctx->d2_r1);
+  FEMInfCreateMat(self->fem, 1, &ctx->r2inv_r1);
+  Y2sCreateY2Mat(self->y2s, &ctx->s_y1);
+  Y2sCreateY2Mat(self->y2s, &ctx->lambda_y);
+
+  if(self->s_r1 == NULL) 
+    OCE2SetSr1(self);
+  if(self->s_y2 == NULL) 
+    OCE2SetSy2(self);
+
+  MatCopy(self->s_r1, ctx->s_r1, DIFFERENT_NONZERO_PATTERN);
+  FEMInfD2R1Mat(self->fem, ctx->d2_r1);
+  FEMInfR2invR1Mat(self->fem, ctx->r2inv_r1);  
+  MatCopy(self->s_y2, ctx->s_y, DIFFERENT_NONZERO_PATTERN);
+  Y2sLambda2Y2Mat(self->y2s, ctx->lambda_y, NULL);  
+
+  int lmax; Y2sGetLMax(self->y2s, &lmax);
+  int qmax = 2*lmax + 1;
+  PetscMalloc1(qmax, &ctx->ne_r1);
+  PetscMalloc1(qmax, &ctx->ee_r2);
+  PetscMalloc1(qmax, &ctx->pq1A_y);
+  PetscMalloc1(qmax, &ctx->pq2A_y);
+  PetscMalloc1(qmax, &ctx->pq12_y);
+  for(int q = 0; q < qmax; q++) {
+    Mat pq1A_y, pq2A_y, pq12_y, r1A, r2A, r12;
+  }
+  
+  return 0;
+}
+PetscErrorCode OCE2H2moleMat(OCE2 self, OceH2mole *p_ctx, Mat *H, Mat *S, PetscBool *is_id);
+PetscErrorCode OCE2H2moleMat_direct(OCE2 self, OceH2mole *p_ctx, Mat *H, Mat *S, PetscBool *is_id);
+PetscErrorCode OCE2H2moleDestroy(OceH2mole *p_ctx);
