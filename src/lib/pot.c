@@ -215,6 +215,43 @@ PetscErrorCode CombinationDestroy(void *ctx) {
   return 0;
 }
 
+typedef struct {
+  int num;
+  PF* pfs;
+} Product;
+PetscErrorCode ProductApply(void *ctx, int n, const PetscScalar *x, PetscScalar *y) {
+  PetscErrorCode ierr;
+  Product *self = (Product*)ctx;
+  PetscScalar *y_tmp; PetscMalloc1(n, &y_tmp);
+  for(int i = 0; i < n; i++)
+    y[i] = 1.0;
+  for(int j = 0; j < self->num; j++) {
+    PFApply(self->pfs[j], n, x, y_tmp);
+    for(int i = 0; i < n; i++)
+      y[i] *= y_tmp[i];
+  }
+  ierr = PetscFree(y_tmp); CHKERRQ(ierr);
+  return 0;
+}
+PetscErrorCode ProductView(void *ctx, PetscViewer v) {
+  PetscErrorCode ierr;
+  Product *self = (Product*)ctx;
+  PetscViewerASCIIPrintf(v, "type: Product of PF object\n");
+  PetscViewerASCIIPrintf(v, "# of PF: %d\n", self->num);
+  for(int i = 0; i < self->num; i++) {
+    PetscViewerASCIIPrintf(v, "No %d:\n", i);
+    ierr = PFView(self->pfs[i], v); CHKERRQ(ierr);
+  }
+  return 0;  
+}
+PetscErrorCode ProductDestroy(void *ctx) {
+  PetscErrorCode ierr;
+  Product *self = (Product*)ctx;
+  ierr = PetscFree(self->pfs); CHKERRQ(ierr);
+  ierr = PetscFree(self); CHKERRQ(ierr);
+  return 0;
+}
+
 PetscErrorCode PotCreate(MPI_Comm comm, Pot *p_self) {
   PetscErrorCode ierr;
   ierr = PFCreate(comm, 1, 1, p_self); CHKERRQ(ierr);
@@ -259,6 +296,16 @@ PetscErrorCode PotSetCombination(Pot self, int num, Pot *pfs) {
   PFSet(self, CombinationApply, NULL, CombinationView, CombinationDestroy, ctx);
   return 0;
 }
+PetscErrorCode PotSetProduct(Pot self, int num, Pot *pfs) {
+  Product *ctx; PetscNew(&ctx);
+  ctx->num = num;
+  PetscMalloc1(num, &ctx->pfs);
+  for(int i = 0; i < num; i++)
+    ctx->pfs[i] = pfs[i];
+  PFSet(self, ProductApply, NULL, ProductView, ProductDestroy, ctx);
+  return 0;
+}
+
 PetscErrorCode PotSetFromOptions(Pot self) {
 
   MPI_Comm comm; PetscObjectGetComm((PetscObject)self, &comm);
@@ -347,6 +394,36 @@ PetscErrorCode PotSetFromStr_Combination(Pot self, char str[]) {
   PetscFree(prim);
   return 0;
 }
+PetscErrorCode PotSetFromStr_Product(Pot self, char str[]) {
+  MPI_Comm comm; PetscObjectGetComm((PetscObject)self, &comm);
+  PetscErrorCode ierr;
+  int num_prim = str_nele(str, '*') + 1;
+  PF *pfs; PetscMalloc1(num_prim, &pfs);
+
+  char **prim;
+  PetscMalloc1(num_prim, &prim);
+  prim[0] = strtok(str, "*");
+  for(int i = 1; i < num_prim; i++) {
+    prim[i] = strtok(NULL, "*");
+  }
+
+  for(int i = 0; i < num_prim; i++) {
+
+    if(prim[i] == NULL) {
+      char msg[100]; 
+      sprintf(msg, "null found. i = %d. str = %s", i, str);
+      SETERRQ(comm, 1, msg);
+    }
+
+    ierr = PotCreate(comm, &pfs[i]); CHKERRQ(ierr);
+    ierr = PotSetFromStr(pfs[i], prim[i]); CHKERRQ(ierr);
+
+  }
+
+  ierr = PotSetProduct(self, num_prim, pfs); CHKERRQ(ierr);
+  PetscFree(prim);
+  return 0;
+}
 PetscErrorCode PotSetFromStr_Slater(Pot self, char str[]) {
   MPI_Comm comm; PetscObjectGetComm((PetscObject)self, &comm);
   char *err;
@@ -423,11 +500,17 @@ PetscErrorCode PotSetFromStr(Pot self, const char str_in[]) {
     SETERRQ(comm, 1, "length of str_in must be shorter than 100");
   strcpy(str, str_in);
 
-  // -- check summation --
+  // -- check sum --
   if(str_nele(str_in, '|') != 0) {
     ierr = PotSetFromStr_Combination(self, str); CHKERRQ(ierr);
     return 0;
   }
+
+  // -- check product --
+  //  if(str_nele(str_in, '*') != 0) {
+  //    ierr = PotSetFromStr_Combination(self, str); CHKERRQ(ierr);
+  //    return 0;
+  //  }
 
   // -- check mono --
   char *name;

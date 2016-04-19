@@ -17,7 +17,7 @@ PetscErrorCode PotSetCoulombNE(Pot self, int q, PetscScalar a, PetscScalar zz);
 PetscErrorCode PotSetSlater(Pot self, PetscScalar a, int n, PetscScalar z);
 PetscErrorCode PotSetMorse(Pot self, PetscScalar D0, PetscScalar a, PetscScalar Re);
 PetscErrorCode PotSetCombination(Pot self, int num, Pot *pfs);
-
+PetscErrorCode PotSetProduct(Pot self, int num, Pot *pfs);
 
 #ifdef __cplusplus
 }

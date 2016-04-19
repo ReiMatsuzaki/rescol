@@ -81,6 +81,30 @@ TEST(TestPOT, sum_pot) {
   //  PFView(pot, PETSC_VIEWER_STDOUT_SELF);
 
 }
+TEST(TestPOT, product) {
+  MPI_Comm comm = MPI_COMM_SELF;
+  
+  Pot vs[2];
+  PotCreate(comm, &vs[0]); PotSetSlater(vs[0], 1.1, 2, 0.2);
+  PotCreate(comm, &vs[1]); PotSetPower(vs[1], 1.3, 3);
+  
+  Pot pot;
+  PotCreate(comm, &pot);     
+  PotSetProduct(pot, 2, vs);
+
+  PetscScalar x[3] = {0.55, 0.12, 1.1};
+  PetscScalar y0[3], y1[3], y[3];
+  PFApply(vs[0], 3, x, y0);
+  PFApply(vs[1], 3, x, y1);
+  PFApply(pot,   3, x, y);
+
+  //PFView(pot, PETSC_VIEWER_STDOUT_SELF);
+  
+  for(int i = 0; i < 3; i++)
+    EXPECT_DOUBLE_EQ(PetscRealPart(y0[i]*y1[i]),
+		     PetscRealPart(y[i])) << i;
+  
+}
 TEST(TestPOT, Harmonic) {
   Pot harm; PotCreate(MPI_COMM_SELF, &harm); PotSetHarm(harm, 2.5);
 

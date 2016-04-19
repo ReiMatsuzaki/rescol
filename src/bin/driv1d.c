@@ -120,6 +120,8 @@ Pot         pot_v0;
 Pot         pot_v1;
 Pot         driv;
 Range energy_range;
+
+// ---- intermediate ----
 KSP ksp;
 Vec c0, c1, m;
 Mat VL, VS, S;  
@@ -322,7 +324,7 @@ PetscErrorCode Driv1dDestroy() {
   VecDestroy(&c0); VecDestroy(&c1);
   MatDestroy(&S);
   KSPDestroy(&ksp); VecDestroy(&c1);
-   return 0; 
+  return 0; 
  
 }
 int main(int argc, char **args) {
