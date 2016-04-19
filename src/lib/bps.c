@@ -55,6 +55,12 @@ PetscErrorCode BPSView(BPS self, PetscViewer v) {
     PetscViewerASCIIPrintf(v, "type:   %s\n", self->type);
     PetscViewerASCIIPrintf(v, "num_zs: %d\n", self->num_zs);
     PetscViewerASCIIPrintf(v, "zmax:   %f\n", self->zs[self->num_zs-1]);  
+    if(self->num_zs > 10) {
+      PetscReal* zs = self->zs;
+      int n = self->num_zs;
+      PetscViewerASCIIPrintf(v, "zs = %f, %f, %f, ..., %f, %f\n",
+			     zs[0], zs[1], zs[2], zs[n-1-1], zs[n-1]);
+    }
     PetscViewerASCIIPopTab(v);
   } else if(isbinary) {
 

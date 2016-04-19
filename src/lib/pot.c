@@ -423,12 +423,13 @@ PetscErrorCode PotSetFromStr(Pot self, const char str_in[]) {
     SETERRQ(comm, 1, "length of str_in must be shorter than 100");
   strcpy(str, str_in);
 
-  
+  // -- check summation --
   if(str_nele(str_in, '|') != 0) {
     ierr = PotSetFromStr_Combination(self, str); CHKERRQ(ierr);
     return 0;
   }
 
+  // -- check mono --
   char *name;
   name = strtok(str, " ");
   if(name == NULL) {
@@ -441,7 +442,7 @@ PetscErrorCode PotSetFromStr(Pot self, const char str_in[]) {
   }
   else if(strcmp(name, "pow") == 0) {
     ierr = PotSetFromStr_Power(self, str); CHKERRQ(ierr);
-    return 0;    
+    return 0;
   }
   else {
     SETERRQ(comm, 1, "Unsupported name");

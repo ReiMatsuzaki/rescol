@@ -182,15 +182,18 @@ PetscErrorCode PrintIn() {
   PetscErrorCode ierr;
 
   // -- print input information --
+  printf("Energy range:\n");
   RangeView(energy_range, PETSC_VIEWER_STDOUT_SELF);
+  FEMInfView(fem, PETSC_VIEWER_STDOUT_SELF);
   if(strcmp(pot_type, "single") == 0) {
     ierr = PFView(pot_v0, PETSC_VIEWER_STDOUT_SELF); CHKERRQ(ierr);
   } else {
-    printf("V0 range potential:\n");
+    printf("V0 potential:\n");
     ierr = PFView(pot_v0,  PETSC_VIEWER_STDOUT_SELF); CHKERRQ(ierr);
-    printf("V1 range potential:\n");
+    printf("V1 potential:\n");
     ierr = PFView(pot_v1, PETSC_VIEWER_STDOUT_SELF); CHKERRQ(ierr);
   }
+  PFView(driv, PETSC_VIEWER_STDOUT_SELF);
   return 0;
 }
 PetscErrorCode Driv1dCalc1(PetscReal energy) {
