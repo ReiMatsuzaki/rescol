@@ -105,6 +105,20 @@ TEST(TestPOT, product) {
 		     PetscRealPart(y[i])) << i;
   
 }
+TEST(TestPOT, rbessel) {
+  MPI_Comm comm = MPI_COMM_SELF;  
+  Pot pot; 
+  PotCreate(comm, &pot);
+  double k = 1.1;
+  PotSetRBessel(pot, 0, k);
+  PetscScalar x[3] = {0.55, 0.12, 1.1};
+  PetscScalar y[3];
+  PFApply(pot, 3, x, y);
+  for(int i = 0; i < 3; i++)
+    EXPECT_DOUBLE_EQ(PetscRealPart(y[i]),
+		     PetscRealPart(sin(k*x[i])));
+
+}
 TEST(TestPOT, Harmonic) {
   Pot harm; PotCreate(MPI_COMM_SELF, &harm); PotSetHarm(harm, 2.5);
 

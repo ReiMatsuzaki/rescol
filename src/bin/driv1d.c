@@ -1,3 +1,5 @@
+#include <math.h>
+
 #include "../../include/rescol/fem_inf.h"
 #include "../../include/rescol/pot.h"
 #include "../../include/rescol/viewerfunc.h"
@@ -113,13 +115,20 @@ PetscReal RangeGetVal(Range self, int i ) {
 MPI_Comm comm = MPI_COMM_SELF;
 
 // ---- Input ----
+// pot_type = single => single potential problem
+//          = double => double potential problem and apply two potential formula.
+// problem_type = driv    => solve driven equation.
+//              = scatter => solve scattering problem.
 char pot_type[10] = "single";
-FEMInf      fem;
-ViewerFunc  viewer;
-Pot         pot_v0;
-Pot         pot_v1;
-Pot         driv;
-Range energy_range;
+char problem_type[10] = "driv"; 
+int         L;       // must
+Pot         pot_v0;  // must
+Pot         pot_v1;  // only when pot_type=double
+Pot         driv;    // must
+
+FEMInf      fem;     // must
+Range energy_range;  // must
+ViewerFunc  viewer;  // must
 
 // ---- intermediate ----
 KSP ksp;
@@ -148,12 +157,24 @@ PetscErrorCode Driv1dSetFromOptions() {
   PrintTimeStamp(comm, "Set", NULL);
   PetscOptionsBegin(comm, "", "driv1d.c options", "none");
 
-  ierr = FEMInfSetFromOptions(fem); CHKERRQ(ierr);  
-  ierr = ViewerFuncSetFromOptions(viewer); CHKERRQ(ierr);
-  ierr = RangeSetFromOptions(energy_range, "energy"); CHKERRQ(ierr);
+  // -- set system type --
   ierr = PetscOptionsGetString(NULL, "-pot_type", pot_type, 10, &find);
   CHKERRQ(ierr);
+  if(!find)
+    SETERRQ(comm, 1, "-pot_type is not found"); 
+  ierr = PetscOptionsGetString(NULL, "-problem_type", problem_type, 10, &find);
+  CHKERRQ(ierr);
+  if(!find)
+    SETERRQ(comm, 1, "-problem_type is not found"); 
 
+  // -- set L --
+  ierr = PetscOptionsGetInt(NULL, "-L", &L, &find); CHKERRQ(ierr);
+  if(!find)
+    SETERRQ(comm, 1, "-L is not found"); 
+  if(L < 0)
+    SETERRQ(comm, 1, "L must be zero or positive integer"); 
+
+  // -- set potential
   if(strcmp(pot_type, "single") == 0) {
     ierr = PotSetFromOptions2(pot_v0, "v0");  CHKERRQ(ierr);
   } else if(strcmp(pot_type, "double") == 0) {
@@ -163,7 +184,21 @@ PetscErrorCode Driv1dSetFromOptions() {
     SETERRQ(comm, 1, "option value of -pot_type must be single or double");
   }
 
-  ierr = PotSetFromOptions2(driv,  "driv"); CHKERRQ(ierr);
+  // -- set driven term --
+  if(strcmp(problem_type, "driv") == 0) {
+    ierr = PotSetFromOptions2(driv,  "driv"); CHKERRQ(ierr);
+  }
+  else if(strcmp(problem_type, "scatter") == 0) {
+    // driven term is determined when energy is determined because
+    // in scattering calculation, driven term is energy dependent.
+  }
+  else {
+    SETERRQ(comm, 1, "invalid option value for -problem_type");
+  }
+  // -- other --
+  ierr = FEMInfSetFromOptions(fem); CHKERRQ(ierr);  
+  ierr = ViewerFuncSetFromOptions(viewer); CHKERRQ(ierr);
+  ierr = RangeSetFromOptions(energy_range, "energy"); CHKERRQ(ierr);
 
   PetscOptionsEnd();
 
@@ -184,6 +219,9 @@ PetscErrorCode PrintIn() {
   PetscErrorCode ierr;
 
   // -- print input information --
+  printf("pot_type: %s\n", pot_type);
+  printf("problem_type: %s\n", problem_type);
+  printf("L: %d\n", L);
   printf("Energy range:\n");
   RangeView(energy_range, PETSC_VIEWER_STDOUT_SELF);
   FEMInfView(fem, PETSC_VIEWER_STDOUT_SELF);
@@ -211,6 +249,17 @@ PetscErrorCode Driv1dCalc1(PetscReal energy) {
   ierr = FEMInfCreateMat(fem, 1, &L0); CHKERRQ(ierr);  
   ierr = FEMInfD2R1Mat(fem, L0);       CHKERRQ(ierr);
   ierr = MatScale(L0, 0.5);            CHKERRQ(ierr);
+
+  if(L != 0) {
+    Pot LL;
+    Mat LLMat;
+    ierr = PotCreate(comm, &LL); CHKERRQ(ierr);
+    ierr = PotSetPower(LL, L*(L+1)/(2.0), -2); CHKERRQ(ierr);
+    ierr = FEMInfCreateMat(fem, 1, &LLMat); CHKERRQ(ierr);
+    ierr = FEMInfPotR1Mat(fem, LL, LLMat); CHKERRQ(ierr);
+    ierr = MatAXPY(L0, -1.0, LLMat, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
+    ierr = MatDestroy(&LLMat); CHKERRQ(ierr);
+  }
   
   ierr = FEMInfPotR1Mat(fem, pot_v0, VL); CHKERRQ(ierr);
   ierr = MatAXPY(L0, -1.0, VL, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
@@ -219,22 +268,31 @@ PetscErrorCode Driv1dCalc1(PetscReal energy) {
   ierr = MatAXPY(L0, +energy,
 		 S, DIFFERENT_NONZERO_PATTERN);  CHKERRQ(ierr);
 
-  // -- Fitting --
-  Vec c_fit;
-  ierr = VecCreate(comm, &c_fit);  CHKERRQ(ierr); 
-  ierr = VecSetType(c_fit, "seq"); CHKERRQ(ierr);
-  ierr = FEMInfFit(fem, driv, ksp, c_fit); CHKERRQ(ierr);
+  // -- driven term --
+  if(strcmp(problem_type, "scatter") == 0) {
+    double k = sqrt(energy*2.0);
+    Pot rbessel;
+    ierr = PotCreate(comm, &rbessel); CHKERRQ(ierr);
+    ierr = PotSetRBessel(rbessel, L, k); CHKERRQ(ierr);
+    Pot pots[2];
+    if(strcmp(pot_type, "single") == 0) {
+      pots[0] = pot_v0; pots[1] = rbessel;
+    } 
+    else if(strcmp(pot_type, "double") == 0) {
+      pots[0] = pot_v1; pots[1] = rbessel;
+    }
+    PotSetProduct(driv, 2, pots);
+  }
+  //printf("driven term\n");
+  //  ierr = PFView(driv, PETSC_VIEWER_STDOUT_SELF); CHKERRQ(ierr);
   ierr = FEMInfCreateVec(fem, 1, &m); CHKERRQ(ierr);
-  ierr = MatMult(S, c_fit, m);
+  ierr = FEMInfPotR1Vec(fem, driv, m);CHKERRQ(ierr);
 
   // -- Solve driven equation --
   ierr = KSPSetOperators(ksp, L0, L0); CHKERRQ(ierr);
   int n; FEMInfGetSize(fem, &n);
-  //ierr = VecSetSizes(c0, PETSC_DECIDE, n); CHKERRQ(ierr);
   ierr = VecSetSizes(c0, n, n); CHKERRQ(ierr);
   ierr = KSPSolve(ksp, m, c0);  CHKERRQ(ierr);  
-
-  ierr = VecDestroy(&c_fit); CHKERRQ(ierr);
 
   if(strcmp(pot_type, "double") == 0) {
     Mat L1;
@@ -244,13 +302,103 @@ PetscErrorCode Driv1dCalc1(PetscReal energy) {
     ierr = FEMInfPotR1Mat(fem, pot_v1, VS); CHKERRQ(ierr);
     ierr = MatAXPY(L1, -1.0, VS, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
     ierr = KSPSetOperators(ksp, L1, L1); CHKERRQ(ierr);    
-    //ierr = VecSetSizes(c1, PETSC_DECIDE, n); CHKERRQ(ierr);
     ierr = VecSetSizes(c1, n, n); CHKERRQ(ierr);
     ierr = KSPSolve(ksp, m, c1);CHKERRQ(ierr);  
     ierr = MatDestroy(&L1); CHKERRQ(ierr);
   }
 
   ierr = MatDestroy(&L0);    CHKERRQ(ierr);
+  return 0;
+}
+PetscErrorCode Driv1dCalc2_single_scatter(PetscReal energy) {
+
+  /*
+    A = 2mu/k * <jl(kr) | V(r) | Psi>
+    . = 2mu/k * <jl(kr) | V(r) | Psi^sc>_R0
+   */
+
+  PetscErrorCode ierr;
+
+  double k = sqrt(2.0*energy);
+  Pot rbessel;
+  Vec jvec;
+  ierr = PotCreate(comm, &rbessel);          CHKERRQ(ierr);
+  ierr = PotSetRBessel(rbessel, L, k);       CHKERRQ(ierr);
+  ierr = FEMInfCreateVec(fem, 1, &jvec);     CHKERRQ(ierr);
+  ierr = FEMInfPotR1Vec(fem, rbessel, jvec); CHKERRQ(ierr);
+
+  Vec s_m; VecDuplicate(jvec, &s_m); 
+  ierr = MatMult(S, m, s_m); CHKERRQ(ierr);
+  
+  PetscScalar amp0;
+  ierr = VecTDot(s_m, jvec, &amp0); CHKERRQ(ierr);
+  PetscScalar amp1;
+  ierr = VecTDot(s_m, c0,   &amp1); CHKERRQ(ierr);
+  //ierr = VecTDot(m, c0,   &amp1); CHKERRQ(ierr);
+  amp0 *= 2.0/k;
+  amp1 *= 2.0/k;
+  printf("amplitude0: %15.10f %15.10f\n", creal(amp0), cimag(amp0));
+  printf("amplitude1: %15.10f %15.10f\n", creal(amp1), cimag(amp1));
+  double phase = carg(amp0 + amp1);
+  if(phase < 0.0)
+    phase += M_PI;
+  printf("phase_shift : %15.10f\n", phase);
+
+  double cs = 4.0 * M_PI * sin(phase)*sin(phase)/(k*k);
+  printf("cross_section : %15.10f\n", cs);
+
+  PFDestroy(&rbessel);
+  VecDestroy(&jvec);
+  
+  return 0;
+}
+PetscErrorCode Driv1dCalc2_single_driv(PetscReal energy) {
+  PetscErrorCode ierr;
+  
+
+  /*
+  Vec s_m; VecDuplicate(m, &s_m); 
+  ierr = MatMult(S, m, s_m); CHKERRQ(ierr);
+  PetscScalar alpha;
+  ierr = VecTDot(s_m, c0, &alpha); CHKERRQ(ierr);
+  printf("alpha : %f %f\n", creal(mc0), cimag(mc0));
+  */
+
+  PetscScalar mc0;
+  ierr = VecTDot(m, c0, &mc0); CHKERRQ(ierr);
+  printf("c0.m  : %f %f\n", creal(mc0), cimag(mc0));
+  return 0;
+}
+PetscErrorCode Driv1dCalc2_double_driv(PetscReal energy) {
+  PetscErrorCode ierr;
+  PetscScalar alpha;
+  ierr = VecTDot(m, c1, &alpha); CHKERRQ(ierr);
+  printf("alpha : %f %f\n", creal(alpha), cimag(alpha));
+
+
+  PetscScalar plmx_psi0p;
+  ierr = VecDot(c0, m, &plmx_psi0p); CHKERRQ(ierr);
+
+  PetscScalar psi0p_s = conj(plmx_psi0p);
+  printf("alpha0 : %f %f\n", creal(plmx_psi0p), cimag(plmx_psi0p));
+  
+  Vec v_c1; VecDuplicate(c1, &v_c1);
+  ierr = MatMult(VS, c1, v_c1); CHKERRQ(ierr);
+  PetscScalar psi0p_v_psip, psi0m_v_psip;
+  ierr = VecDot(v_c1, c0, &psi0p_v_psip); CHKERRQ(ierr);
+  ierr = VecTDot(v_c1,c0, &psi0m_v_psip); CHKERRQ(ierr);
+
+  PetscReal k = sqrt(2.0 * energy);
+
+  PetscScalar j_plmx = sqrt(-k * cimag(plmx_psi0p));
+  
+  PetscScalar impsi0p_v_psip = (psi0p_v_psip - psi0m_v_psip)/(2.0*I);
+  PetscScalar amp = (cimag(psi0p_s) + impsi0p_v_psip) / j_plmx;
+  printf("amplitude : %f, %f\n", creal(amp), cimag(amp));
+  printf("phase : %f\n", carg(amp));
+  printf("asb_amp : %f\n", cabs(amp));
+  printf("abs_amp2_direct : %f\n", cabs(amp)*cabs(amp));
+  printf("asb_amp_2_alpha : %f\n", -1.0/k * cimag(alpha));
   return 0;
 }
 PetscErrorCode Driv1dCalc2(PetscReal energy) {
@@ -266,39 +414,24 @@ PetscErrorCode Driv1dCalc2(PetscReal energy) {
   //  val = y^T x
   //
 
-  if(strcmp(pot_type, "single") == 0) {
-    PetscScalar alpha;
-    ierr = VecTDot(m, c0, &alpha); CHKERRQ(ierr);
-    printf("alpha : %f %f\n", creal(alpha), cimag(alpha));
-  } else if(strcmp(pot_type, "double") == 0) {
-    PetscScalar alpha;
-    ierr = VecTDot(m, c1, &alpha); CHKERRQ(ierr);
-    printf("alpha : %f %f\n", creal(alpha), cimag(alpha));
+  if(strcmp(pot_type, "single") == 0 &&
+     strcmp(problem_type, "scatter") == 0) {
+    ierr = Driv1dCalc2_single_scatter(energy); CHKERRQ(ierr);
+  }  
 
+  if(strcmp(pot_type, "double") == 0 &&
+     strcmp(problem_type, "scatter") == 0) {
+    SETERRQ(comm, 1, "Not implemented yet");
+  }  
+    
+  if(strcmp(pot_type, "single") == 0 &&
+     strcmp(problem_type, "driv") == 0) {
+    ierr = Driv1dCalc2_single_driv(energy); CHKERRQ(ierr);
+  }
 
-    PetscScalar plmx_psi0p;
-    ierr = VecDot(c0, m, &plmx_psi0p); CHKERRQ(ierr);
-
-    PetscScalar psi0p_s = conj(plmx_psi0p);
-    printf("alpha0 : %f %f\n", creal(plmx_psi0p), cimag(plmx_psi0p));
-
-    Vec v_c1; VecDuplicate(c1, &v_c1);
-    ierr = MatMult(VS, c1, v_c1); CHKERRQ(ierr);
-    PetscScalar psi0p_v_psip, psi0m_v_psip;
-    ierr = VecDot(v_c1, c0, &psi0p_v_psip); CHKERRQ(ierr);
-    ierr = VecTDot(v_c1,c0, &psi0m_v_psip); CHKERRQ(ierr);
-
-    PetscReal k = sqrt(2.0 * energy);
-
-    PetscScalar j_plmx = sqrt(-k * cimag(plmx_psi0p));
-
-    PetscScalar impsi0p_v_psip = (psi0p_v_psip - psi0m_v_psip)/(2.0*I);
-    PetscScalar amp = (cimag(psi0p_s) + impsi0p_v_psip) / j_plmx;
-    printf("amplitude : %f, %f\n", creal(amp), cimag(amp));
-    printf("phase : %f\n", carg(amp));
-    printf("asb_amp : %f\n", cabs(amp));
-    printf("abs_amp2_direct : %f\n", cabs(amp)*cabs(amp));
-    printf("asb_amp_2_alpha : %f\n", -1.0/k * cimag(alpha));
+  if(strcmp(pot_type, "double") == 0 &&
+     strcmp(problem_type, "driv") == 0) {
+    ierr = Driv1dCalc2_double_driv(energy); CHKERRQ(ierr);
   }
 
   return 0;
@@ -346,6 +479,4 @@ int main(int argc, char **args) {
 
   return 0;
 }
-
-
 

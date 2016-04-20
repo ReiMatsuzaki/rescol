@@ -179,6 +179,33 @@ PetscErrorCode MorseDestroy(void *ctx) {
 }
 
 typedef struct {
+  int L;
+  double k;
+} RBessel;
+PetscErrorCode RBesselApply(void *ctx, int n, const PetscScalar *x, PetscScalar *y) {
+
+  RBessel *self = (RBessel*)ctx;
+  for(int i = 0; i < n; i++)
+    y[i] = sin(self->k * x[i]);
+
+  return 0;
+}
+PetscErrorCode RBesselView(void *ctx, PetscViewer v) {
+
+  RBessel *self = (RBessel*)ctx;
+  PetscViewerASCIIPrintf(v, "type: Ricatti Bessel function\n");
+  PetscViewerASCIIPrintf(v, "L:    %d\n", self->L);
+  PetscViewerASCIIPrintf(v, "k:    %f\n", self->k);
+  return 0;
+}
+PetscErrorCode RBesselDestroy(void *ctx) {
+  PetscErrorCode ierr;
+  RBessel *self = (RBessel*)ctx;
+  ierr = PetscFree(self); CHKERRQ(ierr);
+  return 0;
+}
+
+typedef struct {
   int num;
   PF *pfs;
 } Combination;
@@ -285,6 +312,16 @@ PetscErrorCode PotSetMorse(Pot self, PetscScalar D0, PetscScalar a, PetscScalar 
   Morse *ctx; PetscNew(&ctx);
   ctx->D0 = D0; ctx->a = a; ctx->Re = Re;
   PFSet(self, MorseApply, NULL, MorseView, MorseDestroy, ctx);
+  return 0;
+}
+PetscErrorCode PotSetRBessel(Pot self, int L, double k) {
+  MPI_Comm comm; PetscObjectGetComm((PetscObject)self, &comm);
+  if(L != 0) {
+    SETERRQ(comm, 1, "now only L = 0 is supported");
+  }
+  RBessel *ctx; PetscNew(&ctx);
+  ctx->L = L; ctx->k = k;
+  PFSet(self, RBesselApply, NULL, RBesselView, RBesselDestroy, ctx);
   return 0;
 }
 PetscErrorCode PotSetCombination(Pot self, int num, Pot *pfs) {

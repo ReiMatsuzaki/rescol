@@ -16,6 +16,7 @@ PetscErrorCode PotSetPower(Pot self, PetscScalar a, PetscInt n);
 PetscErrorCode PotSetCoulombNE(Pot self, int q, PetscScalar a, PetscScalar zz);
 PetscErrorCode PotSetSlater(Pot self, PetscScalar a, int n, PetscScalar z);
 PetscErrorCode PotSetMorse(Pot self, PetscScalar D0, PetscScalar a, PetscScalar Re);
+PetscErrorCode PotSetRBessel(Pot self, int L, double k);
 PetscErrorCode PotSetCombination(Pot self, int num, Pot *pfs);
 PetscErrorCode PotSetProduct(Pot self, int num, Pot *pfs);
 

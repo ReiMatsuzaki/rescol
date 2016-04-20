@@ -193,6 +193,27 @@ int testBSplineSetBasic() {
   BSSDestroy(&bss);
   return 0;
 }
+int testBSplineECS() {
+
+  MPI_Comm comm = PETSC_COMM_SELF;
+  int order = 8;
+
+  CScaling scaler;
+  CScalingCreate(comm, &scaler); CScalingSetSharpECS(scaler, 50.0, 40.0*M_PI/180.0);
+  BPS bps; 
+  BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 101);
+  BSS bss;
+  BSSCreate(comm, &bss);  BSSSetKnots(bss, order, bps); BSSSetCScaling(bss, scaler);
+
+  BSSSetUp(bss);
+
+  PetscScalar y;
+  BSSBasisPsi(bss, 60, 52.0, &y);
+  ASSERT_DOUBLE_EQ(1.0, creal(y));
+  ASSERT_DOUBLE_EQ(0.0, cimag(y));
+
+  return 0;
+}
 int testBSplineSetSR1Mat() {
   PrintTimeStamp(PETSC_COMM_SELF, "S", NULL);
 
@@ -400,8 +421,8 @@ int testBSplineHAtom() {
   PrintTimeStamp(PETSC_COMM_SELF, "H atom", NULL);
 
   MPI_Comm comm = PETSC_COMM_SELF;
-  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 20.0, 21);
-  int order = 5;
+  BPS bps; BPSCreate(comm, &bps); BPSSetExp(bps, 50.0, 51, 5.0);
+  int order = 8;
   BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);  BSSSetUp(bss);
 
   Mat H; BSSCreateR1Mat(bss, &H);
@@ -416,10 +437,22 @@ int testBSplineHAtom() {
 
   BSSSR1Mat(bss, S);
 
+  // -- initial space --
+  Pot psi0; PotCreate(comm, &psi0); PotSetSlater(psi0, 2.0, 1, 1.0);
+  int n_init_space = 1;
+  Vec *xs; PetscMalloc1(n_init_space, &xs);
+  MatCreateVecs(H, &xs[0], NULL);
+  BSSPotR1Vec(bss, psi0, xs[0]);
+
   EPS eps; EPSCreate(comm, &eps);
   EPSSetOperators(eps, H, S); EPSSetProblemType(eps, EPS_GHEP);
   EPSSetWhichEigenpairs(eps, EPS_TARGET_MAGNITUDE);
+  //  EPSSetInitialSpace(eps, n_init_space, xs);
+  //  EPSSetType(eps, EPSARNOLDI);
+  //  EPSSetType(eps, EPSGD);
+  //  EPSSetDimensions(eps, 10, 30, PETSC_DECIDE);
   EPSSetTarget(eps, -0.6); EPSSetFromOptions(eps);
+  
   EPSSolve(eps);
 
   int nconv;
@@ -427,13 +460,22 @@ int testBSplineHAtom() {
   EPSGetConverged(eps, &nconv);
   ASSERT_TRUE(nconv > 0);
   EPSGetEigenpair(eps, 0, &kr, NULL, NULL, NULL);
-  ASSERT_DOUBLE_NEAR(-0.5, kr, pow(10.0, -5.0));
+  //  ASSERT_DOUBLE_NEAR(-0.5, kr, pow(10.0, -5.0));
+  ASSERT_DOUBLE_NEAR(-0.5,  kr, pow(10.0, -6.0));
 
+  EPSGetEigenpair(eps, 1, &kr, NULL, NULL, NULL);
+  //  ASSERT_DOUBLE_NEAR(-0.5, kr, pow(10.0, -5.0));
+  ASSERT_DOUBLE_NEAR(-0.125,  kr, pow(10.0, -6.0));
+
+  VecDestroy(&xs[0]);
+  PetscFree(xs);
+  PFDestroy(&psi0);
   BSSDestroy(&bss);
   MatDestroy(&H);
   MatDestroy(&V);
   MatDestroy(&S);
   EPSDestroy(&eps);
+  
   return 0;
 }
 int testBSplinePot() {
@@ -549,6 +591,7 @@ int main(int argc, char **args) {
   testCalcBSpline();
   testNon0QuadIndex();
   testNon0QuadIndex2();
+  testBSplineECS();
 
   testBSplineSetBasic();
   testBSplineSetSR1Mat();
@@ -560,7 +603,7 @@ int main(int argc, char **args) {
   testBSplineSetEE_time();
   testBSplineSetNE_time();
 
-  testBSplineHAtom();
+  //  testBSplineHAtom();
 
   testBSplinePot();
   testBSplinePot2();

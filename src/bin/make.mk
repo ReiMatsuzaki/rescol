@@ -1,33 +1,56 @@
+# ==== plot basis ====
+plot_basis.out: plot_basis.o ${OBJ_FEM}
+
+
 # ==== Solve Driv Eq ====
 # see 2016/4/16
 driv1d.out: driv1d.o ${OBJ_FEM}
 .PHONY: check_driv1d
 check_driv1d: driv1d.out
-	./$< -fem_type bss -bss_order 8 \
-	-bps_num_zs 501 -bps_zmax 100.0 -bps_type line \
-	-cscaling_type sharp_ecs -cscaling_r0 70.0 -cscaling_theta 20.0 \
-	-energy_range 0.5 \
-	-driv-pot "sto -2.0 2 1.0" \
-	-pot_type single \
-	-v0-pot "pow -1.0 -1|pow 1.0 -2" \
-	-viewerfunc_view ascii:tmp/driv1d.dat -viewerfunc_num 100 -viewerfunc_xmax 100.0
-	head tmp/driv1d.dat
+	@for num in 101 201 301 401 501 601 701; do \
+		echo $$num; \
+		./$< -fem_type bss -bss_order 8 \
+		-bps_num_zs $$num -bps_zmax 100.0 -bps_type line \
+		-cscaling_type sharp_ecs -cscaling_r0 70.0 -cscaling_theta 20.0 \
+		-energy_range 0.5 \
+		-L 1 \
+		-driv-pot "sto -2.0 2 1.0" \
+		-pot_type single \
+		-problem_type driv \
+		-v0-pot "pow -1.0 -1" \
+		-viewerfunc_view ascii:tmp/driv1d.dat \
+		-viewerfunc_num 100 -viewerfunc_xmax 100.0 | grep -E "alpha|c0"; \
+	done
+#Reference from 2016/4/12/* and test_r1gtoint
+	@echo "ref(a): 5.65688402161, 1.08811622008"
+
+.PHONY: check_driv1d2
+check_driv1d2: driv1d.out
 	./$< -fem_type bss -bss_order 8 \
 	-bps_num_zs 501 -bps_zmax 100.0 -bps_type line \
 	-cscaling_type sharp_ecs -cscaling_r0 70.0 -cscaling_theta 20.0 \
 	-energy_range 0.3:0.5:2 \
 	-driv-pot "sto -2.0 2 1.0" \
 	-pot_type double \
-	-v0-pot "pow -1.0 -1|pow 1.0 -2" \
+	-problem_type driv \
+	-L 1 \
+	-v0-pot "pow -1.0 -1" \
 	-v1-pot "sto -1.0 0 1.0" \
 	-viewerfunc_view ascii:tmp/driv1d.dat -viewerfunc_num 100 -viewerfunc_xmax 100.0
-	head tmp/driv1d.dat
-	@echo "Reference from 2016/4/12/*.dat"
-	@echo "# alpha = -4.770452, -0.235177"
-	@echo "# amplitude = 0.60+0.32j"
-	@echo "# phase = 0.493"
-	@echo "# |amp| = 0.685"	
-	@echo "1.000000 -1.020201 0.477956 "
+
+check_driv1d_scatter: driv1d.out
+	./$< -fem_type bss -bss_order 8 \
+	-bps_num_zs 501 -bps_zmax 100.0 -bps_type line \
+	-cscaling_type sharp_ecs -cscaling_r0 50.0 -cscaling_theta 40.0 \
+	-energy_range 0.5 \
+	-pot_type single \
+	-problem_type scatter \
+	-L 0 \
+	-v0-pot "sto -3.0 0 1.0" \
+	-viewerfunc_view ascii:tmp/driv1d.dat \
+	-viewerfunc_num 100 -viewerfunc_xmax 100.0 | grep phase
+	@echo "ref(phase) = 2.028 859 730 528"
+
 install_driv1d: driv1d.out
 	cp driv1d.out ~/bin/driv1d
 
