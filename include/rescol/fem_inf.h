@@ -18,6 +18,7 @@ typedef struct {
   PetscErrorCode (*SetFromOptions)();
 
   PetscErrorCode (*Psi)();
+  PetscErrorCode (*DerivPsi)();
   PetscErrorCode (*GuessHEig)();
   PetscErrorCode (*GetSize)();
 
@@ -59,6 +60,7 @@ PetscErrorCode FEMInfGetOverlapIsId(FEMInf self, PetscBool *is_id);
 // ---- calculation -----
 //PetscErrorCode FEMInfBasisPsi(FEMInf self, int i, PetscScalar x, PetscScalar *y);
 PetscErrorCode FEMInfPsi(FEMInf self, Vec c, PetscReal x, PetscScalar *y);
+PetscErrorCode FEMInfDerivPsi(FEMInf self, Vec c, PetscReal x, PetscScalar *y);
 PetscErrorCode FEMInfFit(FEMInf self, PF pf, KSP ksp, Vec c);
 PetscErrorCode FEMInfGuessHEig(FEMInf self, int n, int l, PetscScalar z, Vec *v);
 

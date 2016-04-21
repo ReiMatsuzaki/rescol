@@ -14,6 +14,7 @@ PetscErrorCode FEMInfSetFD(FEMInf self, FD target) {
     FD_Sc.SetFromOptions = FDSetFromOptions;
 
     FD_Sc.Psi = NULL;
+    FD_Sc.DerivPsi = NULL;
     FD_Sc.GuessHEig = FDGuessHEig;
     FD_Sc.GetSize = FDGetSize;
     
@@ -45,6 +46,7 @@ PetscErrorCode FEMInfSetBSS(FEMInf self, BSS target) {
     BSS_Sc.SetFromOptions = BSSSetFromOptions;
 
     BSS_Sc.Psi = BSSPsi;
+    BSS_Sc.DerivPsi = BSSDerivPsi;
     BSS_Sc.GuessHEig = NULL;
     BSS_Sc.GetSize = BSSGetSize;
     
@@ -75,6 +77,7 @@ PetscErrorCode FEMInfSetDVR(FEMInf self, DVR target) {
     DVR_Sc.SetFromOptions = DVRSetFromOptions;
 
     DVR_Sc.Psi = NULL;
+    DVR_Sc.DerivPsi = NULL;
     DVR_Sc.GetSize = DVRGetSize;
     DVR_Sc.GuessHEig = NULL;
 
@@ -281,6 +284,15 @@ PetscErrorCode FEMInfPsi(FEMInf self, Vec c, PetscReal x, PetscScalar *y) {
 
   self->sc->Psi(self->obj, c, x, y);
   return 0;
+}
+PetscErrorCode FEMInfDerivPsi(FEMInf self, Vec c, PetscReal x, PetscScalar *y) {
+
+  if(self->sc->DerivPsi == NULL)
+    SETERRQ(self->comm, 1, "method is null");
+  
+  self->sc->DerivPsi(self->obj, c, x, y);
+  return 0;
+
 }
 PetscErrorCode FEMInfGuessHEig(FEMInf self, int n, int l, PetscScalar z, Vec *v) {
 

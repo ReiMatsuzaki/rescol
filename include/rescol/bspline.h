@@ -22,8 +22,8 @@ struct _p_BSS {
   CScaling c_scaling; // object for complex scaling
 
   int num_ts; // number of ts_r and ts_s
-  PetscReal* ts_r; // overlapped knots points
-  PetscScalar* ts_s; // overlapped knots points
+  PetscReal* ts_r; // overlapped knots points(not scaled)
+  PetscScalar* ts_s; // overlapped knots points(scaled)
   
   PetscReal* xs; // quadrature points
   PetscScalar* xs_s; // quadrature points (Scalar)
@@ -43,9 +43,9 @@ typedef struct _p_BSS* BSS;
 int NumBSpline(int order, int num_ele);
 int HasNon0Value(int order, int i, int j);
 PetscErrorCode CalcBSpline(int order, PetscReal* ts_r, PetscScalar* ts_s, 
-			   int i, double x, PetscScalar* y);
+			   int i, double x_r, PetscScalar x, PetscScalar* y);
 PetscErrorCode CalcDerivBSpline(int order, double* ts, PetscScalar* ts_s, 
-				int i, double x, PetscScalar* y);
+				int i, double x_r, PetscScalar x, PetscScalar* y);
 
 
 PetscErrorCode Non0QuadIndex(int a, int c, int k, int nq, int* i0, int* i1);
@@ -63,6 +63,7 @@ PetscErrorCode BSSSetUp(BSS self);
 PetscErrorCode BSSSetFromOptions(BSS self);
 
 PetscErrorCode BSSPsi(BSS self, Vec c, PetscReal x, PetscScalar *y);
+PetscErrorCode BSSDerivPsi(BSS self, Vec c, PetscReal x, PetscScalar *y);
 PetscErrorCode BSSBasisPsi(BSS self, int i, PetscReal x, PetscScalar *y);
 PetscErrorCode BSSDerivBasisPsi(BSS self, int i, PetscReal x, PetscScalar *y);
 PetscErrorCode BSSGetSize(BSS self, int *n);

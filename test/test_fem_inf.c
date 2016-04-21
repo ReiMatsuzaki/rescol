@@ -29,7 +29,7 @@ int testH_BSS() {
   MPI_Comm comm = PETSC_COMM_SELF;
   PrintTimeStamp(comm, "H_BSS", NULL);
 
-  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 101);
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 201);
   CScaling c_scaling; 
   CScalingCreate(comm, &c_scaling); CScalingSetSharpECS(c_scaling, 70.0, 20.0);
   BSS bss; BSSCreate(comm, &bss); 
@@ -65,12 +65,27 @@ int testH_BSS() {
   
   int nconv;
   PetscScalar kr;
-  Vec cs;
+  
   EPSGetConverged(eps->eps, &nconv);
-  ASSERT_TRUE(nconv > 0);
-  MatCreateVecs(H, &cs, NULL);
-  EPSGetEigenpair(eps->eps, 0, &kr, NULL, cs, NULL);
+  ASSERT_TRUE(nconv > 0);  
+  EPSGetEigenpair(eps->eps, 0, &kr, NULL, NULL, NULL);
+  
   ASSERT_DOUBLE_NEAR(-0.5, kr, pow(10.0, -5.0));
+
+  Vec cs;
+  MatCreateVecs(H, &cs, NULL);
+  EEPSGetEigenvector(eps, 0, cs);
+
+  PetscReal x = 1.1;
+  PetscScalar y, dy;
+  FEMInfPsi(fem, cs, x, &y); FEMInfDerivPsi(fem, cs, x, &dy);
+  ASSERT_DOUBLE_NEAR(2.0*x*exp(-x), creal(y), pow(10.0, -5.0));
+  ASSERT_DOUBLE_NEAR(2.0*(1.0-x)*exp(-x), creal(dy), pow(10.0, -3.0));
+  /*
+    PetscScalar dy;    
+    FEMInfDerivPsi(fem, cs, x, &dy);
+    ASSERT_DOUBLE_EQ(creal(dy), 2.0*exp(-x)-2.0*x*exp(-x));
+  */
   
   FEMInfDestroy(&fem);
   MatDestroy(&H); MatDestroy(&V); MatDestroy(&S);
@@ -179,7 +194,7 @@ int testH_PI_BSS() {
   MPI_Comm comm = PETSC_COMM_SELF;
   PrintTimeStamp(comm, "H_PI", NULL);
 
-  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 101);
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 201);
   CScaling c_scaling; 
   CScalingCreate(comm, &c_scaling); CScalingSetSharpECS(c_scaling, 70.0, 20.0);
   BSS bss; BSSCreate(comm, &bss); 
@@ -217,16 +232,14 @@ int testH_PI_BSS() {
   int n; FEMInfGetSize(fem, &n); 
   ierr = VecSetSizes(c, n, n); CHKERRQ(ierr);
   ierr = VecSetType(c, "seq"); CHKERRQ(ierr);
-  ierr = VecSetType(m, "seq"); CHKERRQ(ierr);
+  //ierr = VecSetType(m, "seq"); CHKERRQ(ierr);
   ierr = KSPSolve(ksp, m, c); CHKERRQ(ierr);
 
-  Vec s_m; VecDuplicate(m, &s_m); 
-  ierr = MatMult(S, m, s_m); CHKERRQ(ierr);  
-
   PetscScalar alpha;
-  ierr = VecTDot(c, s_m, &alpha); CHKERRQ(ierr);
-  ASSERT_DOUBLE_EQ(1.88562800720386, creal(alpha));
-  ASSERT_DOUBLE_EQ(-0.362705406693342, cimag(alpha));
+  ierr = VecTDot(c, m, &alpha); CHKERRQ(ierr);
+
+  ASSERT_DOUBLE_EQ(-5.65688402161, creal(alpha));
+  ASSERT_DOUBLE_EQ(1.08811622008, cimag(alpha));
 
   return 0;
 
@@ -298,12 +311,13 @@ int testFit_BSS() {
   PrintTimeStamp(comm, "FIT_BSS", NULL);
 
   BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 301);
-  CScaling c_scaling; CScalingCreate(comm, &c_scaling);
-  CScalingSetSharpECS(c_scaling, 70.0, 20.0);
+  //CScaling c_scaling; CScalingCreate(comm, &c_scaling);
+  //CScalingSetSharpECS(c_scaling, 70.0, 20.0);
   
   BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, 5, bps);
   BSSSetUp(bss);
-  BSSSetCScaling(bss, c_scaling); BSSSetUp(bss);
+  //  BSSSetCScaling(bss, c_scaling);
+  BSSSetUp(bss);
   FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetBSS(fem, bss);
 
   Pot sto; PotCreate(comm, &sto); PotSetSlater(sto, 1.1, 2, 1.2);
@@ -318,17 +332,17 @@ int testFit_BSS() {
   FEMInfPsi(fem, c, x, &y_calc);
 
   PetscScalar xs[1] = {x};
-  PetscScalar ys[1];
+  PetscScalar ys[1] = {0.0};
   PFApply(sto, 1, xs, ys);
   PetscScalar y_ref = ys[0];
   
+  ASSERT_DOUBLE_NEAR(1.1*x*x*exp(-1.2*x), y_calc, pow(10.0, -6.0));
   ASSERT_DOUBLE_NEAR(y_ref, y_calc, pow(10.0, -6.0));
 
   PFDestroy(&sto);
   VecDestroy(&c);
   KSPDestroy(&ksp);
   FEMInfDestroy(&fem);
-  
   
   return 0;
 }

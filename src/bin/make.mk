@@ -7,11 +7,11 @@ plot_basis.out: plot_basis.o ${OBJ_FEM}
 driv1d.out: driv1d.o ${OBJ_FEM}
 .PHONY: check_driv1d
 check_driv1d: driv1d.out
-	@for num in 101 201 301 401 501 601 701; do \
+	@for num in 201 401 601; do \
 		echo $$num; \
 		./$< -fem_type bss -bss_order 8 \
-		-bps_num_zs $$num -bps_zmax 100.0 -bps_type line \
-		-cscaling_type sharp_ecs -cscaling_r0 70.0 -cscaling_theta 20.0 \
+		-bps_num_zs $$num -bps_zmax 200.0 -bps_type line \
+		-cscaling_type sharp_ecs -cscaling_r0 150.0 -cscaling_theta 5.0 \
 		-energy_range 0.5 \
 		-L 1 \
 		-driv-pot "sto -2.0 2 1.0" \
@@ -39,17 +39,18 @@ check_driv1d2: driv1d.out
 	-viewerfunc_view ascii:tmp/driv1d.dat -viewerfunc_num 100 -viewerfunc_xmax 100.0
 
 check_driv1d_scatter: driv1d.out
-	./$< -fem_type bss -bss_order 8 \
-	-bps_num_zs 501 -bps_zmax 100.0 -bps_type line \
-	-cscaling_type sharp_ecs -cscaling_r0 50.0 -cscaling_theta 40.0 \
+	./$< -fem_type bss -bss_order 5 \
+	-bps_num_zs 401 -bps_zmax 100.0 -bps_type line \
+	-cscaling_type sharp_ecs -cscaling_r0 50.0 -cscaling_theta 5.0 \
 	-energy_range 0.5 \
 	-pot_type single \
 	-problem_type scatter \
 	-L 0 \
 	-v0-pot "sto -3.0 0 1.0" \
 	-viewerfunc_view ascii:tmp/driv1d.dat \
-	-viewerfunc_num 100 -viewerfunc_xmax 100.0 | grep phase
-	@echo "ref(phase) = 2.028 859 730 528"
+	-viewerfunc_num 100 -viewerfunc_xmax 100.0 | grep cross_sec
+	@echo "ref(cross sec) = 10.108998"
+#@echo "ref(phase) = 2.028 859 730 528"
 
 install_driv1d: driv1d.out
 	cp driv1d.out ~/bin/driv1d

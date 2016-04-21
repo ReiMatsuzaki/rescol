@@ -321,34 +321,55 @@ PetscErrorCode Driv1dCalc2_single_scatter(PetscReal energy) {
 
   double k = sqrt(2.0*energy);
   Pot rbessel;
-  Vec jvec;
   ierr = PotCreate(comm, &rbessel);          CHKERRQ(ierr);
   ierr = PotSetRBessel(rbessel, L, k);       CHKERRQ(ierr);
-  ierr = FEMInfCreateVec(fem, 1, &jvec);     CHKERRQ(ierr);
-  ierr = FEMInfPotR1Vec(fem, rbessel, jvec); CHKERRQ(ierr);
-
-  Vec s_m; VecDuplicate(jvec, &s_m); 
-  ierr = MatMult(S, m, s_m); CHKERRQ(ierr);
+  KSP ksp;
+  ierr = KSPCreate(comm, &ksp);              CHKERRQ(ierr);
+  int n; FEMInfGetSize(fem, &n);
+  Vec jvec;
+  ierr = VecCreate(comm, &jvec); CHKERRQ(ierr);
+  ierr = VecSetType(jvec, VECSEQ); CHKERRQ(ierr);
+  ierr = FEMInfFit(fem, rbessel, ksp, jvec); CHKERRQ(ierr);
   
   PetscScalar amp0;
-  ierr = VecTDot(s_m, jvec, &amp0); CHKERRQ(ierr);
+    ierr = VecTDot(m, jvec, &amp0); CHKERRQ(ierr);
   PetscScalar amp1;
-  ierr = VecTDot(s_m, c0,   &amp1); CHKERRQ(ierr);
-  //ierr = VecTDot(m, c0,   &amp1); CHKERRQ(ierr);
+  ierr = VecTDot(m, c0,   &amp1); CHKERRQ(ierr);
   amp0 *= 2.0/k;
   amp1 *= 2.0/k;
-  printf("amplitude0: %15.10f %15.10f\n", creal(amp0), cimag(amp0));
-  printf("amplitude1: %15.10f %15.10f\n", creal(amp1), cimag(amp1));
+  
   double phase = carg(amp0 + amp1);
   if(phase < 0.0)
     phase += M_PI;
-  printf("phase_shift : %15.10f\n", phase);
-
   double cs = 4.0 * M_PI * sin(phase)*sin(phase)/(k*k);
-  printf("cross_section : %15.10f\n", cs);
+
+  // -- surface form --
+  PetscReal R0 = 40.3;
+  PetscScalar y, dy;
+  FEMInfPsi(fem, c0, R0, &y);
+  FEMInfDerivPsi(fem, c0, R0, &dy);
+  PetscScalar j, dj;
+  j = sin(k*R0); dj = k*cos(k*R0);
+  PetscScalar amp_surface = -1.0/k*(j*dy-y*dj);
+  
+  double phase_sur = carg( amp_surface);
+  if(phase_sur < 0.0)
+    phase_sur += M_PI;
+  double cs_sur = 4.0*M_PI*sin(phase_sur)*sin(phase_sur)/(k*k);
+  
 
   PFDestroy(&rbessel);
   VecDestroy(&jvec);
+
+  printf("amp_int0  : %15.10f %15.10f\n", creal(amp0), cimag(amp0));
+  printf("amp_int1  : %15.10f %15.10f\n", creal(amp1), cimag(amp1));
+  printf("phase_int : %15.10f\n", phase);
+  printf("amp_surfa : %15.10f %15.10f\n", creal(amp_surface), cimag(amp_surface));
+  printf("phase_sur : %15.10f\n", phase_sur);
+
+  printf("cross_sec_int : %15.10f\n", cs);
+  printf("cross_sec_sur : %15.10f\n", cs_sur);
+
   
   return 0;
 }
@@ -359,10 +380,11 @@ PetscErrorCode Driv1dCalc2_single_driv(PetscReal energy) {
   /*
   Vec s_m; VecDuplicate(m, &s_m); 
   ierr = MatMult(S, m, s_m); CHKERRQ(ierr);
+
   PetscScalar alpha;
   ierr = VecTDot(s_m, c0, &alpha); CHKERRQ(ierr);
-  printf("alpha : %f %f\n", creal(mc0), cimag(mc0));
-  */
+  printf("c0Sm : %f %f\n", creal(alpha), cimag(alpha));
+    */
 
   PetscScalar mc0;
   ierr = VecTDot(m, c0, &mc0); CHKERRQ(ierr);
