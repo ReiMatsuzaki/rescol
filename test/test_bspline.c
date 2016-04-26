@@ -84,6 +84,43 @@ int testCalcBSpline() {
 
   return 0;
 }
+int testCalcBSplineECS() {
+  PrintTimeStamp(PETSC_COMM_SELF, "calc", NULL);
+
+/*
+  // overlaped knot points list
+  double ts_r[10] = {0.0, 0.0, 0.0, 
+		   1.0, 2.0, 3.0, 4.0,
+		   5.0, 5.0, 5.0};
+
+  PetscScalar ts_s[10];
+  for(int i = 0; i < 10; i++) {
+    if(ts_r[i] > 2.5) {
+      PetscScalar arg = 0.1I;
+      ts_s[i] = 2.5 + (ts_r[i]-2.5)*exp(arg);
+    } else {
+      ts_s[i] = ts_r[i];
+    }
+  }
+  
+  PetscScalar x = 3.1;
+  PetscReal h = 0.0001;
+  PetscScalar yp, ym, dy;
+  
+  int order = 8;
+  for(int index = 0; index < 8; index++) {
+    printf("%d, %f, %f\n", index, creal(yp), cimag(yp));
+    CalcBSpline(     order, ts_r, ts_s, index, x+h, x+h, &yp); 
+    CalcBSpline(     order, ts_r, ts_s, index, x-h, x-h, &ym); 
+    CalcDerivBSpline(order, ts_r, ts_s, index, x, x, &dy); 
+    
+    ASSERT_DOUBLE_NEAR(creal((yp-ym)/(2.0*h)), creal(dy), 0.001);
+    ASSERT_DOUBLE_NEAR(cimag((yp-ym)/(2.0*h)), cimag(dy), 0.001);
+  }
+  
+*/
+  return 0;
+}
 int testNon0QuadIndex() {
   PrintTimeStamp(PETSC_COMM_SELF, "non0", NULL);
 
@@ -603,9 +640,10 @@ int main(int argc, char **args) {
 
   testNumBSpline();
   testCalcBSpline();
+  testCalcBSplineECS();
   testNon0QuadIndex();
   testNon0QuadIndex2();
-  testBSplineECS();
+  //  testBSplineECS();
 
   testBSplineSetBasic();
   testBSplineSetSR1Mat();

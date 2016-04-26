@@ -53,6 +53,25 @@ PetscErrorCode CalcDerivBSpline(int order, PetscReal* ts_r, PetscScalar *ts,
   if(order == 1) 
     *y = 0.0;
   else {
+/*
+  int k = order;
+
+    PetscScalar bs0; CalcBSpline(      k-1, ts_r, ts, i,   x_r, x, &bs0);
+    PetscScalar bs1; CalcBSpline(      k-1, ts_r, ts, i+1, x_r, x, &bs1);
+    PetscScalar dbs0; CalcDerivBSpline(k-1, ts_r, ts, i,   x_r, x, &dbs0);
+    PetscScalar dbs1; CalcDerivBSpline(k-1, ts_r, ts, i+1, x_r, x, &dbs1);    
+    double eps = 0.000000001;
+    PetscScalar acc = 0.0;
+    if(ScalarAbs(bs0) > eps)
+      acc += 1.0/(ts[i+k-1]-ts[i]) * bs0;
+    if(ScalarAbs(bs1) > eps)
+      acc += -1.0/(ts[i+k]-ts[i+1]) * bs1;
+    if(ScalarAbs(dbs0) > eps)
+      acc += (x-ts[i])/(ts[i+k-1]-ts[i]) * dbs0;
+    if(ScalarAbs(dbs1) > eps)
+      acc += (ts[i+k]-x)/(ts[i+k]-ts[i+1]) * dbs1;
+    *y = acc;
+*/
 
     int k = order;
     PetscScalar bs0;
@@ -60,12 +79,13 @@ PetscErrorCode CalcDerivBSpline(int order, PetscReal* ts_r, PetscScalar *ts,
     PetscScalar bs1;
     CalcBSpline(k-1, ts_r, ts, i+1, x_r, x, &bs1);
     double eps = 0.000000001;
-    double acc = 0.0;
+    PetscScalar acc = 0.0;
     if(ScalarAbs(bs0) > eps)
-      acc += (k-1)/(ts[i+k-1]-ts[i]) * bs0;
+    acc += (k-1)/(ts[i+k-1]-ts[i]) * bs0;
     if(ScalarAbs(bs1) > eps)
       acc -= (k-1)/(ts[i+k]-ts[i+1]) * bs1;
     *y = acc;
+
   }
   return 0;
 }
@@ -263,6 +283,8 @@ PetscErrorCode BSSSetUp(BSS self) {
     self->ts_r[i+self->order-1] = zs[i];
   PetscFree(zs);
   CScalingCalc(self->c_scaling, self->ts_r, self->num_ts, NULL, self->ts_s);
+  //  for(int i = 0; i < self->num_ts; i++)
+  //    self->ts_s[i] = self->ts_r[i];
 
   // index of basis
   for(int ib = 0; ib < self->num_basis; ib++)
@@ -279,9 +301,10 @@ PetscErrorCode BSSSetUp(BSS self) {
       LegGauss(self->order, iq, &quad_x, &quad_w);
       x_r[0] = creal(quad_x); w_r[0] = creal(quad_w);
       x_r[0] = (b+a)/2.0  + (b-a)/2.0 * x_r[0]; w_r[0] = (b-a)/2.0*w_r[0];
-      self->xs[ix] = x_r[0]; self->xs_s[ix] = x_r[0];
-      self->ws[ix] = w_r[0];
       CScalingCalc(self->c_scaling, x_r, 1, NULL, x_c);
+      self->xs[ix] = x_r[0]; 
+      self->ws[ix] = w_r[0];
+      self->xs_s[ix] = x_c[0];
             
       for(int ib = 0; ib < self->num_basis; ib++) {
 	PetscScalar y;
@@ -289,8 +312,8 @@ PetscErrorCode BSSSetUp(BSS self) {
 	PetscReal *ts_r = self->ts_r;
 	PetscScalar *ts_s = self->ts_s;
 	int idx = self->b_idx_list[ib];
-	CalcBSpline(     self->order, ts_r, ts_s, idx, x_r[0], x_r[0], &y);
-	CalcDerivBSpline(self->order, ts_r, ts_s, idx, x_r[0], x_r[0], &dy);
+	CalcBSpline(     self->order, ts_r, ts_s, idx, x_r[0], x_c[0], &y);
+	CalcDerivBSpline(self->order, ts_r, ts_s, idx, x_r[0], x_c[0], &dy);
 	int iy = ib*(self->num_ele*self->order) + ie*self->order + iq;
 	self->vals[iy] = y;  
 	self->derivs[iy] = dy;
@@ -302,6 +325,7 @@ PetscErrorCode BSSSetUp(BSS self) {
   ierr = CScalingCalc(self->c_scaling, self->xs, n_xs,
 		      self->qrs, self->Rrs); CHKERRQ(ierr);
   self->setup = PETSC_TRUE;
+  
   return 0;
 }
 PetscErrorCode BSSSetFromOptions(BSS self) {
@@ -465,6 +489,7 @@ PetscErrorCode BSSSR1Mat(BSS self, Mat M) {
 	PetscScalar v = 0.0;
 	for(k = 0; k < ne*nq; k++) 
 	  v += self->vals[k+i*(ne*nq)] * self->vals[k+j*(ne*nq)] * self->ws[k] * self->qrs[k];
+	//v += self->vals[k+i*(ne*nq)] * self->vals[k+j*(ne*nq)] * self->ws[k];
 	ierr = MatSetValue(M, i, j, v, mode); CHKERRQ(ierr);
       }
     }
@@ -516,8 +541,24 @@ PetscErrorCode BSSD2R1Mat(BSS self, Mat M) {
     for(j = 0; j < nb; j++) {
       if(HasNon0Value(self->order, self->b_idx_list[i], self->b_idx_list[j])) {
 	PetscScalar v = 0.0;
-	for(k = 0; k < ne*nq; k++) 
-	  v += self->derivs[k+i*(ne*nq)] * self->derivs[k+j*(ne*nq)] * self->ws[k] / self->qrs[k];
+	for(k = 0; k < ne*nq; k++)  {
+	  /*
+	  v += (self->derivs[k+i*(ne*nq)] *
+		self->derivs[k+j*(ne*nq)] *
+		self->ws[k] / (self->qrs[k]*self->qrs[k]));
+	  */
+	  v += (self->derivs[k+i*(ne*nq)] *
+		self->derivs[k+j*(ne*nq)] *
+		self->ws[k] / self->qrs[k]);
+	  /*
+	  v += (self->derivs[k+i*(ne*nq)] *
+		self->derivs[k+j*(ne*nq)] *
+		self->ws[k] / self->qrs[k]);
+	  */
+	  //v += self->derivs[k+i*(ne*nq)] * self->derivs[k+j*(ne*nq)] * self->ws[k] / self->qrs[k];
+	  //	  v += self->derivs[k+i*(ne*nq)] * self->derivs[k+j*(ne*nq)] * self->ws[k];
+	}
+	
 	ierr = MatSetValue(M, i, j, -v, mode); CHKERRQ(ierr);
       }
     }
@@ -539,6 +580,7 @@ PetscErrorCode BSSENR1Mat(BSS self, int q, PetscReal a, Mat M) {
   for(int k = 0; k < nq; k++) {
     PetscScalar g = self->xs[k] > a ? self->Rrs[k] : a;
     PetscScalar s = self->xs[k] < a ? self->Rrs[k] : a;
+    //vs[k] = pow(s/g, q)/g * self->ws[k];
     vs[k] = pow(s/g, q)/g * self->ws[k] * self->qrs[k];
   }
 
@@ -571,7 +613,8 @@ PetscErrorCode BSSPotR1Mat(BSS self, PF pot, Mat M) {
   InsertMode mode = INSERT_VALUES;
 
   PetscScalar *vs; PetscMalloc1(nq, &vs);
-  ierr = PFApply(pot, nq, self->xs_s, vs); CHKERRQ(ierr);
+  //ierr = PFApply(pot, nq, self->xs_s, vs); CHKERRQ(ierr);
+  ierr = PFApply(pot, nq, self->Rrs, vs); CHKERRQ(ierr);
   for(int k = 0; k < nq; k++) {
     vs[k] *= self->ws[k] * self->qrs[k];
   }
@@ -605,11 +648,12 @@ PetscErrorCode BSSPotR1Vec(BSS self, PF pot, Vec V) {
   ierr = BSSCheck(self); CHKERRQ(ierr);
 
   PetscScalar *vs; PetscMalloc1(nq, &vs);  
-  ierr = PFApply(pot, nq, self->xs_s, vs); CHKERRQ(ierr);
+  ierr = PFApply(pot, nq, self->Rrs, vs); CHKERRQ(ierr);
   for(int i = 0; i < nb; i++) {
     int k0, k1; Non0QuadIndex(i, i, order, nq, &k0, &k1);
     PetscScalar v = 0.0;
     for(int k = k0; k < k1; k++) {
+      //v += self->vals[k+i*nq] * self->ws[k] * vs[k];
       v += self->vals[k+i*nq] * self->ws[k] * self->qrs[k] * vs[k];
     }
     ierr = VecSetValue(V, i, v, INSERT_VALUES); CHKERRQ(ierr);

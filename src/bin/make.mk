@@ -19,7 +19,7 @@ check_driv1d: driv1d.out
 		-problem_type driv \
 		-v0-pot "pow -1.0 -1" \
 		-viewerfunc_view ascii:tmp/driv1d.dat \
-		-viewerfunc_num 100 -viewerfunc_xmax 100.0 | grep -E "alpha|c0"; \
+		-viewerfunc_num 100 -viewerfunc_xmax 100.0 | grep c0; \
 	done
 #Reference from 2016/4/12/* and test_r1gtoint
 	@echo "ref(a): 5.65688402161, 1.08811622008"
@@ -48,7 +48,7 @@ check_driv1d_scatter: driv1d.out
 	-L 0 \
 	-v0-pot "sto -3.0 0 1.0" \
 	-viewerfunc_view ascii:tmp/driv1d.dat \
-	-viewerfunc_num 100 -viewerfunc_xmax 100.0 | grep cross_sec
+	-viewerfunc_num 100 -viewerfunc_xmax 100.0 | grep cross
 	@echo "ref(cross sec) = 10.108998"
 #@echo "ref(phase) = 2.028 859 730 528"
 
