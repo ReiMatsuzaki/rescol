@@ -9,7 +9,7 @@ int dgetri_(long*, double*, long*, long*, double*, long*, long*);
 int zgetri_(long*, PetscScalar*, long*, long*, PetscScalar*, long*, long*);
 
 // ------- external functions ---------
-PetscErrorCode MatCreateTransformMat(PetscReal *ws, PetscScalar *ws_c, int nq, int ne, 
+PetscErrorCode MatCreateTransformMat(PetscScalar *ws_c, int nq, int ne, 
 				     MPI_Comm comm, Mat *A) {
   MatCreate(comm, A);
   MatSetSizes(*A, PETSC_DECIDE, PETSC_DECIDE, nq*ne, (nq-2)*ne + ne-1);
@@ -116,8 +116,7 @@ PetscErrorCode ValueDerivLS(PetscScalar *xs_c, PetscReal *zs,
   *v = cumsum;
   return 0;
 }
-PetscErrorCode DerivLS(PetscReal *xs, PetscScalar *xs_c,
-		       PetscReal *ws, PetscScalar *ws_c, 
+PetscErrorCode DerivLS(PetscScalar *xs_c, PetscScalar *ws_c, 
 		       PetscInt ne, PetscInt nq, 
 		       PetscInt i, PetscInt m, PetscInt mp, PetscScalar *v) {
   /*
@@ -165,7 +164,6 @@ PetscErrorCode DVRCreate(MPI_Comm comm, DVR *p_self) {
 
   self->num_basis = -1;
   self->xs = NULL;
-  self->ws = NULL;
   self->xs_basis = NULL;
   self->xs_c = NULL;
   self->ws_c = NULL;
@@ -189,7 +187,6 @@ PetscErrorCode DVRDestroy(DVR *p_self) {
   DVR self = *p_self;
   ierr = BPSDestroy(&self->bps);  CHKERRQ(ierr);    
   ierr = PetscFree(self->xs); CHKERRQ(ierr);    
-  ierr = PetscFree(self->ws); CHKERRQ(ierr);    
   ierr = PetscFree(self->xs_basis); CHKERRQ(ierr);    
   ierr = PetscFree(self->xs_c); CHKERRQ(ierr);    
   ierr = PetscFree(self->ws_c); CHKERRQ(ierr);    
@@ -310,7 +307,6 @@ PetscErrorCode DVRSetUp(DVR self) {
   int nq = self->nq;
   int nx = nq * ne;
   ierr = PetscMalloc1(nx, &self->xs); CHKERRQ(ierr);
-  ierr = PetscMalloc1(nx, &self->ws); CHKERRQ(ierr);
   ierr = PetscMalloc1(nx, &self->xs_c); CHKERRQ(ierr);
   ierr = PetscMalloc1(nx, &self->ws_c); CHKERRQ(ierr);
   ierr = PetscMalloc1(nx, &self->ws_basis_c); CHKERRQ(ierr);
@@ -333,13 +329,13 @@ PetscErrorCode DVRSetUp(DVR self) {
       LobGauss(self->nq, i_q, &x, &w);
       x = (b+a)/2.0 + (b-a)/2.0*x;
       w = (b-a)/2.0*w;
-      self->xs[idx] = x; self->ws[idx] = w;
+      self->xs[idx] = x; //self->ws[idx] = w;
       if(do_scale) {
 	self->xs_c[idx] = (x-self->R0)*scale_factor + self->R0;
 	self->ws_c[idx] = w*scale_factor;
       } else {
-	self->xs_c[idx] = self->xs[idx];
-	self->ws_c[idx] = self->ws[idx];
+	self->xs_c[idx] = x;
+	self->ws_c[idx] = w;
       }
       idx++;
     }
@@ -361,7 +357,7 @@ PetscErrorCode DVRSetUp(DVR self) {
   }
   self->D2_R1LSMat = NULL;
   self->R2_R1LSMat = NULL;
-  ierr = MatCreateTransformMat(self->ws, self->ws_c, nq, ne, self->comm, &self->T); 
+  ierr = MatCreateTransformMat(self->ws_c, nq, ne, self->comm, &self->T); 
   CHKERRQ(ierr);
   ierr = MatTranspose(self->T, MAT_INITIAL_MATRIX, &self->TT); CHKERRQ(ierr);
   self->T2 = NULL;
@@ -742,7 +738,7 @@ PetscErrorCode DVRPrepareD2R1LSMat(DVR self) {
     for(int m = 0; m < nq; m++)
       for(int mp = 0; mp < nq; mp++) {
 	int idx = i*nq*nq + m*nq + mp;
-	DerivLS(self->xs, self->xs_c, self->ws, self->ws_c,
+	DerivLS(self->xs_c, self->ws_c,
 		ne, nq, i, m, mp, &ds_list[idx]);
       }
 
@@ -792,8 +788,8 @@ PetscErrorCode DVRPrepareR2invR1LSMat(DVR self) {
   for(int i_ele = 0; i_ele < ne; i_ele++) 
     for(int i_q = 0; i_q < nq; i_q++) {
       PetscScalar x, w, v;
-      x = self->xs[idx];
-      w = self->ws[idx];
+      x = self->xs_c[idx];
+      w = self->ws_c[idx];
       if(i_ele == 0 && i_q == 0)
 	v = 0.0;
       else
@@ -922,8 +918,8 @@ PetscErrorCode DVREER2LSMat(DVR self, int q, Mat M) {
     for(int j_ele = 0; j_ele < ne; j_ele++) {
       for(int i = 0; i < nq; i++) 
 	for(int j = 0; j < nq; j++) {
-	  double ri = self->xs[i_ele*nq+i]; double wi = self->ws[i_ele*nq+i];
-	  double rj = self->xs[j_ele*nq+j]; double wj = self->ws[j_ele*nq+j];
+	  double ri = self->xs[i_ele*nq+i]; double wi = self->ws_c[i_ele*nq+i];
+	  double rj = self->xs[j_ele*nq+j]; double wj = self->ws_c[j_ele*nq+j];
 	  int idxA = (i_ele*nq+i)*nq*ne + (j_ele*nq+j);
 	  double v = pow(ri, q) * pow(rj, q) / pow(rmax, 2*q+1);
 	  if(i_ele == j_ele) 

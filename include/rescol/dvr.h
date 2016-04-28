@@ -22,7 +22,6 @@ struct _p_DVR {
 
   PetscInt num_basis;
   PetscReal *xs;
-  PetscReal *ws;
   PetscReal *xs_basis; 
   PetscScalar *xs_c; // used in complex scaling
   PetscScalar *ws_c; // used in complex scaling
@@ -40,7 +39,7 @@ struct _p_DVR {
 typedef struct _p_DVR* DVR;
 
 // ------- external functions ---------
-PetscErrorCode MatCreateTransformMat(PetscReal *ws, PetscScalar *ws_c, int nq, int ne, 
+PetscErrorCode MatCreateTransformMat(PetscScalar *ws_c, int nq, int ne, 
 				     MPI_Comm comm, Mat *B);
 int NumDVR(int nq, int ne);
 PetscErrorCode ValueLS(PetscScalar *xs_c, PetscReal *zs, 
@@ -48,8 +47,7 @@ PetscErrorCode ValueLS(PetscScalar *xs_c, PetscReal *zs,
 		       PetscInt i, PetscInt m, PetscReal x,
 		       PetscScalar x_c, PetscScalar *v);
 
-PetscErrorCode DerivLS(PetscReal *xs, PetscScalar *xs_c,
-		       PetscReal *ws, PetscScalar *ws_c, 
+PetscErrorCode DerivLS(PetscScalar *xs_c, PetscScalar *ws_c, 
 		       PetscInt ne, PetscInt nq, 
 		       PetscInt i, PetscInt m, PetscInt mp, PetscScalar *v);
 
