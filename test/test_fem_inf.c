@@ -81,11 +81,6 @@ int testH_BSS() {
   FEMInfPsi(fem, cs, x, &y); FEMInfDerivPsi(fem, cs, x, &dy);
   ASSERT_DOUBLE_NEAR(2.0*x*exp(-x), creal(y), pow(10.0, -5.0));
   ASSERT_DOUBLE_NEAR(2.0*(1.0-x)*exp(-x), creal(dy), pow(10.0, -3.0));
-  /*
-    PetscScalar dy;    
-    FEMInfDerivPsi(fem, cs, x, &dy);
-    ASSERT_DOUBLE_EQ(creal(dy), 2.0*exp(-x)-2.0*x*exp(-x));
-  */
   
   FEMInfDestroy(&fem);
   MatDestroy(&H); MatDestroy(&V); MatDestroy(&S);
@@ -298,6 +293,11 @@ int testH_PI_DVR() {
   ASSERT_DOUBLE_NEAR(-5.65688402161, creal(alpha), 0.000001);
   ASSERT_DOUBLE_NEAR(1.08811622008, cimag(alpha),  0.000001);
 
+  FEMInfDestroy(&fem);
+  MatDestroy(&L); MatDestroy(&V); MatDestroy(&LV); MatDestroy(&S);
+  PFDestroy(&r2); PFDestroy(&driv); VecDestroy(&m); 
+  KSPDestroy(&ksp); VecDestroy(&c); 
+
   return 0;
 
 }
@@ -321,7 +321,10 @@ int testPOT_BSS() {
   MatNorm(A, NORM_1, &norm);
   ASSERT_DOUBLE_NEAR(norm, 0.0, 0.00000001);
 
-  FEMInfDestroy(&fem); PFDestroy(&r2inv); MatDestroy(&A); MatDestroy(&B);
+  FEMInfDestroy(&fem);
+  PFDestroy(&r2inv);
+  MatDestroy(&A);
+  MatDestroy(&B);
 
   return 0;
 }
@@ -377,10 +380,11 @@ int testH_DVR() {
   ASSERT_SCALAR_NEAR(2.0*exp(-x)-2.0*x*exp(-x), dy, pow(10.0, -6.0));
 
   // -- Destroy --
-  ierr = FEMInfDestroy(&fem);CHKERRQ(ierr);
-  ierr = MatDestroy(&H);CHKERRQ(ierr);
-  ierr = MatDestroy(&V);CHKERRQ(ierr);
-  ierr = EEPSDestroy(&eps);CHKERRQ(ierr);
+  ierr = FEMInfDestroy(&fem); CHKERRQ(ierr);
+  ierr = MatDestroy(&H);      CHKERRQ(ierr);
+  ierr = MatDestroy(&V);      CHKERRQ(ierr);
+  ierr = EEPSDestroy(&eps);   CHKERRQ(ierr);
+  ierr = VecDestroy(&cs);     CHKERRQ(ierr);
   
   return 0;
 }
@@ -418,10 +422,10 @@ int testFit_BSS() {
   ASSERT_DOUBLE_NEAR(1.1*x*x*exp(-1.2*x), y_calc, pow(10.0, -6.0));
   ASSERT_DOUBLE_NEAR(y_ref, y_calc, pow(10.0, -6.0));
 
+  FEMInfDestroy(&fem);  
   PFDestroy(&sto);
-  VecDestroy(&c);
   KSPDestroy(&ksp);
-  FEMInfDestroy(&fem);
+  VecDestroy(&c);
   
   return 0;
 }
@@ -454,10 +458,11 @@ int testFit_DVR() {
   ASSERT_DOUBLE_NEAR(1.1*x*x*exp(-1.2*x), y_calc, pow(10.0, -6.0));
   ASSERT_DOUBLE_NEAR(y_ref, y_calc, pow(10.0, -6.0));
 
-  PFDestroy(&sto);
-  VecDestroy(&c);
-  KSPDestroy(&ksp);
+  // ---- Destroy ----
   FEMInfDestroy(&fem);
+  PFDestroy(&sto);
+  KSPDestroy(&ksp);
+  VecDestroy(&c);
   
   return 0;
 }
@@ -469,14 +474,14 @@ int main(int argc, char **args) {
 
   test1();    
   testH_BSS();
-  // PetscErrorCode ierr;
-  //  ierr = testH_BSS_accurate(); CHKERRQ(ierr);
   testPOT_BSS();
   testH_DVR();
   testFit_BSS();
   testFit_DVR();
   ierr = testH_PI_DVR(); CHKERRQ(ierr);
-  ierr = testH_PI_BSS(); CHKERRQ(ierr);
+
+  //  ierr = testH_BSS_accurate(); CHKERRQ(ierr);
+  //  ierr = testH_PI_BSS(); CHKERRQ(ierr);
 
   SlepcFinalize();
   return 0;

@@ -470,9 +470,13 @@ int testECSTMat() {
   ierr = DVRSetCScaling(dvr_c, 0.0, 20.0); CHKERRQ(ierr);
   ierr = DVRSetUp(dvr_c); CHKERRQ(ierr);
 
+  BPS bps2;
+  ierr = BPSCreate(comm, &bps2); CHKERRQ(ierr);
+  ierr = BPSSetLine(bps2, 10.0, 11); CHKERRQ(ierr);
+
   DVR dvr_r;
   ierr = DVRCreate(comm, &dvr_r); CHKERRQ(ierr);
-  ierr = DVRSetKnots(dvr_r, nq, bps); CHKERRQ(ierr);
+  ierr = DVRSetKnots(dvr_r, nq, bps2); CHKERRQ(ierr);
   ierr = DVRSetUp(dvr_r); CHKERRQ(ierr);
   
   Mat T_r;
@@ -497,6 +501,13 @@ int testECSTMat() {
 
   test_mat_eq(T_r, T_c, pow(10.0, -10.0), __FILE__, __LINE__);
   test_mat_eq(V_r, V_c, pow(10.0, -10.0), __FILE__, __LINE__);
+
+  DVRDestroy(&dvr_r);
+  DVRDestroy(&dvr_c);
+  MatDestroy(&T_r);
+  MatDestroy(&T_c);
+  MatDestroy(&V_r);
+  MatDestroy(&V_c);
 
   return 0;
 
@@ -561,64 +572,7 @@ int testECSVector() {
   PFDestroy(&slater);
   return 0;
 }
-int testHPI() {
-  PetscErrorCode ierr;
-  // copied from check_driv1d in src/bin/make.mk 
-  // ref(a): 5.65688402161, 1.08811622008
 
-  MPI_Comm comm = PETSC_COMM_SELF;
-  int nq = 5;
-  BPS bps;
-  ierr = BPSCreate(comm, &bps); CHKERRQ(ierr);
-  ierr = BPSSetLine(bps, 100.0, 101); CHKERRQ(ierr);
-  DVR dvr;
-  ierr = DVRCreate(comm, &dvr); CHKERRQ(ierr);
-  ierr = DVRSetKnots(dvr, nq, bps); CHKERRQ(ierr);
-  ierr = DVRSetCScaling(dvr, 70.0, 30.0); CHKERRQ(ierr);
-  
-  ierr = DVRSetUp(dvr); CHKERRQ(ierr);
-
-  Mat L;
-  ierr = DVRCreateR1Mat(dvr, &L); CHKERRQ(ierr);
-  ierr = DVRD2R1Mat(dvr, L);      CHKERRQ(ierr);
-  ierr = MatScale(L, -0.5); CHKERRQ(ierr);
-  Mat S;
-  ierr = DVRCreateR1Mat(dvr, &S); CHKERRQ(ierr);
-  ierr = DVRSR1Mat(dvr, S); CHKERRQ(ierr);
-  ierr = DVRD2R1Mat(dvr, L); CHKERRQ(ierr);
-  Mat V;
-  ierr = DVRCreateR1Mat(dvr, &V); CHKERRQ(ierr);
-  ierr = DVRENR1Mat(dvr, 2, 0.0, V); CHKERRQ(ierr);
-  
-  ierr = MatAXPY(L, -1.0, V, SUBSET_NONZERO_PATTERN);  CHKERRQ(ierr);
-  ierr = MatAXPY(L, -0.5, S, SUBSET_NONZERO_PATTERN);  CHKERRQ(ierr);
-  
-  Pot slater;
-  ierr = PotCreate(comm, &slater); CHKERRQ(ierr);
-  ierr = PotSetSlater(slater, 2.0, 2, 1.0); CHKERRQ(ierr);
-  Vec m;
-  ierr = DVRCreateR1Vec(dvr, &m);  CHKERRQ(ierr);
-  ierr = DVRPotR1Vec(dvr, slater, m); CHKERRQ(ierr);
-
-  //VecView(m, PETSC_VIEWER_STDOUT_SELF);
-  //ierr = MatView(L, PETSC_VIEWER_STDOUT_SELF); CHKERRQ(ierr);
-
-  Vec c;
-  ierr = DVRCreateR1Vec(dvr, &c); CHKERRQ(ierr);
-
-  KSP ksp; KSPCreate(comm, &ksp); KSPSetFromOptions(ksp);
-  ierr = KSPSetOperators(ksp, L, L); CHKERRQ(ierr); 
-  ierr = KSPSolve(ksp, m, c);        CHKERRQ(ierr); 
-  ierr = KSPDestroy(&ksp);           CHKERRQ(ierr); 
-
-  //  VecView(c, PETSC_VIEWER_STDOUT_SELF);
-
-  PetscScalar alpha;
-  ierr = VecTDot(m, c, &alpha);
-  PetscScalar alpha_ref = 5.65688402161+ 1.08811622008*I;
-  ASSERT_SCALAR_EQ(alpha_ref, alpha);
-  return 0;
-}
 int testLapack() {
   long m = 2;
   long n = m;
@@ -649,9 +603,6 @@ int main(int argc, char **args) {
 
   PrintTimeStamp(PETSC_COMM_SELF, "test_valueLS", NULL);
   testLS();
-
-  PrintTimeStamp(PETSC_COMM_SELF, "test_H_PI", NULL);
-  testHPI();
 
   PrintTimeStamp(PETSC_COMM_SELF, "testXS", NULL);
   testXS();

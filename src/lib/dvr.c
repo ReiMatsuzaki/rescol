@@ -23,16 +23,10 @@ PetscErrorCode MatCreateTransformMat(PetscReal *ws, PetscScalar *ws_c, int nq, i
       ii++; jj++;
     }
     if(i_ele != ne-1) {
-      PetscScalar c0 = 1.0;
-      PetscScalar c1 = 1.0;
-      //PetscScalar c0 = sqrt(ws_c[i_ele*nq+nq-1]/ws[i_ele*nq+nq-1]);
-      //PetscScalar c1 = sqrt(ws_c[(1+i_ele)*nq ]/ws[(1+i_ele)*nq ]);
-      //PetscScalar c0 = sqrt(ws[i_ele*nq+nq-1]/ws_c[i_ele*nq+nq-1]);
-      //PetscScalar c1 = sqrt(ws[(1+i_ele)*nq ]/ws_c[(1+i_ele)*nq ]);
       PetscScalar d = 1.0/csqrt(ws_c[i_ele*nq+nq-1] + ws_c[(1+i_ele)*nq]);
-      MatSetValue(*A, ii, jj, c0*d, INSERT_VALUES);
+      MatSetValue(*A, ii, jj, d, INSERT_VALUES);
       ii++;
-      MatSetValue(*A, ii, jj, c1*d, INSERT_VALUES);
+      MatSetValue(*A, ii, jj, d, INSERT_VALUES);
       ii++; jj++;
     }
   }
@@ -163,10 +157,29 @@ PetscErrorCode DVRCreate(MPI_Comm comm, DVR *p_self) {
   PetscMalloc1(1, &self);
 
   self->comm = comm;
+  self->nq = -1;
   self->bps = NULL;
   self->use_cscaling = PETSC_FALSE;
   self->R0  = -1.0;
   self->theta = 0.0;
+
+  self->num_basis = -1;
+  self->xs = NULL;
+  self->ws = NULL;
+  self->xs_basis = NULL;
+  self->xs_c = NULL;
+  self->ws_c = NULL;
+  self->xs_c = NULL;
+  self->ws_c = NULL;
+  self->xs_basis_c = NULL;
+  self->ws_basis_c = NULL;
+
+  self->D2_R1LSMat = NULL;
+  self->R2_R1LSMat = NULL;
+  self->T = NULL;
+  self->TT = NULL;
+  self->T2 = NULL;
+  self->T2T = NULL;
 
   *p_self = self;
   return 0;
@@ -439,6 +452,12 @@ PetscErrorCode DVRPsi(DVR self, Vec c, PetscReal x, PetscScalar *y) {
   MatMult(self->TT, val_ls, tmp);
   
   VecTDot(tmp, c, y);
+  
+  PetscFree(vs);
+  PetscFree(idx);
+  PetscFree(zs);
+  VecDestroy(&tmp);
+  VecDestroy(&val_ls);
 
   return 0;
 }
@@ -481,6 +500,12 @@ PetscErrorCode DVRDerivPsi(DVR self, Vec c, PetscReal x, PetscScalar *y) {
   MatMult(self->TT, val_ls, tmp);
   
   VecTDot(tmp, c, y);
+
+  PetscFree(vs);
+  PetscFree(idx);
+  PetscFree(zs);
+  VecDestroy(&val_ls);
+  VecDestroy(&tmp);
 
   return 0;
 }
