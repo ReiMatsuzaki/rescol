@@ -192,7 +192,7 @@ int testH_PI_BSS() {
   PetscErrorCode ierr;
 
   MPI_Comm comm = PETSC_COMM_SELF;
-  PrintTimeStamp(comm, "H_PI", NULL);
+  PrintTimeStamp(comm, "H_PI_BSS", NULL);
 
   BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 201);
   CScaling c_scaling; 
@@ -244,6 +244,63 @@ int testH_PI_BSS() {
   return 0;
 
 }
+int testH_PI_DVR() {
+
+  PetscErrorCode ierr;
+
+  MPI_Comm comm = PETSC_COMM_SELF;
+  PrintTimeStamp(comm, "H_PI_DVR", NULL);
+
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 201);
+  DVR dvr; DVRCreate(comm, &dvr);
+  DVRSetKnots(dvr, 5, bps); 
+  DVRSetCScaling(dvr,70.0, 20.0);
+  DVRSetUp(dvr);
+  FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
+
+  if(getenv("SHOW_DEBUG")) {
+    printf("\n");
+    printf("SHOW_DEBUG = %s\n", getenv("SHOW_DEBUG"));
+    FEMInfView(fem, PETSC_VIEWER_STDOUT_SELF);
+    printf("\n");
+  }
+
+  Mat L; FEMInfCreateMat(fem, 1, &L); FEMInfD2R1Mat(fem, L);
+  MatScale(L, -0.5);
+  Mat V; FEMInfCreateMat(fem, 1, &V); FEMInfENR1Mat(fem, 0, 0.0, V); 
+  MatAXPY(L, -1.0, V, DIFFERENT_NONZERO_PATTERN);
+  Pot r2; PotCreate(comm, &r2); PotSetPower(r2, 1.0, -2);
+  Mat LV; FEMInfCreateMat(fem, 1, &LV); FEMInfPotR1Mat(fem, r2, LV);
+  //  Mat LV; FEMInfCreateMat(fem, 1, &LV); FEMInfR2invR1Mat(fem, LV); 
+  MatAXPY(L, 1.0, LV, DIFFERENT_NONZERO_PATTERN);
+  Mat S; FEMInfCreateMat(fem, 1, &S); FEMInfSR1Mat(fem, S);
+  MatAXPY(L, -0.5, S, DIFFERENT_NONZERO_PATTERN);
+
+  Pot driv; PotCreate(comm, &driv); PotSetSlater(driv, 2.0, 2, 1.0);
+  Vec m; FEMInfCreateVec(fem, 1, &m); FEMInfPotR1Vec(fem, driv, m);
+  
+  KSP ksp;
+  ierr = KSPCreate(comm, &ksp); CHKERRQ(ierr);
+  ierr = KSPSetOperators(ksp, L, L); CHKERRQ(ierr);
+  ierr = KSPSetFromOptions(ksp); CHKERRQ(ierr);
+
+  Vec c;
+  ierr = VecCreate(comm, &c); CHKERRQ(ierr);
+  int n; FEMInfGetSize(fem, &n); 
+  ierr = VecSetSizes(c, n, n); CHKERRQ(ierr);
+  ierr = VecSetType(c, "seq"); CHKERRQ(ierr);
+  //ierr = VecSetType(m, "seq"); CHKERRQ(ierr);
+  ierr = KSPSolve(ksp, m, c); CHKERRQ(ierr);
+
+  PetscScalar alpha;
+  ierr = VecTDot(c, m, &alpha); CHKERRQ(ierr);
+
+  ASSERT_DOUBLE_NEAR(-5.65688402161, creal(alpha), 0.000001);
+  ASSERT_DOUBLE_NEAR(1.08811622008, cimag(alpha),  0.000001);
+
+  return 0;
+
+}
 int testPOT_BSS() {
   
   MPI_Comm comm = PETSC_COMM_SELF;
@@ -270,38 +327,60 @@ int testPOT_BSS() {
 }
 int testH_DVR() {
 
+  PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
   PrintTimeStamp(comm, "H_DVR", NULL);
-  
-  BPS bps; BPSCreate(comm, &bps); BPSSetExp(bps, 20.0, 21, 5.0);
-  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, 5, bps);
-  FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
+  BPS bps;
+  ierr = BPSCreate(comm, &bps); CHKERRQ(ierr);
+  ierr = BPSSetExp(bps, 20.0, 41, 5.0);CHKERRQ(ierr);
+  DVR dvr;
+  ierr = DVRCreate(comm, &dvr);CHKERRQ(ierr);
+  ierr = DVRSetKnots(dvr, 8, bps);CHKERRQ(ierr);
+  ierr = DVRSetCScaling(dvr, 15.0, 20.0);CHKERRQ(ierr);
+  ierr = DVRSetUp(dvr); CHKERRQ(ierr);
+  FEMInf fem;
+  ierr = FEMInfCreate(comm, &fem);CHKERRQ(ierr);
+  ierr = FEMInfSetDVR(fem, dvr);CHKERRQ(ierr);
 
-  Mat H; FEMInfCreateMat(fem, 1, &H); FEMInfD2R1Mat(fem, H); MatScale(H, -0.5);
-  Mat V; FEMInfCreateMat(fem, 1, &V); FEMInfENR1Mat(fem, 0, 0.0, V); 
-  MatAXPY(H, -1.0, V, DIFFERENT_NONZERO_PATTERN);
+  Mat H;
+  ierr = FEMInfCreateMat(fem, 1, &H);CHKERRQ(ierr);
+  ierr = FEMInfD2R1Mat(fem, H);CHKERRQ(ierr);
+  ierr = MatScale(H, -0.5);CHKERRQ(ierr);
+  Mat V;
+  ierr = FEMInfCreateMat(fem, 1, &V);CHKERRQ(ierr);
+  ierr = FEMInfENR1Mat(fem, 0, 0.0, V); CHKERRQ(ierr);
+  ierr = MatAXPY(H, -1.0, V, DIFFERENT_NONZERO_PATTERN);CHKERRQ(ierr);
 
-  EPS eps; 
-  EPSCreate(PETSC_COMM_SELF, &eps);
-  EPSSetOperators(eps, H, NULL);
-  EPSSetProblemType(eps, EPS_HEP);
-  EPSSetType(eps, EPSJD);
-  EPSSetFromOptions(eps);
-  EPSSetWhichEigenpairs(eps, EPS_TARGET_MAGNITUDE);
-  
-  EPSSetTarget(eps, -0.6);
-  EPSSolve(eps);
-  
+  EEPS eps; 
+  ierr = EEPSCreate(PETSC_COMM_SELF, &eps);CHKERRQ(ierr);
+  ierr = EEPSSetOperators(eps, H, NULL); CHKERRQ(ierr);
+  ierr = EPSSetType(eps->eps, EPSJD);CHKERRQ(ierr);
+  ierr = EEPSSetTarget(eps, -0.6);CHKERRQ(ierr);
+  ierr = EEPSSolve(eps);CHKERRQ(ierr);
+
   int nconv;
   PetscScalar kr;
-  EPSGetConverged(eps, &nconv);
+  ierr = EPSGetConverged(eps->eps, &nconv);CHKERRQ(ierr);
   ASSERT_TRUE(nconv > 0);
-  EPSGetEigenpair(eps, 0, &kr, NULL, NULL, NULL);
+  ierr = EPSGetEigenpair(eps->eps, 0, &kr, NULL, NULL, NULL);CHKERRQ(ierr);
   ASSERT_DOUBLE_NEAR(-0.5, kr, pow(10.0, -5.0));
 
-  FEMInfDestroy(&fem);
-  MatDestroy(&H); MatDestroy(&V);
-  EPSDestroy(&eps);
+  Vec cs;
+  MatCreateVecs(H, &cs, NULL);
+  EEPSGetEigenvector(eps, 0, cs);
+  //  VecView(cs, PETSC_VIEWER_STDOUT_SELF);
+  PetscReal x = 1.1;
+  PetscScalar y, dy;
+  FEMInfPsi(fem, cs, x, &y);
+  FEMInfDerivPsi(fem, cs, x, &dy);
+  ASSERT_SCALAR_NEAR(2.0*x*exp(-x), y, pow(10.0, -6.0));
+  ASSERT_SCALAR_NEAR(2.0*exp(-x)-2.0*x*exp(-x), dy, pow(10.0, -6.0));
+
+  // -- Destroy --
+  ierr = FEMInfDestroy(&fem);CHKERRQ(ierr);
+  ierr = MatDestroy(&H);CHKERRQ(ierr);
+  ierr = MatDestroy(&V);CHKERRQ(ierr);
+  ierr = EEPSDestroy(&eps);CHKERRQ(ierr);
   
   return 0;
 }
@@ -346,10 +425,44 @@ int testFit_BSS() {
   
   return 0;
 }
+int testFit_DVR() {
 
+  MPI_Comm comm = PETSC_COMM_SELF;
+  PrintTimeStamp(comm, "FIT_DVR", NULL);
+
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 301);
+  //CScaling c_scaling; CScalingCreate(comm, &c_scaling);
+  //CScalingSetSharpECS(c_scaling, 70.0, 20.0);
+  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, 5, bps);
+  DVRSetUp(dvr);
+  FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
+
+  Pot sto; PotCreate(comm, &sto); PotSetSlater(sto, 1.1, 2, 1.2);
+  KSP ksp; KSPCreate(comm, &ksp); 
+  Vec c;   VecCreate(comm, &c); VecSetType(c, "seq");
+
+  FEMInfFit(fem, sto, ksp, c);
+  PetscScalar x = 2.2;
+  PetscScalar y_calc;
+  FEMInfPsi(fem, c, x, &y_calc);
+
+  PetscScalar xs[1] = {x};
+  PetscScalar ys[1] = {0.0};
+  PFApply(sto, 1, xs, ys);
+  PetscScalar y_ref = ys[0];
+  
+  ASSERT_DOUBLE_NEAR(1.1*x*x*exp(-1.2*x), y_calc, pow(10.0, -6.0));
+  ASSERT_DOUBLE_NEAR(y_ref, y_calc, pow(10.0, -6.0));
+
+  PFDestroy(&sto);
+  VecDestroy(&c);
+  KSPDestroy(&ksp);
+  FEMInfDestroy(&fem);
+  
+  return 0;
+}
 
 int main(int argc, char **args) {
-  
   
   SlepcInitialize(&argc, &args, (char*)0, help);
   PetscErrorCode ierr;
@@ -361,6 +474,8 @@ int main(int argc, char **args) {
   testPOT_BSS();
   testH_DVR();
   testFit_BSS();
+  testFit_DVR();
+  ierr = testH_PI_DVR(); CHKERRQ(ierr);
   ierr = testH_PI_BSS(); CHKERRQ(ierr);
 
   SlepcFinalize();

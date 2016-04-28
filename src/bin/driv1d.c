@@ -133,7 +133,7 @@ ViewerFunc  viewer;  // must
 // ---- intermediate ----
 KSP ksp;
 Vec c0, c1, m;
-Mat VL, VS, S;  
+Mat VL, VS, S;
 
 PetscErrorCode Driv1dCreate() {
   PetscErrorCode ierr;
@@ -388,7 +388,7 @@ PetscErrorCode Driv1dCalc2_single_driv(PetscReal energy) {
 
   PetscScalar mc0;
   ierr = VecTDot(m, c0, &mc0); CHKERRQ(ierr);
-  printf("c0.m  : %f %f\n", creal(mc0), cimag(mc0));
+  printf("c0.m  : %15.10f %15.10f\n", creal(mc0), cimag(mc0));
   return 0;
 }
 PetscErrorCode Driv1dCalc2_double_driv(PetscReal energy) {

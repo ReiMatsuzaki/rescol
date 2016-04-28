@@ -1,7 +1,7 @@
 test_angmoment.out:test_angmoment.o angmoment.o y1s.o y2s.o
 test_bps.out: test_bps.o bps.o
 test_bspline.out: test_bspline.o bspline.o bps.o pot.o mat.o op.o cscaling.o viewerfunc.o eeps.o
-test_dvr.out: test_dvr.o dvr.o bps.o mat.o viewerfunc.o synthesize.o
+test_dvr.out: test_dvr.o dvr.o bps.o mat.o viewerfunc.o synthesize.o cscaling.o  pot.o
 #test_fd.out: test_fd.o fd.o bps.o mat.o
 test_fem_inf.out: test_fem_inf.o fem_inf.o dvr.o bspline.o fd.o bps.o pot.o cscaling.o mat.o viewerfunc.o eeps.o synthesize.o
 test_mat.out: test_mat.o mat.o viewerfunc.o synthesize.o

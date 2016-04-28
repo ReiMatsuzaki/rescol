@@ -57,18 +57,20 @@ PetscErrorCode BSSDestroy(BSS *p_self);
 PetscErrorCode BSSView(BSS self, PetscViewer v);
 PetscErrorCode BSSCheck(BSS self);
 
+  // ---- Accessor ----
 PetscErrorCode BSSSetKnots(BSS self, int order, BPS bps);
 PetscErrorCode BSSSetCScaling(BSS self, CScaling cscaling);
 PetscErrorCode BSSSetUp(BSS self);
 PetscErrorCode BSSSetFromOptions(BSS self);
 
+  // ---- Calculation ----
 PetscErrorCode BSSPsi(BSS self, Vec c, PetscReal x, PetscScalar *y);
 PetscErrorCode BSSDerivPsi(BSS self, Vec c, PetscReal x, PetscScalar *y);
 PetscErrorCode BSSBasisPsi(BSS self, int i, PetscReal x, PetscScalar *y);
 PetscErrorCode BSSDerivBasisPsi(BSS self, int i, PetscReal x, PetscScalar *y);
 PetscErrorCode BSSGetSize(BSS self, int *n);
   
-
+  // ---- Matrix/Vector ----
 PetscErrorCode BSSCreateR1Mat(BSS self, Mat *M);
 PetscErrorCode BSSCreateR2Mat(BSS self, Mat *M);
 PetscErrorCode BSSCreateR1Vec(BSS self, Vec *v);

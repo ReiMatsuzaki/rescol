@@ -76,8 +76,8 @@ PetscErrorCode FEMInfSetDVR(FEMInf self, DVR target) {
     DVR_Sc.View = DVRView;
     DVR_Sc.SetFromOptions = DVRSetFromOptions;
 
-    DVR_Sc.Psi = NULL;
-    DVR_Sc.DerivPsi = NULL;
+    DVR_Sc.Psi = DVRPsi;
+    DVR_Sc.DerivPsi = DVRDerivPsi;
     DVR_Sc.GetSize = DVRGetSize;
     DVR_Sc.GuessHEig = NULL;
 
@@ -85,8 +85,8 @@ PetscErrorCode FEMInfSetDVR(FEMInf self, DVR target) {
     DVR_Sc.D2R1Mat = DVRD2R1Mat;
     DVR_Sc.R2invR1Mat = DVRR2invR1Mat;
     DVR_Sc.ENR1Mat = DVRENR1Mat;
-    DVR_Sc.PotR1Mat = NULL;
-    DVR_Sc.PotR1Vec = NULL;
+    DVR_Sc.PotR1Mat = DVRPotR1Mat;
+    DVR_Sc.PotR1Vec = DVRPotR1Vec;
     DVR_Sc.EER2Mat = NULL;
     DVR_Sc.overlap_is_id = PETSC_TRUE;
     init = 1;
@@ -261,7 +261,7 @@ PetscErrorCode FEMInfFit(FEMInf self, PF pf, KSP ksp, Vec c) {
   MatDestroy(&S);
   VecDestroy(&V);
   return 0;
-
+  
 }
 PetscErrorCode FEMInfGetOverlapIsId(FEMInf this, PetscBool *is_id) {
   *is_id = this->sc->overlap_is_id;  
@@ -270,7 +270,7 @@ PetscErrorCode FEMInfGetOverlapIsId(FEMInf this, PetscBool *is_id) {
 PetscErrorCode FEMInfGetSize(FEMInf this, int *n) {
   
   if(this->sc->GetSize == NULL)
-    SETERRQ(this->comm, 1, "method is null");
+    SETERRQ(this->comm, 1, "method is null: GetSize");
 
   this->sc->GetSize(this->obj, n);
   return 0;
@@ -280,7 +280,7 @@ PetscErrorCode FEMInfGetSize(FEMInf this, int *n) {
 PetscErrorCode FEMInfPsi(FEMInf self, Vec c, PetscReal x, PetscScalar *y) {
 
   if(self->sc->Psi == NULL)
-    SETERRQ(self->comm, 1, "method is null");
+    SETERRQ(self->comm, 1, "method is null: Psi");
 
   self->sc->Psi(self->obj, c, x, y);
   return 0;
@@ -288,7 +288,7 @@ PetscErrorCode FEMInfPsi(FEMInf self, Vec c, PetscReal x, PetscScalar *y) {
 PetscErrorCode FEMInfDerivPsi(FEMInf self, Vec c, PetscReal x, PetscScalar *y) {
 
   if(self->sc->DerivPsi == NULL)
-    SETERRQ(self->comm, 1, "method is null");
+    SETERRQ(self->comm, 1, "method is null: DerivPsi");
   
   self->sc->DerivPsi(self->obj, c, x, y);
   return 0;
@@ -297,7 +297,7 @@ PetscErrorCode FEMInfDerivPsi(FEMInf self, Vec c, PetscReal x, PetscScalar *y) {
 PetscErrorCode FEMInfGuessHEig(FEMInf self, int n, int l, PetscScalar z, Vec *v) {
 
   if(self->sc->GuessHEig == NULL)
-    SETERRQ(self->comm, 1, "method is null");
+    SETERRQ(self->comm, 1, "method is null: GuessHEig");
 
   self->sc->GuessHEig(self->obj, n, l, z, v);
   return 0;
@@ -309,6 +309,11 @@ PetscErrorCode FEMInfCreateMat(FEMInf self, int dim, Mat *M) {
 
   int n; FEMInfGetSize(self, &n);
   int nn = pow(n, dim);
+
+  if(n <= 0) {
+    printf("size of basis = %d\n", n);
+    SETERRQ(self->comm, 1, "size of basis is negative or 0.");
+  }
 
   MatCreate(self->comm, M);
   MatSetSizes(*M, PETSC_DECIDE, PETSC_DECIDE, nn, nn);
@@ -331,7 +336,7 @@ PetscErrorCode FEMInfCreateVec(FEMInf self, int dim, Vec *v) {
 PetscErrorCode FEMInfSR1Mat(FEMInf self, Mat M) {
 
   if(self->sc->SR1Mat == NULL)
-    SETERRQ(self->comm, 1, "method is null");
+    SETERRQ(self->comm, 1, "method is null: SR1Mat");
 
   self->sc->SR1Mat(self->obj, M);
   return 0;
@@ -351,7 +356,7 @@ PetscErrorCode FEMInfSR1MatNullable(FEMInf self, Mat M) {
 PetscErrorCode FEMInfD2R1Mat(FEMInf self, Mat M) {
 
   if(self->sc->D2R1Mat == NULL)
-    SETERRQ(self->comm, 1, "method is null");
+    SETERRQ(self->comm, 1, "method is null: D2R1Mat");
 
   self->sc->D2R1Mat(self->obj, M);
   return 0;
@@ -360,7 +365,7 @@ PetscErrorCode FEMInfD2R1Mat(FEMInf self, Mat M) {
 PetscErrorCode FEMInfR2invR1Mat(FEMInf self, Mat M) {
 
   if(self->sc->R2invR1Mat == NULL)
-    SETERRQ(self->comm, 1, "method is null");
+    SETERRQ(self->comm, 1, "method is null: R2invR1Mat");
 
   self->sc->R2invR1Mat(self->obj, M);
   return 0;
@@ -368,7 +373,7 @@ PetscErrorCode FEMInfR2invR1Mat(FEMInf self, Mat M) {
 PetscErrorCode FEMInfENR1Mat(FEMInf self, int q, double a, Mat M) {
 
   if(self->sc->ENR1Mat == NULL)
-    SETERRQ(self->comm, 1, "method is null");
+    SETERRQ(self->comm, 1, "method is null: ENR1Mat");
 
   self->sc->ENR1Mat(self->obj, q, a, M);
   return 0;
@@ -377,7 +382,7 @@ PetscErrorCode FEMInfENR1Mat(FEMInf self, int q, double a, Mat M) {
 PetscErrorCode FEMInfPotR1Mat(FEMInf self, Pot pot, Mat M) {
 
   if(self->sc->PotR1Mat == NULL)
-    SETERRQ(self->comm, 1, "method is null");
+    SETERRQ(self->comm, 1, "method is null: PotR1Mat");
 
   self->sc->PotR1Mat(self->obj, pot, M);
   return 0;
@@ -385,7 +390,7 @@ PetscErrorCode FEMInfPotR1Mat(FEMInf self, Pot pot, Mat M) {
 PetscErrorCode FEMInfPotR1Vec(FEMInf self, Pot pot, Vec V) {
 
   if(self->sc->PotR1Vec == NULL)
-    SETERRQ(self->comm, 1, "method is null");
+    SETERRQ(self->comm, 1, "method is null: PotR1Vec");
 
   self->sc->PotR1Vec(self->obj, pot, V);
   return 0;
@@ -395,7 +400,7 @@ PetscErrorCode FEMInfPotR1Vec(FEMInf self, Pot pot, Vec V) {
 PetscErrorCode FEMInfEER2Mat(FEMInf self, int q, Mat M) {
 
   if(self->sc->EER2Mat == NULL)
-    SETERRQ(self->comm, 1, "method is null");
+    SETERRQ(self->comm, 1, "method is null: EER2Mat");
 
   self->sc->EER2Mat(self->obj, q, M);
   return 0;
