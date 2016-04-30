@@ -65,22 +65,32 @@ int testCalcBSpline() {
   // non overlaped points list
   //double zs[6] = {0.0, 1.0, 2.0, 3.0, 4.0, 5.0}; 
 
+  PetscBool zeroq;
   PetscScalar y = 777.0;
-  CalcBSpline(order, ts_r, ts_s, 0, 0.0, 0.0, &y); ASSERT_DOUBLE_EQ(1.0, y);
-  CalcBSpline(order, ts_r, ts_s, 0, 1.0, 1.0, &y); ASSERT_DOUBLE_EQ(0.0, y);
-  CalcBSpline(order, ts_r, ts_s, 6, 4.0, 4.0, &y); ASSERT_DOUBLE_EQ(0.0, y);
+  CalcBSpline(order, ts_r, ts_s, 0, 0.0, 0.0, &y, &zeroq); 
+  ASSERT_DOUBLE_EQ(1.0, y); ASSERT_FALSE(zeroq);
+  CalcBSpline(order, ts_r, ts_s, 0, 1.0, 1.0, &y, &zeroq);
+  ASSERT_DOUBLE_EQ(0.0, y); ASSERT_TRUE(zeroq);
+  CalcBSpline(order, ts_r, ts_s, 6, 4.0, 4.0, &y, &zeroq); 
+  ASSERT_DOUBLE_EQ(0.0, y); ASSERT_TRUE(zeroq);
   
   PetscScalar x = 0.34;
-  CalcBSpline(     order, ts_r, ts_s, 2, x, x, &y); ASSERT_DOUBLE_EQ(0.5*x*x, y);
-  CalcDerivBSpline(order, ts_r, ts_s, 2, x, x, &y); ASSERT_DOUBLE_EQ(x, y);
+  CalcBSpline(     order, ts_r, ts_s, 2, x, x, &y, &zeroq);
+  ASSERT_DOUBLE_EQ(0.5*x*x, y); ASSERT_FALSE(zeroq);
+  CalcDerivBSpline(order, ts_r, ts_s, 2, x, x, &y, &zeroq);
+  ASSERT_DOUBLE_EQ(x, y); ASSERT_FALSE(zeroq);
 
   x = 2.44;
-  CalcBSpline(     order, ts_r, ts_s, 2, x, x, &y); ASSERT_DOUBLE_EQ(0.5*x*x-3*x+4.5, y);
-  CalcDerivBSpline(order, ts_r, ts_s, 2, x, x, &y); ASSERT_DOUBLE_EQ(x-3.0, y);
+  CalcBSpline(     order, ts_r, ts_s, 2, x, x, &y, &zeroq);
+  ASSERT_DOUBLE_EQ(0.5*x*x-3*x+4.5, y); ASSERT_FALSE(zeroq);
+  CalcDerivBSpline(order, ts_r, ts_s, 2, x, x, &y, &zeroq);
+  ASSERT_DOUBLE_EQ(x-3.0, y); ASSERT_FALSE(zeroq);
 
   x = 3.44;
-  CalcBSpline(     order, ts_r, ts_s, 2, x, x, &y); ASSERT_DOUBLE_EQ(0.0, y);
-  CalcDerivBSpline(order, ts_r, ts_s, 2, x, x, &y); ASSERT_DOUBLE_EQ(0.0, y);
+  CalcBSpline(     order, ts_r, ts_s, 2, x, x, &y, &zeroq);
+  ASSERT_DOUBLE_EQ(0.0, y); ASSERT_TRUE(zeroq);
+  CalcDerivBSpline(order, ts_r, ts_s, 2, x, x, &y, &zeroq); 
+  ASSERT_DOUBLE_EQ(0.0, y); ASSERT_TRUE(zeroq);
 
   return 0;
 }
@@ -228,6 +238,77 @@ int testBSplineSetBasic() {
   ASSERT_DOUBLE_NEAR(-0.887298334621, bss->derivs[21],pow(10.0, -8.0));
 
   BSSDestroy(&bss);
+  return 0;
+}
+int testBSplinePsi() {
+
+  PetscErrorCode ierr;
+  PrintTimeStamp(PETSC_COMM_SELF, "Psi", NULL);
+  MPI_Comm comm = PETSC_COMM_SELF;
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 6);
+  int order = 3;
+  BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);
+  BSSSetUp(bss);
+
+  int n; BSSGetSize(bss, &n);
+  if(n <= 0){
+    SETERRQ(comm, 1, "n is 0 or negative");
+  }
+  Vec c;
+  ierr = VecCreate(comm, &c); CHKERRQ(ierr);
+  ierr = VecSetSizes(c, PETSC_DECIDE, n);CHKERRQ(ierr);
+  ierr = VecSetUp(c); CHKERRQ(ierr);
+
+  PetscScalar *ptr_c;
+  ierr = VecGetArray(c, &ptr_c); CHKERRQ(ierr);
+  for(int i = 0; i < n; i++) {
+    ptr_c[i] = i + 0.1;
+  }
+  ierr = VecRestoreArray(c, &ptr_c); CHKERRQ(ierr);
+
+  PetscReal x = 1.1;
+  
+
+  Vec xs; VecCreate(comm, &xs); VecSetSizes(xs, PETSC_DECIDE, 1);
+  ierr = VecSetUp(xs); CHKERRQ(ierr);
+  ierr = VecSetValue(xs, 0, x, INSERT_VALUES); CHKERRQ(ierr);
+  //  Vec xs; VecCreate(comm, &xs); VecSetSizes(xs, PETSC_DEFAULT, 1);
+  //  VecSetUp(xs);
+  //  ierr = VecSetValue(xs, 0, x, INSERT_VALUES); CHKERRQ(ierr);
+
+  Vec ys;
+  ierr = VecDuplicate(xs, &ys); CHKERRQ(ierr);
+  ierr = BSSPsi(bss, c, xs, ys); CHKERRQ(ierr);
+
+  Vec dys;
+  ierr = VecDuplicate(xs, &dys); CHKERRQ(ierr);
+  ierr = BSSDerivPsi(bss, c, xs, dys); CHKERRQ(ierr);
+
+  PetscScalar y;
+  ierr = BSSPsiOne(bss, c, x, &y); CHKERRQ(ierr);
+
+  PetscScalar *ptr_y;
+  ierr = VecGetArray(ys, &ptr_y); CHKERRQ(ierr);
+  ASSERT_SCALAR_EQ(y, ptr_y[0]);
+  ierr = VecRestoreArray(ys, &ptr_y); CHKERRQ(ierr);
+
+  PetscScalar dy;
+  ierr = BSSDerivPsiOne(bss, c, x, &dy); CHKERRQ(ierr);
+
+  PetscScalar *ptr_dy;
+  ierr = VecGetArray(dys, &ptr_dy); CHKERRQ(ierr);
+  ASSERT_SCALAR_EQ(dy, ptr_dy[0]);
+  ierr = VecRestoreArray(dys, &ptr_dy); CHKERRQ(ierr);
+
+  BSSDestroy(&bss);
+  VecRestoreArray(c, &ptr_c);
+  VecDestroy(&c);
+  VecDestroy(&xs);
+  VecRestoreArray(ys, &ptr_y);
+  VecDestroy(&ys);
+  VecRestoreArray(dys, &ptr_dy);
+  VecDestroy(&dys);
+  
   return 0;
 }
 int testBSplineECS() {
@@ -512,8 +593,8 @@ int testBSplineHAtom() {
   PetscReal x=1.1;
   PetscScalar y=0.0;
   PetscScalar dy=0.0;
-  BSSPsi(bss, cs, x, &y);
-  BSSDerivPsi(bss, cs, x, &dy);
+  BSSPsiOne(bss, cs, x, &y);
+  BSSDerivPsiOne(bss, cs, x, &dy);
   ASSERT_DOUBLE_NEAR(creal(y), 2.0*x*exp(-x), pow(10.0, -8));
   ASSERT_DOUBLE_NEAR(creal(dy), 2.0*exp(-x)-2.0*x*exp(-x), pow(10.0, -8));
 
@@ -646,6 +727,7 @@ int main(int argc, char **args) {
   //  testBSplineECS();
 
   testBSplineSetBasic();
+  testBSplinePsi();
   testBSplineSetSR1Mat();
   testBSplineSetD2R1Mat();
   testBSplineSetENMatR1Mat();

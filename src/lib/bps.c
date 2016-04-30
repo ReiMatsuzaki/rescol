@@ -1,6 +1,6 @@
 #include <rescol/bps.h>
 
-// ------- Basic ----------
+// ---- Basic ----
 PetscErrorCode BPSCreate(MPI_Comm comm, BPS *p_self) {
   //  PetscErrorCode ierr;
   BPS self;
@@ -20,7 +20,6 @@ PetscErrorCode BPSDestroy(BPS *p_self) {
   ierr = PetscFree(*p_self); CHKERRQ(ierr);
   return 0;
 }
-
 PetscErrorCode BPSCheckPreallocated(BPS self) {
 
   if(self == NULL)
@@ -71,35 +70,7 @@ PetscErrorCode BPSView(BPS self, PetscViewer v) {
 
 }
 
-
-PetscErrorCode BPSSetExp(BPS self, PetscReal zmax, PetscInt num_zs, PetscReal gamma) {
-  
-  PetscErrorCode ierr;
-  strcpy(self->type, "exp");
-  self->num_zs = num_zs;
-  ierr = PetscMalloc1(num_zs, &self->zs); CHKERRQ(ierr);
-  for(int i = 0; i < num_zs; i++)
-    self->zs[i] = zmax * (exp(gamma*i/(num_zs-1)) - 1.0) / (exp(gamma) - 1.0);
-
-  return 0;  
-
-}
-
-PetscErrorCode BPSSetLine(BPS self, PetscReal zmax, PetscInt num_zs) {
-
-  if(self == NULL)
-    SETERRQ(PETSC_COMM_SELF, 1, "BPS object is null");
-
-  PetscErrorCode ierr;
-  strcpy(self->type, "line");
-  self->num_zs = num_zs;
-  ierr = PetscMalloc1(num_zs, &self->zs);
-  for(int i = 0; i < num_zs; i++)
-    self->zs[i] = i * zmax / (num_zs - 1);
-
-  return 0;
-
-}
+// ---- Setter ----
 PetscErrorCode BPSSetFromOptions(BPS self) {
 
   PetscBool find;
@@ -122,9 +93,36 @@ PetscErrorCode BPSSetFromOptions(BPS self) {
   return 0;
 
 }
+PetscErrorCode BPSSetExp(BPS self, PetscReal zmax, PetscInt num_zs, PetscReal gamma) {
+  
+  PetscErrorCode ierr;
+  strcpy(self->type, "exp");
+  self->num_zs = num_zs;
+  ierr = PetscMalloc1(num_zs, &self->zs); CHKERRQ(ierr);
+  for(int i = 0; i < num_zs; i++)
+    self->zs[i] = zmax * (exp(gamma*i/(num_zs-1)) - 1.0) / (exp(gamma) - 1.0);
+
+  return 0;  
+
+}
+PetscErrorCode BPSSetLine(BPS self, PetscReal zmax, PetscInt num_zs) {
+
+  if(self == NULL)
+    SETERRQ(PETSC_COMM_SELF, 1, "BPS object is null");
+
+  PetscErrorCode ierr;
+  strcpy(self->type, "line");
+  self->num_zs = num_zs;
+  ierr = PetscMalloc1(num_zs, &self->zs);
+  for(int i = 0; i < num_zs; i++)
+    self->zs[i] = i * zmax / (num_zs - 1);
+
+  return 0;
+
+}
 
 
-// ------ Getter ---------
+// ---- Getter ----
 PetscErrorCode BPSGetZs(BPS self, PetscReal **zs, PetscInt *num_zs) {
 
   PetscErrorCode ierr;
@@ -152,5 +150,29 @@ PetscErrorCode BPSGetZMax(BPS self, PetscReal *zmax) {
   PetscErrorCode ierr;
   ierr = BPSCheckPreallocated(self); CHKERRQ(ierr);
   *zmax = self->zs[self->num_zs-1];
+  return 0;
+}
+PetscErrorCode BPSGetEdge(BPS self, int iele, PetscReal *z0, PetscReal *z1) {
+
+  /*
+  PetscErrorCode ierr;
+  //ierr = BPSCheckPreallocated(self); CHKERRQ(ierr);
+  int num_ele;
+  ierr = BPSGetNumEle(self, &num_ele); CHKERRQ(ierr);
+  if(iele < 0 || num_ele <= iele ) {
+    SETERRQ(self->comm, 1, "iele out of range");
+  }
+  */
+
+  *z0 = self->zs[iele];
+  *z1 = self->zs[iele+1];
+  return 0;
+}
+PetscErrorCode BPSInElementQ(BPS self, int iele, PetscReal x, PetscBool *in_q) {
+  // is x in iele element meaning of closed interval.
+  double eps = 0.0000001;
+  PetscReal z0, z1;
+  BPSGetEdge(self, iele, &z0, &z1);
+  *in_q = (z0-eps < x && x < z1+eps);
   return 0;
 }

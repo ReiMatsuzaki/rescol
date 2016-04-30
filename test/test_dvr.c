@@ -12,19 +12,21 @@ static char help[] = "Unit test for dvr.c \n\n";
 
 int testLS() {
 
-  PetscScalar xs_c[6] = {1.1, 1.2, 1.4, 1.4, 1.9, 2.1};
-  PetscScalar xs_r[6] = {1.1, 1.2, 1.4, 1.4, 1.9, 2.1};
-  PetscReal zs[3]   = {1.1,        1.4,           2.1};
+  MPI_Comm comm = MPI_COMM_SELF;
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 2.0, 3);
+  PetscScalar xs_c[6] = {0.0, 0.5, 1.0, 1.0, 1.5, 2.0};
+  PetscScalar xs_r[6] = {0.0, 0.5, 1.0, 1.0, 1.5, 2.0};
   
   PetscScalar y;
+  PetscBool zeroq;
   for(int iele = 0; iele < 2; iele++) {
     for(int iq = 0; iq < 3; iq++) {
       for(int ils = 0; ils < 3; ils++) {
-	ValueLS(xs_c, zs, 2, 3, iele, ils,
+	ValueLS(bps, xs_c, 3, iele, ils,
 		xs_r[iele*3+iq],
-		xs_c[iele*3+iq], &y);
+		xs_c[iele*3+iq], &y, &zeroq);
 	if(ils == iq) {
-	  ASSERT_SCALAR_EQ(1.0, y);
+	  ASSERT_SCALAR_EQ(1.0, y);	  
 	}
 	else {
 	  ASSERT_SCALAR_EQ(0.0, y);
@@ -32,6 +34,14 @@ int testLS() {
       }
     }
   }
+
+  ValueLS(bps, xs_c, 3, 1, 0, 0.0, 0.0, &y, &zeroq);
+  ASSERT_TRUE(zeroq);
+  ValueLS(bps, xs_c, 3, 0, 0, 0.0, 0.0, &y, &zeroq);
+  ASSERT_FALSE(zeroq);
+	  
+  BPSDestroy(&bps);
+
   return 0;
 }
 int testXS() {
@@ -44,9 +54,9 @@ int testXS() {
   ASSERT_DOUBLE_EQ(0.5, dvr->xs[1]);  
   ASSERT_DOUBLE_EQ(1.0, dvr->xs[2]);
 
-  ASSERT_DOUBLE_NEAR(0.1666666666, dvr->ws[0], 0.000000001);
-  ASSERT_DOUBLE_NEAR(0.6666666666, dvr->ws[1], 0.000000001);
-  ASSERT_DOUBLE_NEAR(0.1666666666, dvr->ws[2], 0.000000001);
+  ASSERT_DOUBLE_NEAR(0.1666666666, dvr->ws_c[0], 0.000000001);
+  ASSERT_DOUBLE_NEAR(0.6666666666, dvr->ws_c[1], 0.000000001);
+  ASSERT_DOUBLE_NEAR(0.1666666666, dvr->ws_c[2], 0.000000001);
 
   ASSERT_DOUBLE_EQ(0.5, dvr->xs_basis[0]);
   ASSERT_DOUBLE_EQ(1.0, dvr->xs_basis[1]);
@@ -57,7 +67,52 @@ int testXS() {
   DVRDestroy(&dvr); 
   return 0;
 }
+int testPsi() {
 
+  PetscErrorCode ierr;
+  MPI_Comm comm = PETSC_COMM_SELF;
+  
+  int nq = 3;
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 6);
+  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, nq, bps); DVRSetUp(dvr);
+
+  int nbasis; DVRGetSize(dvr, &nbasis);
+  Vec c; VecCreate(comm, &c);
+  VecSetSizes(c, PETSC_DECIDE, nbasis);
+  VecSetUp(c);
+  for(int i = 0; i < nbasis; i++) {
+    VecSetValue(c, i, i*0.1, INSERT_VALUES);
+  }
+
+  PetscReal x = 1.1;
+  PetscScalar y, dy;
+  Vec xs; VecCreate(comm, &xs); VecSetSizes(xs, PETSC_DECIDE, 1); VecSetUp(xs);
+  VecSetValue(xs, 0, x, INSERT_VALUES);
+  Vec ys; VecDuplicate(xs, &ys);
+  Vec dys; VecDuplicate(xs, &dys);
+  ierr = DVRPsiOne(dvr, c, x, &y);       CHKERRQ(ierr);
+  ierr = DVRPsi(dvr, c, xs, ys);         CHKERRQ(ierr);
+  ierr = DVRDerivPsiOne(dvr, c, x, &dy); CHKERRQ(ierr);
+  ierr = DVRDerivPsi(dvr, c, xs, dys);  CHKERRQ(ierr);
+
+  PetscScalar *y_ptr, *dy_ptr;
+  VecGetArray(ys, &y_ptr);
+  VecGetArray(dys, &dy_ptr);
+  ASSERT_SCALAR_EQ(y_ptr[0], y);
+  ASSERT_SCALAR_EQ(dy_ptr[0], dy);
+
+  VecRestoreArray(ys, &y_ptr);
+  VecRestoreArray(dys, &dy_ptr);
+
+  VecDestroy(&c);
+  VecDestroy(&xs);
+  VecDestroy(&ys);
+  VecDestroy(&dys);
+  DVRDestroy(&dvr);
+  
+
+  return 0;
+}
 int testSR1LSMat() {
   PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
@@ -77,14 +132,14 @@ int testSR1LSMat() {
   const PetscInt *cols;
   ierr = MatGetRow(S, 0, &ncols, &cols, &row); CHKERRQ(ierr);
   ASSERT_EQ(1, ncols);
-  ASSERT_DOUBLE_EQ(dvr->ws[0], row[0]);
+  ASSERT_DOUBLE_EQ(dvr->ws_c[0], row[0]);
   ASSERT_DOUBLE_EQ(0.1+0.2/3.0, row[0]);
   ASSERT_EQ(0, cols[0]);
   ierr = MatRestoreRow(S, 0, &ncols, &cols, &row); CHKERRQ(ierr);
 
   ierr = MatGetRow(S, 1, &ncols, &cols, &row); CHKERRQ(ierr);
   ASSERT_EQ(1, ncols);
-  ASSERT_DOUBLE_EQ(dvr->ws[1], row[0]);
+  ASSERT_DOUBLE_EQ(dvr->ws_c[1], row[0]);
   ASSERT_EQ(1, cols[0]);
   ierr = MatRestoreRow(S, 0, &ncols, &cols, &row); CHKERRQ(ierr);
 
@@ -160,7 +215,7 @@ int testENR1LSMat() {
 
   ierr = MatGetRow(V, 1, &ncols, &cols, &row); CHKERRQ(ierr);
   ASSERT_EQ(1, ncols);
-  ASSERT_DOUBLE_EQ(dvr->ws[1]/dvr->xs[1], row[0]);
+  ASSERT_DOUBLE_EQ(dvr->ws_c[1]/dvr->xs_c[1], row[0]);
   ASSERT_EQ(1, cols[0]);
   ierr = MatRestoreRow(V, 0, &ncols, &cols, &row); CHKERRQ(ierr);
 
@@ -603,6 +658,9 @@ int main(int argc, char **args) {
 
   PrintTimeStamp(PETSC_COMM_SELF, "test_valueLS", NULL);
   testLS();
+
+  PrintTimeStamp(PETSC_COMM_SELF, "testPsi", NULL);
+  testPsi();
 
   PrintTimeStamp(PETSC_COMM_SELF, "testXS", NULL);
   testXS();

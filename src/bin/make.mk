@@ -35,6 +35,19 @@ check_driv1d_dvr_r0: driv1d.out
 	done
 	@echo "ref(a):    5.65688402161, -1.08811622008"
 
+check_driv1d_dvr_double: driv1d.out
+	./$< -fem_type dvr -dvr_nq 8 \
+	-bps_num_zs 201 -bps_zmax 200.0 -bps_type line \
+	-energy_range 0.5 \
+	-driv-pot "sto -2.0 2 1.0" \
+	-pot_type double \
+	-problem_type driv \
+	-L 1 \
+	-v0-pot "pow -1.0 -1" \
+	-v1-pot "sto -1.0 0 1.0" \
+	-cscaling_r0 170.0 -cscaling_theta 20.0 \
+	-viewerfunc_view ascii:tmp/driv1d.dat -viewerfunc_num 100 -viewerfunc_xmax 100.0\
+
 # see 2016/4/16
 driv1d.out: driv1d.o ${OBJ_FEM}
 .PHONY: check_driv1d

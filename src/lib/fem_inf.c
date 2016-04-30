@@ -154,7 +154,7 @@ PetscErrorCode FEMInfViewFunc_ASCII(FEMInf self, Vec c, ViewerFunc v) {
 
     for(int i = 0; i < num; i++) {
       PetscReal x = xs[i];
-      PetscScalar y; FEMInfPsi(self, c, x, &y);
+      PetscScalar y; FEMInfPsiOne(self, c, x, &y);
 #if defined(PETSC_USE_COMPLEX)
       PetscReal re = PetscRealPart(y);
       PetscReal im = PetscImaginaryPart(y);
@@ -177,7 +177,7 @@ PetscErrorCode FEMInfViewFunc_Draw(FEMInf self, Vec c, ViewerFunc v) {
 
   for(int i = 0; i < num; i++) {
     PetscReal x = xs[i];
-    PetscScalar y[1]; FEMInfPsi(self, c, x, &y[0]);
+    PetscScalar y[1]; FEMInfPsiOne(self, c, x, &y[0]);
 #if defined(PETSC_USE_COMPLEX)
     PetscReal re[1] = {PetscRealPart(y[0])};
     //    PetscReal im[1] = {PetscImaginaryPart(y[0])};
@@ -243,6 +243,7 @@ PetscErrorCode FEMInfSetFromOptions(FEMInf self) {
   return 0;
 }
 
+// ---- Calculation ----
 PetscErrorCode FEMInfFit(FEMInf self, PF pf, KSP ksp, Vec c) {
 
   PetscErrorCode ierr;
@@ -277,21 +278,80 @@ PetscErrorCode FEMInfGetSize(FEMInf this, int *n) {
 }
 
 // ---- Calculation ----
-PetscErrorCode FEMInfPsi(FEMInf self, Vec c, PetscReal x, PetscScalar *y) {
-
-  if(self->sc->Psi == NULL)
+PetscErrorCode FEMInfPsi(FEMInf self, Vec cs, Vec xs, Vec ys) {
+  /*
+    gives function values on x. { f(x) | x in xs}
+    cs: coefficient vector
+    xs: x list
+    ys: result
+   */
+  if(self->sc->Psi == NULL) {
     SETERRQ(self->comm, 1, "method is null: Psi");
+  }
 
-  self->sc->Psi(self->obj, c, x, y);
+  PetscErrorCode ierr;
+  ierr = self->sc->Psi(self->obj, cs, xs, ys); CHKERRQ(ierr);
   return 0;
 }
-PetscErrorCode FEMInfDerivPsi(FEMInf self, Vec c, PetscReal x, PetscScalar *y) {
+PetscErrorCode FEMInfPsiOne(FEMInf self, Vec cs, PetscScalar x, PetscScalar *y) {
+  /*
+    gives function values on x. { f(x) | x in xs}
+    cs: coefficient vector
+    x: x
+    y: result
+   */
+  PetscErrorCode ierr;
+  Vec xs;
+  ierr = VecCreate(self->comm, &xs); CHKERRQ(ierr);
+  ierr = VecSetSizes(xs, PETSC_DECIDE, 1); CHKERRQ(ierr);
+  ierr = VecSetUp(xs);
+  ierr = VecSetValue(xs, 0, x, INSERT_VALUES); CHKERRQ(ierr);
+  Vec ys;
+  ierr = VecDuplicate(xs, &ys); CHKERRQ(ierr);
+
+  ierr = self->sc->Psi(self->obj, cs, xs, ys); CHKERRQ(ierr);
+
+  PetscScalar *y_ptr;
+  ierr = VecGetArray(ys, &y_ptr); CHKERRQ(ierr);
+  *y = y_ptr[0];
+  ierr = VecRestoreArray(ys, &y_ptr); CHKERRQ(ierr);
+
+  VecDestroy(&xs);
+  VecDestroy(&ys);
+
+  return 0;
+}
+PetscErrorCode FEMInfDerivPsi(FEMInf self, Vec c, Vec xs, Vec ys) {
 
   if(self->sc->DerivPsi == NULL)
     SETERRQ(self->comm, 1, "method is null: DerivPsi");
   
-  self->sc->DerivPsi(self->obj, c, x, y);
+  self->sc->DerivPsi(self->obj, c, xs, ys);
   return 0;
+
+}
+PetscErrorCode FEMInfDerivPsiOne(FEMInf self, Vec c, PetscReal x, PetscScalar *y) {
+
+  PetscErrorCode ierr;
+  Vec xs;
+  ierr = VecCreate(self->comm, &xs); CHKERRQ(ierr);
+  ierr = VecSetSizes(xs, PETSC_DECIDE, 1); CHKERRQ(ierr);
+  ierr = VecSetUp(xs);
+  ierr = VecSetValue(xs, 0, x, INSERT_VALUES); CHKERRQ(ierr);
+  Vec ys;
+  ierr = VecDuplicate(xs, &ys); CHKERRQ(ierr);
+
+  ierr = FEMInfDerivPsi(self, c, xs, ys);
+
+  PetscScalar *y_ptr;
+  ierr = VecGetArray(ys, &y_ptr); CHKERRQ(ierr);
+  *y = y_ptr[0];
+  ierr = VecRestoreArray(ys, &y_ptr); CHKERRQ(ierr);
+
+  VecDestroy(&xs);
+  VecDestroy(&ys);
+
+  return 0;  
 
 }
 PetscErrorCode FEMInfGuessHEig(FEMInf self, int n, int l, PetscScalar z, Vec *v) {

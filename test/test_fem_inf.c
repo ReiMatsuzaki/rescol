@@ -77,8 +77,9 @@ int testH_BSS() {
   EEPSGetEigenvector(eps, 0, cs);
 
   PetscReal x = 1.1;
+  PetscScalar xc = 1.1;
   PetscScalar y, dy;
-  FEMInfPsi(fem, cs, x, &y); FEMInfDerivPsi(fem, cs, x, &dy);
+  FEMInfPsiOne(fem, cs, xc, &y); FEMInfDerivPsiOne(fem, cs, x, &dy);
   ASSERT_DOUBLE_NEAR(2.0*x*exp(-x), creal(y), pow(10.0, -5.0));
   ASSERT_DOUBLE_NEAR(2.0*(1.0-x)*exp(-x), creal(dy), pow(10.0, -3.0));
   
@@ -232,10 +233,9 @@ int testH_PI_BSS() {
 
   PetscScalar alpha;
   ierr = VecTDot(c, m, &alpha); CHKERRQ(ierr);
-
-  ASSERT_DOUBLE_EQ(-5.65688402161, creal(alpha));
-  ASSERT_DOUBLE_EQ(1.08811622008, cimag(alpha));
-
+  
+  PetscScalar a_ref = -5.65688402161+I*1.08811622008;
+  ASSERT_SCALAR_EQ(a_ref, alpha);
   return 0;
 
 }
@@ -361,6 +361,7 @@ int testH_DVR() {
   ierr = EEPSSetTarget(eps, -0.6);CHKERRQ(ierr);
   ierr = EEPSSolve(eps);CHKERRQ(ierr);
 
+
   int nconv;
   PetscScalar kr;
   ierr = EPSGetConverged(eps->eps, &nconv);CHKERRQ(ierr);
@@ -368,15 +369,20 @@ int testH_DVR() {
   ierr = EPSGetEigenpair(eps->eps, 0, &kr, NULL, NULL, NULL);CHKERRQ(ierr);
   ASSERT_DOUBLE_NEAR(-0.5, kr, pow(10.0, -5.0));
 
+
+
   Vec cs;
-  MatCreateVecs(H, &cs, NULL);
-  EEPSGetEigenvector(eps, 0, cs);
+  ierr = MatCreateVecs(H, &cs, NULL); CHKERRQ(ierr);
+  ierr = EEPSGetEigenvector(eps, 0, cs); CHKERRQ(ierr);
   //  VecView(cs, PETSC_VIEWER_STDOUT_SELF);
+
   PetscReal x = 1.1;
   PetscScalar y, dy;
-  FEMInfPsi(fem, cs, x, &y);
-  FEMInfDerivPsi(fem, cs, x, &dy);
-  ASSERT_SCALAR_NEAR(2.0*x*exp(-x), y, pow(10.0, -6.0));
+
+  ierr = FEMInfPsiOne(fem, cs, x, &y); CHKERRQ(ierr);
+
+  ierr = FEMInfDerivPsiOne(fem, cs, x, &dy); CHKERRQ(ierr);
+  ASSERT_SCALAR_NEAR(2.0*x*exp(-x), y, pow(10.0, -6.0)); 
   ASSERT_SCALAR_NEAR(2.0*exp(-x)-2.0*x*exp(-x), dy, pow(10.0, -6.0));
 
   // -- Destroy --
@@ -385,7 +391,7 @@ int testH_DVR() {
   ierr = MatDestroy(&V);      CHKERRQ(ierr);
   ierr = EEPSDestroy(&eps);   CHKERRQ(ierr);
   ierr = VecDestroy(&cs);     CHKERRQ(ierr);
-  
+
   return 0;
 }
 int testFit_BSS() {
@@ -412,7 +418,7 @@ int testFit_BSS() {
   FEMInfFit(fem, sto, ksp, c);
   PetscScalar x = 2.2;
   PetscScalar y_calc;
-  FEMInfPsi(fem, c, x, &y_calc);
+  FEMInfPsiOne(fem, c, x, &y_calc);
 
   PetscScalar xs[1] = {x};
   PetscScalar ys[1] = {0.0};
@@ -448,7 +454,7 @@ int testFit_DVR() {
   FEMInfFit(fem, sto, ksp, c);
   PetscScalar x = 2.2;
   PetscScalar y_calc;
-  FEMInfPsi(fem, c, x, &y_calc);
+  FEMInfPsiOne(fem, c, x, &y_calc);
 
   PetscScalar xs[1] = {x};
   PetscScalar ys[1] = {0.0};
@@ -481,7 +487,7 @@ int main(int argc, char **args) {
   ierr = testH_PI_DVR(); CHKERRQ(ierr);
 
   //  ierr = testH_BSS_accurate(); CHKERRQ(ierr);
-  //  ierr = testH_PI_BSS(); CHKERRQ(ierr);
+  ierr = testH_PI_BSS(); CHKERRQ(ierr);
 
   SlepcFinalize();
   return 0;

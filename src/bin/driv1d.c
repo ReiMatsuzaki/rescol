@@ -346,8 +346,8 @@ PetscErrorCode Driv1dCalc2_single_scatter(PetscReal energy) {
   // -- surface form --
   PetscReal R0 = 40.3;
   PetscScalar y, dy;
-  FEMInfPsi(fem, c0, R0, &y);
-  FEMInfDerivPsi(fem, c0, R0, &dy);
+  FEMInfPsiOne(fem, c0, R0, &y);
+  FEMInfDerivPsiOne(fem, c0, R0, &dy);
   PetscScalar j, dj;
   j = sin(k*R0); dj = k*cos(k*R0);
   PetscScalar amp_surface = -1.0/k*(j*dy-y*dj);

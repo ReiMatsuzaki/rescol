@@ -58,9 +58,10 @@ PetscErrorCode FEMInfGetSize(FEMInf self, int *n);
 PetscErrorCode FEMInfGetOverlapIsId(FEMInf self, PetscBool *is_id);
 
 // ---- calculation -----
-//PetscErrorCode FEMInfBasisPsi(FEMInf self, int i, PetscScalar x, PetscScalar *y);
-PetscErrorCode FEMInfPsi(FEMInf self, Vec c, PetscReal x, PetscScalar *y);
-PetscErrorCode FEMInfDerivPsi(FEMInf self, Vec c, PetscReal x, PetscScalar *y);
+PetscErrorCode FEMInfPsi(FEMInf self, Vec cs, Vec xs, Vec ys);
+PetscErrorCode FEMInfPsiOne(FEMInf self, Vec cs, PetscScalar x, PetscScalar *y);
+PetscErrorCode FEMInfDerivPsi(FEMInf self, Vec c, Vec x, Vec y);
+PetscErrorCode FEMInfDerivPsiOne(FEMInf self, Vec c, PetscReal x, PetscScalar *y);
 PetscErrorCode FEMInfFit(FEMInf self, PF pf, KSP ksp, Vec c);
 PetscErrorCode FEMInfGuessHEig(FEMInf self, int n, int l, PetscScalar z, Vec *v);
 

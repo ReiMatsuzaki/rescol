@@ -38,20 +38,20 @@ struct _p_DVR {
 
 typedef struct _p_DVR* DVR;
 
-// ------- external functions ---------
+// ---- external functions ----
 PetscErrorCode MatCreateTransformMat(PetscScalar *ws_c, int nq, int ne, 
 				     MPI_Comm comm, Mat *B);
 int NumDVR(int nq, int ne);
-PetscErrorCode ValueLS(PetscScalar *xs_c, PetscReal *zs, 
-		       PetscInt ne, PetscInt nq, 
+PetscErrorCode ValueLS(BPS bps, PetscScalar *xs_c,
+		       PetscInt nq, 
 		       PetscInt i, PetscInt m, PetscReal x,
-		       PetscScalar x_c, PetscScalar *v);
+		       PetscScalar x_c, PetscScalar *v, PetscBool *zeroq);
 
 PetscErrorCode DerivLS(PetscScalar *xs_c, PetscScalar *ws_c, 
 		       PetscInt ne, PetscInt nq, 
 		       PetscInt i, PetscInt m, PetscInt mp, PetscScalar *v);
 
-// ------- Basic Methods ---------
+// ---- Basic Methods ----
 PetscErrorCode DVRCreate(MPI_Comm comm, DVR *p_self);
 PetscErrorCode DVRDestroy(DVR *p_self);
 
@@ -64,11 +64,15 @@ PetscErrorCode DVRSetUp(DVR self);
 PetscErrorCode DVRSetFromOptions(DVR self);
 
 PetscErrorCode DVRBasisPsi(DVR self, int i, PetscScalar x, PetscScalar *y);
+PetscErrorCode DVRGetLSSize(DVR self, int *n);
 PetscErrorCode DVRGetSize(DVR self, int *n);
 
 // ----- Calculation ----
-PetscErrorCode DVRPsi(DVR self, Vec c, PetscReal x, PetscScalar *y);
-PetscErrorCode DVRDerivPsi(DVR self, Vec c, PetscReal x, PetscScalar *y);
+PetscErrorCode DVRPsiOne(DVR self, Vec cs, PetscReal x, PetscScalar *y);
+PetscErrorCode DVRPsi(DVR self, Vec cs, Vec x, Vec y);
+PetscErrorCode DVRDerivPsiOne(DVR self, Vec c, PetscReal x, PetscScalar *y);
+PetscErrorCode DVRDerivPsi(DVR self, Vec c, Vec x, Vec y);
+
 
 // ------- R1Mat/R2Mat ----------
 PetscErrorCode DVRCreateR1Vec(DVR self, Vec *m);

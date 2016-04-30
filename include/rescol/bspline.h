@@ -43,9 +43,11 @@ typedef struct _p_BSS* BSS;
 int NumBSpline(int order, int num_ele);
 int HasNon0Value(int order, int i, int j);
 PetscErrorCode CalcBSpline(int order, PetscReal* ts_r, PetscScalar* ts_s, 
-			   int i, double x_r, PetscScalar x, PetscScalar* y);
+			   int i, double x_r, PetscScalar x, PetscScalar* y,
+			   PetscBool *zeroq);
 PetscErrorCode CalcDerivBSpline(int order, double* ts, PetscScalar* ts_s, 
-				int i, double x_r, PetscScalar x, PetscScalar* y);
+				int i, double x_r, PetscScalar x, PetscScalar* y,
+				PetscBool *zeroq);
 
 
 PetscErrorCode Non0QuadIndex(int a, int c, int k, int nq, int* i0, int* i1);
@@ -64,8 +66,10 @@ PetscErrorCode BSSSetUp(BSS self);
 PetscErrorCode BSSSetFromOptions(BSS self);
 
   // ---- Calculation ----
-PetscErrorCode BSSPsi(BSS self, Vec c, PetscReal x, PetscScalar *y);
-PetscErrorCode BSSDerivPsi(BSS self, Vec c, PetscReal x, PetscScalar *y);
+PetscErrorCode BSSPsiOne(BSS self, Vec c, PetscReal x, PetscScalar *y);
+PetscErrorCode BSSPsi(BSS self, Vec c, Vec xs, Vec ys);
+PetscErrorCode BSSDerivPsiOne(BSS self, Vec c, PetscReal x, PetscScalar *y);
+PetscErrorCode BSSDerivPsi(BSS self, Vec c, Vec xs, Vec ys);
 PetscErrorCode BSSBasisPsi(BSS self, int i, PetscReal x, PetscScalar *y);
 PetscErrorCode BSSDerivBasisPsi(BSS self, int i, PetscReal x, PetscScalar *y);
 PetscErrorCode BSSGetSize(BSS self, int *n);

@@ -43,6 +43,34 @@ TEST(TestBPS, Exp) {
   PetscFree(zs);
   BPSDestroy(&bps);
 }
+TEST(TestBPS, Getter) {
+
+  PetscErrorCode ierr;
+  BPS bps;
+  ierr = BPSCreate(PETSC_COMM_SELF, &bps);  ASSERT_EQ(0, ierr);
+  ierr = BPSSetLine(bps, 5.0, 6);  ASSERT_EQ(0, ierr);
+
+  PetscReal z0, z1;
+  ierr = BPSGetEdge(bps, 1, &z0, &z1); ASSERT_EQ(0, ierr);
+  EXPECT_DOUBLE_EQ(1.0, z0);
+  EXPECT_DOUBLE_EQ(2.0, z1);
+
+  PetscBool is_in_q;
+  BPSInElementQ(bps, 0, -0.1, &is_in_q); EXPECT_FALSE(is_in_q);
+  BPSInElementQ(bps, 0, 0.0, &is_in_q); EXPECT_TRUE(is_in_q);
+  BPSInElementQ(bps, 0, 0.5, &is_in_q); EXPECT_TRUE(is_in_q);
+  BPSInElementQ(bps, 0, 1.0, &is_in_q); EXPECT_TRUE(is_in_q);
+  BPSInElementQ(bps, 0, 1.1, &is_in_q); EXPECT_FALSE(is_in_q);
+
+  BPSInElementQ(bps, 2, 1.9, &is_in_q); EXPECT_FALSE(is_in_q);
+  BPSInElementQ(bps, 2, 2.0, &is_in_q); EXPECT_TRUE(is_in_q);
+  BPSInElementQ(bps, 2, 2.4, &is_in_q); EXPECT_TRUE(is_in_q);
+  BPSInElementQ(bps, 2, 3.0, &is_in_q); EXPECT_TRUE(is_in_q);
+  BPSInElementQ(bps, 2, 3.1, &is_in_q); EXPECT_FALSE(is_in_q);
+
+  BPSDestroy(&bps);
+
+}
 
 int _main(int argc, char **args) {
   ::testing::InitGoogleTest(&argc, args);

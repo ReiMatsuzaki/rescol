@@ -18,6 +18,16 @@
 	  return 0xffffffffu;	       \
         }\
     }
+#define ASSERT_FALSE(_a) \
+    {\
+        int assertErrorA = (_a);\
+        if (assertErrorA) {\
+	  printf("%s:%d: FALSE Error\n", __FILE__, __LINE__);\
+	  printf("expectted: False\n");\
+	  printf("actual:    True\n");\
+	  return 0xffffffffu;	       \
+        }\
+    }
 
 #define ASSERT_EQ(_a,_b) \
     {\

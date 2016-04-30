@@ -37,31 +37,30 @@ PetscErrorCode MatCreateTransformMat(PetscScalar *ws_c, int nq, int ne,
 int NumDVRBasis(int nq, int ne) {
   return ne * (nq-2) + (ne-1);  
 }
-PetscErrorCode ValueLS(PetscScalar *xs_c, PetscReal *zs, 
-		       PetscInt ne, PetscInt nq, 
+PetscErrorCode ValueLS(BPS bps, PetscScalar *xs_c, PetscInt nq, 
 		       PetscInt i, PetscInt m, PetscReal x,
-		       PetscScalar x_c, PetscScalar *v) {
+		       PetscScalar x_c, PetscScalar *v, PetscBool *zeroq) {
   /*
     Gives value of Lobatto shape function f_{i,m} at quadrature point x_{i,mp}.
 
-    xs_c: quadrature points
-    zs  : knot points (Scalar[ne+1])
+    bps : break points set 
+    xs_c: quadrature points (Scalar[nq])
     nq : number of quadrature in each element
-    ne : number of element
-    i : index of element which represent Lobatto Shape function
+    i : index of element which represent LS function
     m : index of quadrature point which represent  Lobatto Shape function
     x : target location
   */
 
   // if x is out of ith element.
-  PetscReal z0 = zs[i];
-  PetscReal z1 = zs[i+1];
-  double eps = 0.000000001;
-  if(x < z0-eps || eps+z1 < x) {
+  PetscBool is_in_q;
+  BPSInElementQ(bps, i, x, &is_in_q);
+  if(!is_in_q) {
+    *zeroq = PETSC_TRUE;
     *v = 0.0;
     return 0;
   }
 
+  *zeroq = PETSC_FALSE;
   // compute Lobatto Shape function
   PetscScalar cumsum = 1.0;
   for(int iq = 0; iq < nq; iq++) {
@@ -73,10 +72,9 @@ PetscErrorCode ValueLS(PetscScalar *xs_c, PetscReal *zs,
   *v = cumsum;
   return 0;
 }
-PetscErrorCode ValueDerivLS(PetscScalar *xs_c, PetscReal *zs, 
-			    PetscInt ne, PetscInt nq, 
+PetscErrorCode ValueDerivLS(BPS bps, PetscScalar *xs_c, PetscInt nq, 
 			    PetscInt i, PetscInt m, PetscReal x,
-			    PetscScalar x_c, PetscScalar *v) {
+			    PetscScalar x_c, PetscScalar *v, PetscBool *zeroq) {
   /*
     Gives value of derivative of Lobatto shape function f_{i,m} at 
     quadrature point x_{i,mp}.
@@ -91,14 +89,13 @@ PetscErrorCode ValueDerivLS(PetscScalar *xs_c, PetscReal *zs,
   */
 
   // if x is out of ith element.
-  PetscReal z0 = zs[i];
-  PetscReal z1 = zs[i+1];
-  double eps = 0.000000001;
-  if(x < z0-eps || eps+z1 < x) {
+  PetscBool is_in_q; BPSInElementQ(bps, i, x, &is_in_q);
+  if(!is_in_q) {
     *v = 0.0;
+    *zeroq = PETSC_TRUE;
     return 0;
   }
-
+  *zeroq = PETSC_FALSE;
   // compute Lobatto Shape function
   PetscScalar cumsum = 0.0;
   for(int j = 0; j < nq; j++) {
@@ -316,11 +313,10 @@ PetscErrorCode DVRSetUp(DVR self) {
   
   double eps = 0.0000001;
   PetscScalar scale_factor = cexp(I*self->theta*M_PI/180.0);
-  PetscReal *zs; BPSGetZs(self->bps, &zs, NULL);
   int idx = 0;
   for(int i_ele = 0; i_ele < ne; i_ele++) {
-    PetscReal a = zs[i_ele];
-    PetscReal b = zs[i_ele+1];
+    PetscReal a, b;
+    BPSGetEdge(self->bps, i_ele, &a, &b);
     PetscBool do_scale = (self->use_cscaling &&
 			  self->R0-eps<a     &&
 			  self->R0-eps<b);
@@ -363,9 +359,6 @@ PetscErrorCode DVRSetUp(DVR self) {
   self->T2 = NULL;
   self->T2T = NULL;
 
-  PetscFree(zs);
-
-
   return 0;
 }
 PetscErrorCode DVRSetFromOptions(DVR self) {
@@ -406,10 +399,114 @@ PetscErrorCode DVRGetSize(DVR self, int *n) {
   *n = self->num_basis;
   return 0;
 }
+PetscErrorCode DVRGetLSSize(DVR self, int *n) {
+  int ne; BPSGetNumEle(self->bps, &ne);
+  *n = ne * self->nq;
+  return 0;
+}
 
 // ----  Calculation ----
-PetscErrorCode DVRPsi(DVR self, Vec c, PetscReal x, PetscScalar *y) {
+PetscErrorCode DVRPsiOne(DVR self, Vec cs, PetscReal x, PetscScalar *y) {
 
+  PetscScalar xc;
+  if(x > self->R0) {
+    xc = (x-self->R0)*cexp(I*M_PI*self->theta/180.0) + self->R0;
+  } else {
+    xc = x;
+  }
+
+  int n_ls; DVRGetLSSize(self, &n_ls);
+  PetscScalar *vs;  PetscMalloc1(n_ls, &vs);
+  PetscInt    *idx; PetscMalloc1(n_ls, &idx);
+
+  PetscBool zeroq;
+  int ne; BPSGetNumEle(self->bps, &ne);
+  int nq = self->nq;
+  int i=0;
+  for(int i_ele = 0; i_ele < ne; i_ele++) {
+    for(int iq = 0; iq < nq; iq++) {
+      idx[i] = i;
+      ValueLS(self->bps, self->xs_c, nq, i_ele, iq, x, xc, &vs[i], &zeroq);
+      i++;
+    }
+  }  
+
+  Vec val_ls;
+  DVRCreateR1LSVec(self, &val_ls);
+  VecSetValues(val_ls, n_ls, idx, vs, INSERT_VALUES);
+  VecAssemblyBegin(val_ls);
+  VecAssemblyEnd(val_ls);
+
+  Vec tmp;
+  DVRCreateR1Vec(self, &tmp);
+  MatMult(self->TT, val_ls, tmp);
+  
+  VecTDot(tmp, cs, y);
+  
+  PetscFree(vs);
+  PetscFree(idx);
+  VecDestroy(&tmp);
+  VecDestroy(&val_ls);
+
+  return 0;
+
+}
+PetscErrorCode DVRPsi(DVR self, Vec cs, Vec xs, Vec ys) {
+  PetscErrorCode ierr;
+
+  /* 
+     yj = Sum(i)[ ci phi_i(xj) ] = Sum(i,k)[ ci Tik fk(xj)]
+  */
+
+  int nc; VecGetSize(cs, &nc);
+  int nx; VecGetSize(xs, &nx);
+  int ny; VecGetSize(ys, &ny);  
+  if(nx != ny) {
+    SETERRQ(self->comm, 1, "xs and ys must be same size");
+  }
+  if(self->num_basis != nc) {
+    SETERRQ(self->comm, 1, "size of cs must be same as basis size");
+  }
+
+  int ne; BPSGetNumEle(self->bps, &ne);
+  int nq = self->nq;
+  int nls; DVRGetLSSize(self, &nls);
+
+  Mat fmat; MatCreate(self->comm, &fmat);
+  MatSetSizes(fmat, PETSC_DECIDE, PETSC_DECIDE, nx, nls);
+  MatSetUp(fmat);
+
+  PetscScalar *ptr_x; VecGetArray(xs, &ptr_x);
+
+  for(int ie = 0; ie < ne; ie++) {
+    for(int iq = 0; iq < nq; iq++) {
+      int kls = ie*nq + iq;
+      for(int jx = 0; jx < nx; jx++) {
+	PetscScalar y;
+	PetscBool zeroq;
+	ValueLS(self->bps, self->xs_c, self->nq,
+		ie, iq, creal(ptr_x[jx]), ptr_x[jx], &y, &zeroq);
+	if(!zeroq) {
+	  MatSetValue(fmat, jx, kls, y, INSERT_VALUES);
+	}
+      }
+    }
+  }
+  MatAssemblyBegin(fmat, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(fmat,   MAT_FINAL_ASSEMBLY);
+
+  Vec TT_cs;
+  ierr = MatCreateVecs(self->T, NULL, &TT_cs); CHKERRQ(ierr);
+  ierr = MatMult(self->T, cs, TT_cs); CHKERRQ(ierr);
+  ierr = MatMult(fmat, TT_cs, ys); CHKERRQ(ierr);
+
+  MatDestroy(&fmat);
+  VecDestroy(&TT_cs);
+  VecRestoreArray(xs, &ptr_x);
+
+  return 0;    
+}
+PetscErrorCode DVRDerivPsiOne(DVR self, Vec c, PetscReal x, PetscScalar *y) {
 
   int ne; BPSGetNumEle(self->bps, &ne);
   int nq = self->nq;
@@ -432,7 +529,8 @@ PetscErrorCode DVRPsi(DVR self, Vec c, PetscReal x, PetscScalar *y) {
   for(int i_ele = 0; i_ele < ne; i_ele++) {
     for(int iq = 0; iq < nq; iq++) {
       idx[i] = i;
-      ValueLS(self->xs_c, zs, ne, nq, i_ele, iq, x, xc, &vs[i]);
+      PetscBool is_in_q;
+      ValueDerivLS(self->bps, self->xs_c, nq, i_ele, iq, x, xc, &vs[i], &is_in_q);
       i++;
     }
   }  
@@ -448,65 +546,72 @@ PetscErrorCode DVRPsi(DVR self, Vec c, PetscReal x, PetscScalar *y) {
   MatMult(self->TT, val_ls, tmp);
   
   VecTDot(tmp, c, y);
-  
+
   PetscFree(vs);
   PetscFree(idx);
   PetscFree(zs);
-  VecDestroy(&tmp);
   VecDestroy(&val_ls);
+  VecDestroy(&tmp);
 
   return 0;
 }
-PetscErrorCode DVRDerivPsi(DVR self, Vec c, PetscReal x, PetscScalar *y) {
+PetscErrorCode DVRDerivPsi(DVR self, Vec cs, Vec xs, Vec ys) {
+  PetscErrorCode ierr;
+
+  /* 
+     y'j = Sum(i)[ ci phi_i(xj) ] = Sum(i,k)[ ci Tik f'k(xj)]
+  */
+
+  int nc; VecGetSize(cs, &nc);
+  int nx; VecGetSize(xs, &nx);
+  int ny; VecGetSize(ys, &ny);  
+  if(nx != ny) {
+    SETERRQ(self->comm, 1, "xs and ys must be same size");
+  }
+  if(self->num_basis != nc) {
+    SETERRQ(self->comm, 1, "size of cs must be same as basis size");
+  }
 
   int ne; BPSGetNumEle(self->bps, &ne);
   int nq = self->nq;
-  int nx = nq * ne;
+  int nls; DVRGetLSSize(self, &nls);
 
-  PetscScalar *vs;
-  int *idx;
-  PetscReal *zs; BPSGetZs(self->bps, &zs, NULL);
-  PetscMalloc1(nx, &vs);
-  PetscMalloc1(nx, &idx);
+  Mat fmat; MatCreate(self->comm, &fmat);
+  MatSetSizes(fmat, PETSC_DECIDE, PETSC_DECIDE, nx, nls);
+  MatSetUp(fmat);
 
-  PetscScalar xc;
-  if(x > self->R0) {
-    xc = (x-self->R0)*cexp(I*M_PI*self->theta/180.0) + self->R0;
-  } else {
-    xc = x;
-  }
+  PetscScalar *ptr_x; VecGetArray(xs, &ptr_x);
 
-  int i=0;
-  for(int i_ele = 0; i_ele < ne; i_ele++) {
+  for(int ie = 0; ie < ne; ie++) {
     for(int iq = 0; iq < nq; iq++) {
-      idx[i] = i;
-      ValueDerivLS(self->xs_c, zs, ne, nq, i_ele, iq, x, xc, &vs[i]);
-      i++;
+      int kls = ie*nq + iq;
+      for(int jx = 0; jx < nx; jx++) {
+	PetscScalar y;
+	PetscBool zeroq;
+	ValueDerivLS(self->bps, self->xs_c, self->nq,
+		     ie, iq, creal(ptr_x[jx]), ptr_x[jx], &y, &zeroq);
+	if(!zeroq) {
+	  MatSetValue(fmat, jx, kls, y, INSERT_VALUES);
+	}
+      }
     }
-  }  
+  }
+  MatAssemblyBegin(fmat, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(fmat,   MAT_FINAL_ASSEMBLY);
 
-  Vec val_ls;
-  DVRCreateR1LSVec(self, &val_ls);
-  VecSetValues(val_ls, nx, idx, vs, INSERT_VALUES);
-  VecAssemblyBegin(val_ls);
-  VecAssemblyEnd(val_ls);
+  Vec TT_cs;
+  ierr = MatCreateVecs(self->T, NULL, &TT_cs); CHKERRQ(ierr);
+  ierr = MatMult(self->T, cs, TT_cs); CHKERRQ(ierr);
+  ierr = MatMult(fmat, TT_cs, ys); CHKERRQ(ierr);
 
-  Vec tmp;
-  DVRCreateR1Vec(self, &tmp);
-  MatMult(self->TT, val_ls, tmp);
-  
-  VecTDot(tmp, c, y);
+  MatDestroy(&fmat);
+  VecDestroy(&TT_cs);
+  VecRestoreArray(xs, &ptr_x);
 
-  PetscFree(vs);
-  PetscFree(idx);
-  PetscFree(zs);
-  VecDestroy(&val_ls);
-  VecDestroy(&tmp);
-
-  return 0;
+  return 0;    
 }
 
-// ---- inner ----
+// ---- Inner function ----
 PetscErrorCode DVRPrepareT2(DVR self) {
   PetscErrorCode ierr;
   ierr = MatMatSynthesize(self->T, self->T, 1.0, MAT_INITIAL_MATRIX, &self->T2); 
