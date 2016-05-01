@@ -8,16 +8,31 @@ extern "C" {
   arbitaly complex scaling
 */
 
-typedef PF CScaling;
+struct _p_CScaling {
+  MPI_Comm comm;
+  PF pf;
+  PetscBool use_cscaling;
+  PetscReal R0;
+  PetscReal theta;
+} _p_CScaling;
+typedef struct _p_CScaling* CScaling;
+
+  // ---- Basics ----  
 PetscErrorCode CScalingCreate(MPI_Comm comm, CScaling *p_self);
+PetscErrorCode CScalingDestroy(CScaling *p_self);
+PetscErrorCode CScalingView(CScaling slef, PetscViewer v);
 PetscErrorCode CScalingSetNone(CScaling self);
 PetscErrorCode CScalingSetUniformCS(CScaling self, PetscReal t);
 PetscErrorCode CScalingSetSharpECS(CScaling self, PetscReal r0, PetscReal t);
 PetscErrorCode CScalingSetFromOptions(CScaling self);
 
+  // ---- Calculation ----
 PetscErrorCode CScalingCalc(CScaling self, PetscReal *xs, int n,
 			    PetscScalar *qrs, PetscScalar *Rrs);
-
+PetscErrorCode CScalingCalcOne(CScaling self, PetscReal x,
+			       PetscScalar *qr, PetscScalar *Rr);
+PetscErrorCode CscalingQ(CScaling self, PetscBool *_use_cscaling);
+PetscErrorCode GetRadius(CScaling self, PetscReal *R0);
 
 
 #ifdef __cplusplus

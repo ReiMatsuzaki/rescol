@@ -71,25 +71,78 @@ PetscErrorCode SharpECSDestroy(void *ctx) {
   return 0;
 }
 
+// ---- Basics ----
 PetscErrorCode CScalingCreate(MPI_Comm comm, CScaling *p_self) {
-  PFCreate(comm, 1, 2, p_self);
+  
+  CScaling self;
+  PetscMalloc1(1, &self);
+  self->comm = comm;
+  self->use_cscaling = PETSC_FALSE;
+  PFCreate(comm, 1, 2, &self->pf);
+  self->R0 = 0.0;
+
+  *p_self = self;
+  return 0;
+}
+PetscErrorCode CScalingDestroy(CScaling *p_self) {
+  CScaling self = *p_self;
+  PFDestroy(&self->pf);
+  PetscFree(*p_self);
+  return 0;
+}
+PetscErrorCode CScalingView(CScaling self, PetscViewer v) {
+  
+  PetscErrorCode ierr;
+  PetscBool iascii, isbinary, isdraw;
+  PetscViewerType type;     PetscViewerGetType(v, &type);
+  PetscViewerFormat format; PetscViewerGetFormat(v, &format);
+
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERASCII,&iascii);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERBINARY,&isbinary);
+  CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)v,PETSCVIEWERDRAW,&isdraw);
+  CHKERRQ(ierr);    
+
+  if(iascii) {
+    PetscViewerASCIIPrintf(v, "CScaling object:\n");
+    PetscViewerASCIIPushTab(v);
+    PetscViewerASCIIPrintf(v, "use_cscaling: %s\n",
+			   (self->use_cscaling? "Yes" : "No"));
+    if(self->use_cscaling) {
+      PetscViewerASCIIPrintf(v, "R0:    %f\n", self->R0);
+      PetscViewerASCIIPrintf(v, "theta: %f\n", self->theta);
+      PetscViewerASCIIPrintf(v, "pf:\n");
+      PFView(self->pf, v);
+    }
+    PetscViewerASCIIPopTab(v);
+  }
   return 0;
 }
 PetscErrorCode CScalingSetNone(CScaling self) {
-  PFSet(self, NoneApply, NULL, NoneView, NULL, NULL);
+  PFSet(self->pf, NoneApply, NULL, NoneView, NULL, NULL);
+  self->use_cscaling = PETSC_FALSE;
+  self->R0 = 0.0;
+  self->theta = 0.0;
   return 0;
 }
 PetscErrorCode CScalingSetUniformCS(CScaling self, PetscReal t) {
   UniformCS *ctx; PetscNew(&ctx);
   ctx->theta = t;
-  PFSet(self, UniformCSApply, NULL, UniformCSView, UniformCSDestroy, ctx);
+  PFSet(self->pf, UniformCSApply, NULL, UniformCSView, UniformCSDestroy, ctx);
+  self->use_cscaling = PETSC_TRUE;
+  self->R0 = 0.0;
+  self->theta = t;
   return 0;  
 }
 PetscErrorCode CScalingSetSharpECS(CScaling self, PetscReal r0, PetscReal t) {
   SharpECS *ctx; PetscNew(&ctx);
   ctx->r0 = r0;
   ctx->theta = t;
-  PFSet(self, SharpECSApply, NULL, SharpECSView, SharpECSDestroy, ctx);
+  PFSet(self->pf, SharpECSApply, NULL, SharpECSView, SharpECSDestroy, ctx);
+  self->use_cscaling = PETSC_TRUE;
+  self->R0 = r0;
+  self->theta = t;
   return 0;    
 }
 PetscErrorCode CScalingSetFromOptions(CScaling self) {
@@ -114,12 +167,13 @@ PetscErrorCode CScalingSetFromOptions(CScaling self) {
   return 0;
 }
 
+// ---- Calculation ----
 PetscErrorCode CScalingCalc(CScaling self, PetscReal *xs, int n,
 			    PetscScalar *qrs, PetscScalar *Rrs) {
   for(int i = 0; i < n; i++) {
     PetscScalar x[1] = {xs[i]};
     PetscScalar ys[2];
-    PFApply(self, 1, x, ys);
+    PFApply(self->pf, 1, x, ys);
     if(qrs!=NULL)
       qrs[i] = ys[0];
     if(Rrs!=NULL)
@@ -127,5 +181,25 @@ PetscErrorCode CScalingCalc(CScaling self, PetscReal *xs, int n,
   }
   return 0;
 }
-
+PetscErrorCode CScalingCalcOne(CScaling self, PetscReal x,
+			       PetscScalar *qr, PetscScalar *Rr) {
+  PetscScalar in_x[1] = {x};
+  PetscScalar out_y[2];
+  PFApply(self->pf, 1, in_x, out_y);
+  if(qr != NULL)
+    *qr = out_y[0];
+  if(Rr != NULL)
+    *Rr = out_y[1];
+  return 0;
+}
+PetscErrorCode CscalingQ(CScaling self, PetscBool *_use_cscaling) {
+  *_use_cscaling = self->use_cscaling;
+  return 0;
+}
+PetscErrorCode GetRadius(CScaling self, PetscReal *R0) {
+  if(!self->use_cscaling)
+    SETERRQ(self->comm, 1, "Not Complex scaled.");
+  *R0 = self->R0;
+  return 0;
+}
 

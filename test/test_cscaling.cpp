@@ -12,7 +12,7 @@ TEST(TestScaling, Uniform) {
   CScalingSetUniformCS(cscaling, theta);
 
   if(getenv("SHOW_DEBUG"))
-    PFView(cscaling, PETSC_VIEWER_STDOUT_SELF);
+    CScalingView(cscaling, PETSC_VIEWER_STDOUT_SELF);
 
   PetscReal xs[10];
   PetscScalar Rr[10];
@@ -38,7 +38,7 @@ TEST(TestScaling, Uniform) {
   ASSERT_NEAR(qr[2], cos(-theta), eps);
 #endif
 
-  ierr = PFDestroy(&cscaling); ASSERT_EQ(0, ierr);
+  ierr = CScalingDestroy(&cscaling); ASSERT_EQ(0, ierr);
 }
 TEST(TestScaling, SharpECS) {
   
@@ -49,7 +49,7 @@ TEST(TestScaling, SharpECS) {
   CScalingSetSharpECS(cscaling, r0, theta);
 
   if(getenv("SHOW_DEBUG"))
-    PFView(cscaling, PETSC_VIEWER_STDOUT_SELF);
+    CScalingView(cscaling, PETSC_VIEWER_STDOUT_SELF);
 
   PetscReal xs[10];
   PetscScalar Rr[10];
@@ -81,7 +81,7 @@ TEST(TestScaling, SharpECS) {
   ASSERT_NEAR(qr[6], cos(theta), eps);
 #endif  
 
-  ierr = PFDestroy(&cscaling); ASSERT_EQ(0, ierr);  
+  ierr = CScalingDestroy(&cscaling); ASSERT_EQ(0, ierr);  
 }
 TEST(TestScaling, none) {
   
@@ -89,7 +89,7 @@ TEST(TestScaling, none) {
   CScaling cscaling; CScalingCreate(comm, &cscaling); CScalingSetNone(cscaling);
 
   if(getenv("SHOW_DEBUG"))
-    PFView(cscaling, PETSC_VIEWER_STDOUT_SELF);
+    CScalingView(cscaling, PETSC_VIEWER_STDOUT_SELF);
 
   PetscReal xs[10];
   PetscScalar Rr[10];
@@ -110,7 +110,7 @@ TEST(TestScaling, none) {
   ASSERT_NEAR(PetscRealPart(qr[2]), 1.0, eps);
   ASSERT_NEAR(PetscRealPart(qr[6]), 1.0, eps);
 
-  ierr = PFDestroy(&cscaling); ASSERT_EQ(0, ierr);  
+  ierr = CScalingDestroy(&cscaling); ASSERT_EQ(0, ierr);  
 
 }
 int _main(int argc, char **args) {

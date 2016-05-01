@@ -163,7 +163,7 @@ PetscErrorCode BSSDestroy(BSS *p_self) {
 
   BSS self = *p_self;
   ierr = BPSDestroy(&self->bps); CHKERRQ(ierr);
-  ierr = PFDestroy(&self->c_scaling); CHKERRQ(ierr);
+  ierr = CScalingDestroy(&self->c_scaling); CHKERRQ(ierr);
   ierr = PetscFree(self->b_idx_list); CHKERRQ(ierr);
   ierr = PetscFree(self->ts_s);  CHKERRQ(ierr);
   ierr = PetscFree(self->ts_r);  CHKERRQ(ierr);  
@@ -203,7 +203,7 @@ PetscErrorCode BSSView(BSS self, PetscViewer v) {
     PetscViewerASCIIPrintf(v, "num_ele: %d\n", self->num_ele);
     PetscViewerASCIIPrintf(v, "num_basis: %d\n", self->num_basis);
     BPSView(self->bps, v);  
-    PFView(self->c_scaling, v);
+    CScalingView(self->c_scaling, v);
     if(format == PETSC_VIEWER_ASCII_INFO_DETAIL) {
       PetscViewerASCIIPrintf(v, "b_idx_list: ");
       for(int i = 0; i < self->num_basis; i++)
