@@ -568,7 +568,7 @@ PetscErrorCode PotSetFromStr(Pot self, const char str_in[]) {
     SETERRQ(comm, 1, "Unsupported name");
   }
 }
-PetscErrorCode PotSetFromOptions2(Pot self, const char prefix[]) {
+PetscErrorCode PotSetFromOptions2(Pot self, const char prefix[], PetscBool *_find) {
 
   MPI_Comm comm; PetscObjectGetComm((PetscObject)self, &comm);
   PetscErrorCode ierr;
@@ -578,18 +578,31 @@ PetscErrorCode PotSetFromOptions2(Pot self, const char prefix[]) {
   strcat(option_name, prefix);
   strcat(option_name, "-pot");
 
-  char option_res[100];
+  char option_res[100] = "0";
 
   ierr = PetscOptionsGetString(NULL, option_name, option_res, 100, &find); CHKERRQ(ierr);
 
-  if(!find) {
-    char msg[1000];
-    sprintf(msg, "Not found option. option_name = %s.", option_name);
-    SETERRQ(comm, 1, msg);
+  if(strcmp(option_res, "none") == 0 ||
+     strcmp(option_res, "None") == 0) {
+    find = PETSC_FALSE;
   }
 
-  ierr = PotSetFromStr(self, option_res);
-
+  if(find) {
+    // Find option
+    if(_find != NULL) {
+      *_find = find;
+    }
+    ierr = PotSetFromStr(self, option_res); CHKERRQ(ierr);
+  } else {
+    // Does not find option
+    if(_find == NULL) {
+      char msg[1000];
+      sprintf(msg, "Not found option. option_name = %s.", option_name);
+      SETERRQ(comm, 1, msg);
+    } else {
+      *_find = find;
+    }
+  }
   return 0;
 }
 

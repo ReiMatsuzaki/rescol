@@ -5,7 +5,7 @@ plot_basis.out: plot_basis.o ${OBJ_FEM}
 # ==== Solve Driv Eq ====
 .PHONY: check_driv1d_dvr
 check_driv1d_dvr: driv1d.out
-	@for num in 201 401 601; do \
+	@for num in 101 201; do \
 		echo $$num; \
 		./$< -fem_type dvr -dvr_nq 8 \
 		-bps_num_zs $$num -bps_zmax 100.0 -bps_type line \
@@ -14,8 +14,9 @@ check_driv1d_dvr: driv1d.out
 		-pot_type single \
 		-problem_type driv \
 		-L 1 \
+		-Z 1.0 \
+		-v0-pot "none" \
 		-cscaling_r0 70.0 -cscaling_theta 20.0 \
-		-v0-pot "pow -1.0 -1" \
 		-viewerfunc_view ascii:tmp/driv1d_dvr.dat -viewerfunc_num 100 -viewerfunc_xmax 100.0 | grep c0;\
 	done
 	@echo "ref(a): 5.65688402161, 1.08811622008"
@@ -29,8 +30,8 @@ check_driv1d_dvr_r0: driv1d.out
 		-pot_type single \
 		-problem_type driv \
 		-L 1 \
+		-Z 1.0 \
 		-cscaling_r0 $$R0 -cscaling_theta 20.0 \
-		-v0-pot "pow -1.0 -1" \
 		-viewerfunc_view ascii:tmp/driv1d_dvr.dat -viewerfunc_num 100 -viewerfunc_xmax 100.0 | grep c0;\
 	done
 	@echo "ref(a):    5.65688402161, -1.08811622008"
@@ -43,10 +44,10 @@ check_driv1d_dvr_double: driv1d.out
 	-pot_type double \
 	-problem_type driv \
 	-L 1 \
-	-v0-pot "pow -1.0 -1" \
+	-Z 1.0 \
+	-v0-pot "none" \
 	-v1-pot "sto -1.0 0 1.0" \
-	-cscaling_r0 170.0 -cscaling_theta 20.0 \
-	-viewerfunc_view ascii:tmp/driv1d.dat -viewerfunc_num 100 -viewerfunc_xmax 100.0\
+	-cscaling_r0 170.0 -cscaling_theta 20.0 
 
 # see 2016/4/16
 driv1d.out: driv1d.o ${OBJ_FEM}

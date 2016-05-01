@@ -122,12 +122,16 @@ MPI_Comm comm = MPI_COMM_SELF;
 char pot_type[10] = "single";
 char problem_type[10] = "driv"; 
 int         L;       // must
+PetscReal   Z;       // charge
+PetscBool   use_v0;
 Pot         pot_v0;  // must
+PetscBool   use_v1;
 Pot         pot_v1;  // only when pot_type=double
 Pot         driv;    // must
 
 FEMInf      fem;     // must
 Range energy_range;  // must
+PetscBool   use_func_view; // if true, print out wave function
 ViewerFunc  viewer;  // must
 
 // ---- intermediate ----
@@ -174,19 +178,28 @@ PetscErrorCode Driv1dSetFromOptions() {
   if(L < 0)
     SETERRQ(comm, 1, "L must be zero or positive integer"); 
 
+  // -- set Z --
+  ierr = PetscOptionsGetReal(NULL, "-Z", &Z, &find); CHKERRQ(ierr);
+  if(!find)
+    Z = 0.0;
+
   // -- set potential
   if(strcmp(pot_type, "single") == 0) {
-    ierr = PotSetFromOptions2(pot_v0, "v0");  CHKERRQ(ierr);
+    ierr = PotSetFromOptions2(pot_v0, "v0", &find);  CHKERRQ(ierr);
+    use_v0 = find;
+    use_v1 = PETSC_FALSE;
   } else if(strcmp(pot_type, "double") == 0) {
-    ierr = PotSetFromOptions2(pot_v0, "v0");  CHKERRQ(ierr);
-    ierr = PotSetFromOptions2(pot_v1, "v1"); CHKERRQ(ierr);
+    ierr = PotSetFromOptions2(pot_v0, "v0", &find);  CHKERRQ(ierr);
+    use_v0 = find;
+    ierr = PotSetFromOptions2(pot_v1, "v1", &find); CHKERRQ(ierr);
+    use_v1 = find;
   } else {
     SETERRQ(comm, 1, "option value of -pot_type must be single or double");
   }
 
   // -- set driven term --
   if(strcmp(problem_type, "driv") == 0) {
-    ierr = PotSetFromOptions2(driv,  "driv"); CHKERRQ(ierr);
+    ierr = PotSetFromOptions2(driv,  "driv", NULL); CHKERRQ(ierr);
   }
   else if(strcmp(problem_type, "scatter") == 0) {
     // driven term is determined when energy is determined because
@@ -197,7 +210,7 @@ PetscErrorCode Driv1dSetFromOptions() {
   }
   // -- other --
   ierr = FEMInfSetFromOptions(fem); CHKERRQ(ierr);  
-  ierr = ViewerFuncSetFromOptions(viewer); CHKERRQ(ierr);
+  ierr = ViewerFuncSetFromOptions(viewer, &use_func_view); CHKERRQ(ierr);
   ierr = RangeSetFromOptions(energy_range, "energy"); CHKERRQ(ierr);
 
   PetscOptionsEnd();
@@ -218,18 +231,22 @@ PetscErrorCode PrintIn() {
 
   PetscErrorCode ierr;
 
+  // -- compile time --
+  printf("Compile date: %s  %s\n", __DATE__, __TIME__);
+
   // -- print input information --
   printf("pot_type: %s\n", pot_type);
   printf("problem_type: %s\n", problem_type);
   printf("L: %d\n", L);
+  printf("Z: %f\n", Z);
   printf("Energy range:\n");
   RangeView(energy_range, PETSC_VIEWER_STDOUT_SELF);
   FEMInfView(fem, PETSC_VIEWER_STDOUT_SELF);
-  if(strcmp(pot_type, "single") == 0) {
-    ierr = PFView(pot_v0, PETSC_VIEWER_STDOUT_SELF); CHKERRQ(ierr);
-  } else {
+  if(use_v0) {
     printf("V0 potential:\n");
     ierr = PFView(pot_v0,  PETSC_VIEWER_STDOUT_SELF); CHKERRQ(ierr);
+  }
+  if(use_v1) {
     printf("V1 potential:\n");
     ierr = PFView(pot_v1, PETSC_VIEWER_STDOUT_SELF); CHKERRQ(ierr);
   }
@@ -260,10 +277,17 @@ PetscErrorCode Driv1dCalc1(PetscReal energy) {
     ierr = MatAXPY(L0, -1.0, LLMat, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
     ierr = MatDestroy(&LLMat); CHKERRQ(ierr);
   }
-  
-  ierr = FEMInfPotR1Mat(fem, pot_v0, VL); CHKERRQ(ierr);
-  ierr = MatAXPY(L0, -1.0, VL, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
 
+  Pot PotVc; PotCreate(comm, &PotVc); PotSetPower(PotVc, -Z, -1.0);
+  Mat Vc;    FEMInfCreateMat(fem, 1, &Vc); FEMInfPotR1Mat(fem, PotVc, Vc);
+  ierr = MatAXPY(L0, -1.0, Vc, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
+  ierr = MatDestroy(&Vc); CHKERRQ(ierr);
+  ierr = PFDestroy(&PotVc); CHKERRQ(ierr);
+
+  if(use_v0) {
+    ierr = FEMInfPotR1Mat(fem, pot_v0, VL); CHKERRQ(ierr);
+    ierr = MatAXPY(L0, -1.0, VL, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
+  }
   ierr = FEMInfSR1Mat(fem, S);        CHKERRQ(ierr);
   ierr = MatAXPY(L0, +energy,
 		 S, DIFFERENT_NONZERO_PATTERN);  CHKERRQ(ierr);
@@ -402,7 +426,7 @@ PetscErrorCode Driv1dCalc2_double_driv(PetscReal energy) {
   ierr = VecDot(c0, m, &plmx_psi0p); CHKERRQ(ierr);
 
   PetscScalar psi0p_s = conj(plmx_psi0p);
-  printf("alpha0 : %f %f\n", creal(plmx_psi0p), cimag(plmx_psi0p));
+  printf("alpha0 : %15.10f %15.10f\n", creal(plmx_psi0p), cimag(plmx_psi0p));
   
   Vec v_c1; VecDuplicate(c1, &v_c1);
   ierr = MatMult(VS, c1, v_c1); CHKERRQ(ierr);
@@ -416,11 +440,11 @@ PetscErrorCode Driv1dCalc2_double_driv(PetscReal energy) {
   
   PetscScalar impsi0p_v_psip = (psi0p_v_psip - psi0m_v_psip)/(2.0*I);
   PetscScalar amp = (cimag(psi0p_s) + impsi0p_v_psip) / j_plmx;
-  printf("amplitude : %f, %f\n", creal(amp), cimag(amp));
-  printf("phase : %f\n", carg(amp));
-  printf("asb_amp : %f\n", cabs(amp));
-  printf("abs_amp2_direct : %f\n", cabs(amp)*cabs(amp));
-  printf("asb_amp_2_alpha : %f\n", -1.0/k * cimag(alpha));
+  printf("amplitude : %15.10f, %15.10f\n", creal(amp), cimag(amp));
+  printf("phase : %15.10f\n", carg(amp));
+  printf("abs_amp : %15.10f\n", cabs(amp));
+  printf("abs_amp2_direct : %15.10f\n", cabs(amp)*cabs(amp));
+  printf("asb_amp_2_alpha : %15.10f\n", -1.0/k * cimag(alpha));
   return 0;
 }
 PetscErrorCode Driv1dCalc2(PetscReal energy) {
@@ -460,11 +484,13 @@ PetscErrorCode Driv1dCalc2(PetscReal energy) {
 }
 PetscErrorCode Driv1dWriteWaveFunc() {
   PetscErrorCode ierr;
-  PrintTimeStamp(comm, "Writing", NULL);
-  if(strcmp(pot_type, "single")==0) {
-    ierr = FEMInfViewFunc(fem, c0, viewer); CHKERRQ(ierr);
-  } else {
-    ierr = FEMInfViewFunc(fem, c1, viewer); CHKERRQ(ierr);
+  if(use_func_view) {
+    PrintTimeStamp(comm, "Writing", NULL);
+    if(strcmp(pot_type, "single")==0) {
+      ierr = FEMInfViewFunc(fem, c0, viewer); CHKERRQ(ierr);
+    } else {
+      ierr = FEMInfViewFunc(fem, c1, viewer); CHKERRQ(ierr);
+    }
   }
   return 0;
 

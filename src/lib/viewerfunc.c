@@ -80,7 +80,7 @@ PetscErrorCode ViewerFuncSetRange(ViewerFunc self, int num, PetscReal xmax) {
   return 0;
 
 }
-PetscErrorCode ViewerFuncSetFromOptions(ViewerFunc self) {
+PetscErrorCode ViewerFuncSetFromOptions(ViewerFunc self, PetscBool *_find) {
 
   PetscErrorCode ierr;
   PetscBool find, find_xmax, find_num;
@@ -89,22 +89,30 @@ PetscErrorCode ViewerFuncSetFromOptions(ViewerFunc self) {
 
   ierr = PetscOptionsGetViewer(self->comm, NULL, "-viewerfunc_view", 
 			       &viewer, &format, &find); CHKERRQ(ierr);
-  if(find) {
-    ierr = ViewerFuncSetBase(self, viewer); CHKERRQ(ierr);
+
+  if(_find != NULL) {
+    *_find = find;
+  }
+  if(_find == NULL && !find) {
+    SETERRQ(self->comm, 1, "Failed find viewerfunc");
   }
 
-  PetscInt num;
-  ierr = PetscOptionsGetInt(NULL, "-viewerfunc_num",
-			    &num, &find_num); CHKERRQ(ierr);
+  if(find) {
+    ierr = ViewerFuncSetBase(self, viewer); CHKERRQ(ierr);
 
-  PetscReal xmax;
-  ierr = PetscOptionsGetReal(NULL, "-viewerfunc_xmax",
-			     &xmax, &find_xmax); CHKERRQ(ierr);  
+    PetscInt num;
+    ierr = PetscOptionsGetInt(NULL, "-viewerfunc_num",
+			      &num, &find_num); CHKERRQ(ierr);
 
-  if(find_xmax && find_num) {
-    ierr = ViewerFuncSetRange(self ,num, xmax); CHKERRQ(ierr);
-  } else {
-    SETERRQ(self->comm, 1, "-viewerfunc_num and -viewerfunc_xmax is necessary");
+    PetscReal xmax;
+    ierr = PetscOptionsGetReal(NULL, "-viewerfunc_xmax",
+			       &xmax, &find_xmax); CHKERRQ(ierr);  
+
+    if(find_xmax && find_num) {
+      ierr = ViewerFuncSetRange(self ,num, xmax); CHKERRQ(ierr);
+    } else {
+      SETERRQ(self->comm, 1, "-viewerfunc_num and -viewerfunc_xmax is necessary");
+    }
   }
 
   return 0;

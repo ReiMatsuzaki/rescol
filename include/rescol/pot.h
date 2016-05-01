@@ -10,7 +10,7 @@ int str_nele(const char *str, char key);
 PetscErrorCode PotCreate(MPI_Comm comm, Pot *p_self);
 PetscErrorCode PotSetFromOptions(Pot self);
 PetscErrorCode PotSetFromStr(Pot self, const char str[]);
-PetscErrorCode PotSetFromOptions2(Pot self, const char prefix[]);
+PetscErrorCode PotSetFromOptions2(Pot self, const char prefix[], PetscBool *find);
 PetscErrorCode PotSetHarm(Pot self, PetscScalar a);
 PetscErrorCode PotSetPower(Pot self, PetscScalar a, PetscInt n);
 PetscErrorCode PotSetCoulombNE(Pot self, int q, PetscScalar a, PetscScalar zz);

@@ -227,7 +227,7 @@ PetscErrorCode DVRView(DVR self, PetscViewer v) {
   CHKERRQ(ierr);    
 
   if(iascii) {
-    PetscViewerASCIIPrintf(v, "BSS object:\n");
+    PetscViewerASCIIPrintf(v, "DVR object:\n");
     PetscViewerASCIIPushTab(v);
     PetscViewerASCIIPrintf(v, "nq: %d\n", self->nq);
     if(self->use_cscaling) {
