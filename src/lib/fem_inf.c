@@ -87,7 +87,7 @@ PetscErrorCode FEMInfSetDVR(FEMInf self, DVR target) {
     DVR_Sc.ENR1Mat = DVRENR1Mat;
     DVR_Sc.PotR1Mat = DVRPotR1Mat;
     DVR_Sc.PotR1Vec = DVRPotR1Vec;
-    DVR_Sc.EER2Mat = NULL;
+    DVR_Sc.EER2Mat = DVREER2Mat;
     DVR_Sc.overlap_is_id = PETSC_TRUE;
     init = 1;
   }
@@ -235,7 +235,6 @@ PetscErrorCode FEMInfSetFromOptions(FEMInf self) {
   } else if(strcmp(type, "") == 0){
     SETERRQ(self->comm, 1, 
 	    "value of option -fem_type is empty. chose {fd, bss, dvr}.");
-
   } else {
     SETERRQ(self->comm, 1, "-fem_type <- {fd, bss, dvr}");
   }

@@ -518,6 +518,8 @@ int main(int argc, char **args) {
   ierr = PrintIn(); CHKERRQ(ierr);
   for(int i = 0; i < energy_range->num; i++) {
     PetscReal energy = RangeGetVal(energy_range, i);
+    printf("\n");
+    printf("==== Calculation start ====\n");
     printf("energy : %f\n", energy);
     ierr = Driv1dCalc1(energy); CHKERRQ(ierr);
     ierr = Driv1dCalc2(energy); CHKERRQ(ierr);

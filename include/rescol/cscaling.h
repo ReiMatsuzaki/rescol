@@ -31,8 +31,9 @@ PetscErrorCode CScalingCalc(CScaling self, PetscReal *xs, int n,
 			    PetscScalar *qrs, PetscScalar *Rrs);
 PetscErrorCode CScalingCalcOne(CScaling self, PetscReal x,
 			       PetscScalar *qr, PetscScalar *Rr);
-PetscErrorCode CscalingQ(CScaling self, PetscBool *_use_cscaling);
-PetscErrorCode GetRadius(CScaling self, PetscReal *R0);
+PetscErrorCode CScalingQ(CScaling self, PetscBool *_use_cscaling);
+PetscErrorCode CScalingGetRadius(CScaling self, PetscReal *R0);
+PetscErrorCode CScalingGetTheta(CScaling self, PetscReal *theta);
 
 
 #ifdef __cplusplus

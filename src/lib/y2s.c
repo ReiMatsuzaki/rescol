@@ -105,6 +105,28 @@ PetscErrorCode Y2sView(Y2s self, PetscViewer v) {
   return 0;
 }
 
+PetscErrorCode Y2sSetLM(Y2s self, int L, int M, int lmax) {
+
+  if(M < 0)
+    SETERRQ(self->comm, 1, "M must be 0 or positive");
+  if(L < 0)
+    SETERRQ(self->comm, 1, "L must be 0 or positive");
+
+  int idx = 0;
+  PetscMalloc1((lmax+1)*(lmax+1), &self->y2_list);
+  for(int L1 = 0; L1 <= lmax; L1++) {
+    for(int L2 = 0; L2 <= lmax; L2++) {
+      if( (L1+L2 <= lmax) &&
+	  TriangleQ(L, L2, L1)) {
+	Y2 y2 = {L1, L2, L, M};
+	self->y2_list[idx] = y2;
+	idx++;
+      }
+    }
+  }
+  self->num = idx;
+  return 0;  
+}
 PetscErrorCode Y2sSet(Y2s self, int m, int g_or_u, int p_or_m, int lmax) {
 
   if(m < 0)

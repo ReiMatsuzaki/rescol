@@ -9,15 +9,16 @@ extern "C" {
 #include "mat.h"
 #include "bps.h"
 #include "pot.h"
-  //#include "cscaling.h"
+#include "cscaling.h"
 
 struct _p_DVR {
   MPI_Comm comm;
   int nq; // # of audrature in each element
   BPS bps; // breakpoints
-  PetscBool use_cscaling; // if true, use complex scaling 
-  double R0;         // used in complex scaling
-  double theta;      // used in scaling angle
+  CScaling cscaling;
+  //PetscBool use_cscaling; // if true, use complex scaling 
+  //double R0;         // used in complex scaling
+  //double theta;      // used in scaling angle
   //  CScaling c_scaling; // object for complex scaling
 
   PetscInt num_basis;
@@ -27,6 +28,7 @@ struct _p_DVR {
   PetscScalar *ws_c; // used in complex scaling
   PetscScalar *xs_basis_c;  // used in complex scaling
   PetscScalar *ws_basis_c; // weight 
+  PetscScalar *vs_basis;   // function value on own grid point
   
   Mat D2_R1LSMat;  // matrix of d^2/dx^2 for LS basis
   Mat R2_R1LSMat;  // matrix of r^{-2} for LS basis
@@ -59,7 +61,7 @@ PetscErrorCode DVRView(DVR self, PetscViewer v);
 
 // ---- Accessor ----
 PetscErrorCode DVRSetKnots(DVR self, int nq, BPS bps);
-PetscErrorCode DVRSetCScaling(DVR self, double R0, double theta);
+PetscErrorCode DVRSetCScaling(DVR self, CScaling cscaling);
 PetscErrorCode DVRSetUp(DVR self);
 PetscErrorCode DVRSetFromOptions(DVR self);
 
@@ -77,6 +79,7 @@ PetscErrorCode DVRDerivPsi(DVR self, Vec c, Vec x, Vec y);
 // ------- R1Mat/R2Mat ----------
 PetscErrorCode DVRCreateR1Vec(DVR self, Vec *m);
 PetscErrorCode DVRCreateR1Mat(DVR self, Mat *M);
+PetscErrorCode DVRCreateR2Mat(DVR self, Mat *M);
 
 PetscErrorCode DVRPotR1Vec(DVR self, Pot pot, Vec v);
 PetscErrorCode DVRSR1Mat(DVR self, Mat M);

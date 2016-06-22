@@ -251,6 +251,24 @@ int testENR1Mat() {
 
   return 0;
 }
+int testEE() {
+
+  PrintTimeStamp(PETSC_COMM_SELF, "testEE", NULL); 
+
+  MPI_Comm comm = PETSC_COMM_SELF;
+  int nq = 3;
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 5);
+  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, nq, bps); DVRSetUp(dvr);
+
+  Mat EE;
+  DVRCreateR2Mat(dvr, &EE); 
+  DVREER2Mat(dvr, 0, EE);
+
+  DVRDestroy(&dvr);
+  MatDestroy(&EE);
+  return 0;
+
+}
 int testLSMat_to_Mat() {
   PetscErrorCode ierr;
 
@@ -447,7 +465,10 @@ int testECSMatrix() {
   DVR dvr;
   DVRCreate(comm, &dvr);
   DVRSetKnots(dvr, nq, bps);
-  DVRSetCScaling(dvr, 5.0, 20.0);
+  CScaling cscaling;
+  CScalingCreate(comm, &cscaling);
+  CScalingSetSharpECS(cscaling, 5.0, 20.0);
+  DVRSetCScaling(dvr, cscaling);
   
   DVRSetUp(dvr);
 
@@ -466,6 +487,7 @@ int testECSMatrix() {
   Mat V0;
   DVRCreateR1Mat(dvr, &V0);
   DVRENR1Mat(dvr, 2, 0.0, V0);
+  
 
   Mat SS;
   DVRLSMatToMat(dvr, S, MAT_INITIAL_MATRIX, &SS);  
@@ -519,10 +541,14 @@ int testECSTMat() {
   ierr = BPSCreate(comm, &bps); CHKERRQ(ierr);
   ierr = BPSSetLine(bps, 10.0, 11); CHKERRQ(ierr);
 
+  CScaling cscaling;
+  CScalingCreate(comm, &cscaling);
+  CScalingSetSharpECS(cscaling, 0.0, 20.0*M_PI/180.0);
+
   DVR dvr_c;
   ierr = DVRCreate(comm, &dvr_c); CHKERRQ(ierr);
   ierr = DVRSetKnots(dvr_c, nq, bps); CHKERRQ(ierr);
-  ierr = DVRSetCScaling(dvr_c, 0.0, 20.0); CHKERRQ(ierr);
+  ierr = DVRSetCScaling(dvr_c, cscaling); CHKERRQ(ierr);
   ierr = DVRSetUp(dvr_c); CHKERRQ(ierr);
 
   BPS bps2;
@@ -574,10 +600,13 @@ int testECSVector() {
   BPS bps;
   BPSCreate(comm, &bps);
   BPSSetLine(bps, 2.0, 3);
+  CScaling cscaling;
+  CScalingCreate(comm, &cscaling);
+  CScalingSetSharpECS(cscaling, 5.0, 20.0);
   DVR dvr;
   DVRCreate(comm, &dvr);
   DVRSetKnots(dvr, nq, bps);
-  DVRSetCScaling(dvr, 1.0, 20.0);
+  DVRSetCScaling(dvr, cscaling);
   
   DVRSetUp(dvr);
   //  printf("basis size: %d\n", dvr->num_basis);
@@ -659,7 +688,7 @@ int main(int argc, char **args) {
   PrintTimeStamp(PETSC_COMM_SELF, "test_valueLS", NULL);
   testLS();
 
-  PrintTimeStamp(PETSC_COMM_SELF, "testPsi", NULL);
+  PrintTimeStamp(PETSC_COMM_SELF, "testPsi", NULL); 
   testPsi();
 
   PrintTimeStamp(PETSC_COMM_SELF, "testXS", NULL);
@@ -671,6 +700,7 @@ int main(int argc, char **args) {
   PrintTimeStamp(PETSC_COMM_SELF, "testENR1LSMat", NULL);
   testENR1LSMat();
   testENR1Mat();
+  testEE();
   
   // testLSMat_to_Mat();
   PrintTimeStamp(PETSC_COMM_SELF, "testHAtom", NULL);

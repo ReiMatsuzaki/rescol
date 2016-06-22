@@ -84,14 +84,14 @@ PetscErrorCode OCE1ViewFunc(OCE1 self, Vec c, ViewerFunc v) {
   int num_r, num_y;
   OCE1GetSizes(self, &num_r, &num_y);
 
-
   Vec *cs; ierr = VecGetSplit(c, num_y, &cs); CHKERRQ(ierr);
+
   for(int i = 0; i < num_xs; i++) {
     PetscReal x = xs[i];
     PetscViewerASCIIPrintf(v->base, "%f ", xs[i]);
     for(int j = 0; j< num_y; j++ ) {
       PetscScalar y;
-      FEMInfPsi(self->fem, cs[j], x, &y);
+      FEMInfPsiOne(self->fem, cs[j], x, &y);
 #if defined(PETSC_USE_COMPLEX)
       PetscReal re = PetscRealPart(y);
       PetscReal im = PetscImaginaryPart(y);

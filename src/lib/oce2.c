@@ -278,7 +278,7 @@ PetscErrorCode OCE2CreateH2mole(OCE2 self, PetscReal a, PetscReal z, OceH2mole *
   FEMInfCreateMat(self->fem, 1, &ctx->s_r1);
   FEMInfCreateMat(self->fem, 1, &ctx->d2_r1);
   FEMInfCreateMat(self->fem, 1, &ctx->r2inv_r1);
-  Y2sCreateY2Mat(self->y2s, &ctx->s_y1);
+  Y2sCreateY2Mat(self->y2s, &ctx->s_y2);
   Y2sCreateY2Mat(self->y2s, &ctx->lambda_y);
 
   if(self->s_r1 == NULL) 
@@ -289,10 +289,10 @@ PetscErrorCode OCE2CreateH2mole(OCE2 self, PetscReal a, PetscReal z, OceH2mole *
   MatCopy(self->s_r1, ctx->s_r1, DIFFERENT_NONZERO_PATTERN);
   FEMInfD2R1Mat(self->fem, ctx->d2_r1);
   FEMInfR2invR1Mat(self->fem, ctx->r2inv_r1);  
-  MatCopy(self->s_y2, ctx->s_y, DIFFERENT_NONZERO_PATTERN);
+  MatCopy(self->s_y2, ctx->s_y2, DIFFERENT_NONZERO_PATTERN);
   Y2sLambda2Y2Mat(self->y2s, ctx->lambda_y, NULL);  
 
-  int lmax; Y2sGetLMax(self->y2s, &lmax);
+  int lmax; Y2sGetMaxL(self->y2s, &lmax);
   int qmax = 2*lmax + 1;
   PetscMalloc1(qmax, &ctx->ne_r1);
   PetscMalloc1(qmax, &ctx->ee_r2);

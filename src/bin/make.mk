@@ -2,6 +2,13 @@
 plot_basis.out: plot_basis.o ${OBJ_FEM}
 
 
+
+# ==== He photoionization cross sections by STEX approximation ====
+he_pi_stex.out: he_pi_stex.o ${OBJ_FEM} oce1.o y1s.o angmoment.o eeps.o
+.PHONY: check_he_pi_stex
+check_he_pi_stex: he_pi_stex.out
+	./$< -fem_type dvr -dvr_nq 8 -bps_num_zs 101 -bps_zmax 100.0 -bps_type line -c0 1,2 -z0 1.1,2.1 -ip -0.5
+
 # ==== Solve Driv Eq ====
 .PHONY: check_driv1d_dvr
 check_driv1d_dvr: driv1d.out
@@ -47,7 +54,7 @@ check_driv1d_dvr_double: driv1d.out
 	-Z 1.0 \
 	-v0-pot "none" \
 	-v1-pot "sto -1.0 0 1.0" \
-	-cscaling_r0 170.0 -cscaling_theta 20.0 
+	-cscaling_type sharp_ecs -cscaling_r0 170.0 -cscaling_theta 20.0 
 
 # see 2016/4/16
 driv1d.out: driv1d.o ${OBJ_FEM}

@@ -247,9 +247,11 @@ int testH_PI_DVR() {
   PrintTimeStamp(comm, "H_PI_DVR", NULL);
 
   BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 201);
+  CScaling cscaling; CScalingCreate(comm, &cscaling); 
+  CScalingSetSharpECS(cscaling, 70.0, 20.0*M_PI/180.0);
   DVR dvr; DVRCreate(comm, &dvr);
   DVRSetKnots(dvr, 5, bps); 
-  DVRSetCScaling(dvr,70.0, 20.0);
+  DVRSetCScaling(dvr, cscaling);
   DVRSetUp(dvr);
   FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
 
@@ -336,10 +338,13 @@ int testH_DVR() {
   BPS bps;
   ierr = BPSCreate(comm, &bps); CHKERRQ(ierr);
   ierr = BPSSetExp(bps, 20.0, 41, 5.0);CHKERRQ(ierr);
+  CScaling cscaling;
+  CScalingCreate(comm, &cscaling);
+  CScalingSetSharpECS(cscaling, 15.0, 20.0*M_PI/180.0);
   DVR dvr;
   ierr = DVRCreate(comm, &dvr);CHKERRQ(ierr);
   ierr = DVRSetKnots(dvr, 8, bps);CHKERRQ(ierr);
-  ierr = DVRSetCScaling(dvr, 15.0, 20.0);CHKERRQ(ierr);
+  ierr = DVRSetCScaling(dvr, cscaling);CHKERRQ(ierr);
   ierr = DVRSetUp(dvr); CHKERRQ(ierr);
   FEMInf fem;
   ierr = FEMInfCreate(comm, &fem);CHKERRQ(ierr);

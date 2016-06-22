@@ -4,6 +4,47 @@
 
 static char help[] = "Unit test for oce2.c";
 
+TEST(TestOCE2_DVR, He) {
+
+  PetscErrorCode ierr;
+  MPI_Comm comm = MPI_COMM_SELF;
+
+  // -- Set calculation objects --
+  BPS bps; BPSCreate(comm, &bps); BPSSetExp(bps, 20.0, 21, 5.0);
+  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, 5, bps); DVRSetUp(dvr);
+  FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
+  Y2s y2s; Y2sCreate(comm, &y2s); Y2sSetLM(y2s, 0, 0, 0);
+  OCE2 oce2; OCE2Create(comm, &oce2); OCE2Set(oce2, fem, y2s);
+
+  // -- compute Matrix --
+  Mat H;
+  ierr = OCE2TMat(oce2, MAT_INITIAL_MATRIX, &H); ASSERT_EQ(0, ierr);
+  ierr = OCE2PlusVneMat(oce2, 0.0, 1.0, H); ASSERT_EQ(0, ierr);
+  ierr = OCE2PlusVeeMat(oce2, H); ASSERT_EQ(0, ierr);
+
+  // -- Solve eigenvalue problem --
+  EPS eps;
+  EPSCreate(comm, &eps);
+  EPSSetProblemType(eps, EPS_HEP);
+  EPSSetWhichEigenpairs(eps, EPS_TARGET_MAGNITUDE);
+  EPSSetType(eps, EPSJD);
+  EPSSetTarget(eps, -4.2);
+  EPSSetOperators(eps, H, NULL);
+  EPSSetFromOptions(eps);
+  EPSSolve(eps);
+
+  PetscInt n; EPSGetConverged(eps, &n);
+  ASSERT_TRUE(n > 0);
+  
+  PetscScalar kr; EPSGetEigenpair(eps, 0, &kr, NULL, NULL, NULL);
+  EXPECT_NEAR(PetscRealPart(kr), -2.858256, 0.00001);
+
+  // -- Finalize --
+  OCE2Destroy(&oce2);
+  MatDestroy(&H);
+  EPSDestroy(&eps);
+  
+}
 class TestOCE2 : public ::testing::Test {
 public:
   OCE2 oce2;
@@ -31,7 +72,6 @@ TEST_F(TestOCE2, He) {
   if(getenv("SHOW_DEBUG")) {
     ierr = OCE2View(oce2, PETSC_VIEWER_STDOUT_SELF); ASSERT_EQ(0, ierr);
   }
-  
 
   Mat H; 
   ierr = OCE2TMat(oce2, MAT_INITIAL_MATRIX, &H); ASSERT_EQ(0, ierr);
@@ -65,7 +105,6 @@ TEST_F(TestOCE2, He) {
   MatDestroy(&S);
   EPSDestroy(&eps);
 }
-
 /*
 TEST(TestOCE2Dvr, Dvr) {
   

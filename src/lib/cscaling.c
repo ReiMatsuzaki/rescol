@@ -147,14 +147,14 @@ PetscErrorCode CScalingSetSharpECS(CScaling self, PetscReal r0, PetscReal t) {
 }
 PetscErrorCode CScalingSetFromOptions(CScaling self) {
 
-  MPI_Comm comm; PetscObjectGetComm((PetscObject)self, &comm);
+  PetscErrorCode ierr;
   char type[10] = "none";
   PetscReal r0 = 0.0;
   PetscReal theta = 0.0;
 
-  PetscOptionsGetString(NULL, "-cscaling_type", type, 10, NULL);
-  PetscOptionsGetReal(NULL, "-cscaling_r0", &r0, NULL);
-  PetscOptionsGetReal(NULL, "-cscaling_theta", &theta, NULL); 
+  ierr = PetscOptionsGetString(NULL, "-cscaling_type", type, 10, NULL); CHKERRQ(ierr);
+  ierr = PetscOptionsGetReal(NULL, "-cscaling_r0", &r0, NULL); CHKERRQ(ierr);
+  ierr = PetscOptionsGetReal(NULL, "-cscaling_theta", &theta, NULL);  CHKERRQ(ierr);
 
   if(strcmp(type, "none") == 0) {
     CScalingSetNone(self);
@@ -163,7 +163,7 @@ PetscErrorCode CScalingSetFromOptions(CScaling self) {
   } else if(strcmp(type, "sharp_ecs") == 0) {
     CScalingSetSharpECS(self, r0, theta*M_PI/180.0);
   } else
-    SETERRQ(comm, 1, "cscaling_type<-{none, uniform_cs, sharp_ecs}");
+    SETERRQ(self->comm, 1, "cscaling_type<-{none, uniform_cs, sharp_ecs}");
   return 0;
 }
 
@@ -192,14 +192,15 @@ PetscErrorCode CScalingCalcOne(CScaling self, PetscReal x,
     *Rr = out_y[1];
   return 0;
 }
-PetscErrorCode CscalingQ(CScaling self, PetscBool *_use_cscaling) {
+PetscErrorCode CScalingQ(CScaling self, PetscBool *_use_cscaling) {
   *_use_cscaling = self->use_cscaling;
   return 0;
 }
-PetscErrorCode GetRadius(CScaling self, PetscReal *R0) {
-  if(!self->use_cscaling)
-    SETERRQ(self->comm, 1, "Not Complex scaled.");
+PetscErrorCode CScalingGetRadius(CScaling self, PetscReal *R0) {
   *R0 = self->R0;
   return 0;
 }
-
+PetscErrorCode CScalingGetTheta(CScaling self, PetscReal *theta) {
+  *theta = self->theta;
+  return 0;
+}

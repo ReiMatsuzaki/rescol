@@ -121,12 +121,13 @@ int main(int argc, char **args) {
   PetscViewer viewer = PETSC_VIEWER_STDOUT_SELF;
   PetscViewerFormat format;
   ViewerFunc viewer_func; ViewerFuncCreate(comm, &viewer_func);
+  PetscBool find_viewer_func;
 
   ierr = PetscOptionsBegin(comm, "", "eig_one.c options", "none");
   ierr = OCE1SetFromOptions(oce); CHKERRQ(ierr);
   ierr = PotSetFromOptions(pot);  CHKERRQ(ierr);  
   ierr = EEPSSetFromOptions(eeps); CHKERRQ(ierr);
-  ierr = ViewerFuncSetFromOptions(viewer_func); CHKERRQ(ierr);
+  ierr = ViewerFuncSetFromOptions(viewer_func, &find_viewer_func); CHKERRQ(ierr);
   ierr = PetscOptionsGetViewer(comm, NULL, "-viewer", &viewer, &format, NULL);
   CHKERRQ(ierr);
   PetscOptionsEnd();

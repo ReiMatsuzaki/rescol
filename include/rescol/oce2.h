@@ -28,16 +28,17 @@ struct _p_OCE2 {
 };
 typedef struct _p_OCE2* OCE2;
 
+  // ==== Basics ====  
 PetscErrorCode OCE2Create(MPI_Comm comm, OCE2 *p_self);
 PetscErrorCode OCE2Destroy(OCE2 *p_self);
-
 PetscErrorCode OCE2View(OCE2 self, PetscViewer v);
-
 PetscErrorCode OCE2Set(OCE2 self, FEMInf fem, Y2s y2s);
 PetscErrorCode OCE2SetFromOptions(OCE2 self);
 
+  // ==== Accessor ====
 PetscErrorCode OCE2GetSizes(OCE2 self, int *n_r1, int *n_y2);
 
+  // ==== Matrix ====
 PetscErrorCode OCE2CreateMat(OCE2 self, Mat *M);
 PetscErrorCode OCE2SMat(OCE2 self, MatReuse scall, Mat *M, PetscBool *is_id);
 PetscErrorCode OCE2TMat(OCE2 self, MatReuse scall, Mat *M);
@@ -56,7 +57,7 @@ struct _p_OceH2mole {
   Mat d2_r1;
   Mat r2inv_r1;
 
-  Mat s_y;
+  Mat s_y2;
   Mat lambda_y;
 
   int nq;
