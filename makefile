@@ -4,10 +4,12 @@ include ${SLEPC_DIR}/lib/slepc/conf/slepc_common
 OBJDIR=$(realpath obj)
 BINDIR=$(realpath bin)
 
-VPATH=lib:test
+VPATH=src:lib:test
 
-OBJS=$(SRCS_C:.c=.o) $(SRCS_CPP:.cpp=.o)
-DEPS=$(SRCS_C:.c=.d) $(SRCS_CPP:.cpp=.d)
+SRCS_c:=$(wildcard src/*.c) $(wildcard lib/*.c) $(wildcard test/*.cpp) \
+SRCS_cpp:=$(wildcard test/*.cpp) \
+DEPS:=$(SRCS_cpp:%.cpp=${DIR}/%.d) $(SRCS_c:%.c=${DIR}/%.d)
+-include ${DEPS}
 
 # -- google test --
 # read README in googletest
@@ -16,29 +18,28 @@ CPPFLAGS += -isystem ${GTEST_DIR}/include
 CXXFLAGS += -pthread
 GTEST_HEADERS = $(GTEST_DIR)/include/gtest/*.h \
                 $(GTEST_DIR)/include/gtest/internal/*.h
-
 GTEST_SRCS_ = $(GTEST_DIR)/src/*.cc $(GTEST_DIR)/src/*.h $(GTEST_HEADERS)
-gtest-all.o : $(GTEST_SRCS_)
+
+$(OBJDIR)/gtest-all.o : $(GTEST_SRCS_)
 	$(CXX) $(CPPFLAGS) -I$(GTEST_DIR) $(CXXFLAGS) -c \
-            $(GTEST_DIR)/src/gtest-all.cc -o $(OBJDIR)/$@
-gtest.a : gtest-all.o
-	$(AR) $(ARFLAGS) $(OBJDIR)/$@ $(OBJDIR)/$^
+            $(GTEST_DIR)/src/gtest-all.cc -o $@
+$(OBJDIR)/gtest.a : $(OBJDIR)/gtest-all.o
+	$(AR) $(ARFLAGS) $@ $^
 
-.SUFFIXES:
-.SUFFIXES: .o .c .cpp
-
-%.o : %.cpp
+$(OBJDIR)/%.o : %.cpp
 	@[ -d $(OBJDIR) ] || mkdir -p $(OBJDIR)
-	$(CXX) $(CXXFLAGS) -c $< -o $(OBJDIR)/$@
-%.o : %.c
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -MMD -c $< -o $@
+$(OBJDIR)/%.o : %.c
 	@[ -d $(OBJDIR) ] || mkdir -p $(OBJDIR)
-	$(CC) $(CFLAGS) -c $< -o $(OBJDIR)/$@
+	$(CC) $(CFLAGS) -MMD -c $< -o $@
 
-test_bps.out : test_bps.o gtest.a bps.o
-	cd $(OBJDIR); ${CXX} -o $(BINDIR)/$@ $^  ${SLEPC_EPS_LIB}
+OBJS = test_bps.o gtest.a bps.o
+OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
+$(BINDIR)/test_bps.out : $(OBJSFULL)
+	cd $(OBJDIR); ${CXX} -o $@ $^  ${SLEPC_EPS_LIB}
 
-check_%: test_%.out
-	$(BINDIR)/$<
+check_%: $(BINDIR)/test_%.out
+	$<
 
 .PHONY: clean
 clean::
