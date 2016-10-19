@@ -1,5 +1,5 @@
+#include "../include/synthesize.h"
 
-#include <rescol/synthesize.h>
 PetscErrorCode VecVecSynthesizeSymbolic(Vec A, Vec B, Vec *C) {
   /*
     perform construction, preallocation, and computes the ij structure
@@ -363,7 +363,7 @@ PetscErrorCode MatMatSynthesizeNumeric_SeqAIJ(Mat A, Mat B, PetscScalar x, Mat C
 PetscErrorCode MatMatSynthesizeSymbolic(Mat A, Mat B, Mat *C) {
   PetscErrorCode ierr;
   int alg = 0;
-  PetscOptionsGetInt(NULL, "-mat_mat_synthesize_alg", &alg, NULL);
+  PetscOptionsGetInt(NULL, NULL, "-mat_mat_synthesize_alg", &alg, NULL);
   switch(alg) {
   case 1:
     ierr = MatMatSynthesizeSymbolic_SeqAIJ(A, B, C); CHKERRQ(ierr);
@@ -384,7 +384,7 @@ PetscErrorCode MatMatSynthesizeSymbolic(Mat A, Mat B, Mat *C) {
 PetscErrorCode MatMatSynthesizeNumeric(Mat A, Mat B, PetscScalar a, Mat C) {
   PetscErrorCode ierr;
   int alg = 0;
-  PetscOptionsGetInt(NULL, "-mat_mat_synthesize_alg", &alg, NULL);
+  PetscOptionsGetInt(NULL, NULL, "-mat_mat_synthesize_alg", &alg, NULL);
 
   switch(alg) {
   case 1:

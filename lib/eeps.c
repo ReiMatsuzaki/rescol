@@ -1,5 +1,5 @@
-#include <rescol/eeps.h>
-#include <rescol/mat.h>
+#include "../include/eeps.h"
+#include "../include/mat.h"
 
 PetscErrorCode EEPSCreate(MPI_Comm comm, EEPS *p_self) {
 
@@ -111,7 +111,7 @@ PetscErrorCode EEPSSetFromOptions(EEPS self) {
   }
   */ 
   char path[256];
-  ierr = PetscOptionsGetString(NULL, "-eeps_path_init", path, 256, &find); CHKERRQ(ierr);
+  ierr = PetscOptionsGetString(NULL, NULL, "-eeps_path_init", path, 256, &find); CHKERRQ(ierr);
   if(find) {
     PetscViewer viewer;
     ierr = PetscViewerBinaryOpen(comm, path, FILE_MODE_READ, &viewer); CHKERRQ(ierr);

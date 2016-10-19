@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <slepceps.h>
-#include <rescol/oce1.h>
-#include <rescol/eeps.h>
+#include "../include/oce1.h"
+#include "../include/eeps.h"
 
 static char help[] = "Unit test for oce1.c";
 

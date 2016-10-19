@@ -1,9 +1,9 @@
 #include <slepceps.h>
 #include "unittest.h"
-#include <rescol/mat.h>
-#include <rescol/synthesize.h>
+#include "../include/mat.h"
+#include "../include/synthesize.h"
 
-static char help[] = "Unit test for angmoment.c \n\n";
+static char help[] = "Unit test for mat.c and synthesize.c \n\n";
 
 PetscErrorCode testVecSplit() {
   PetscErrorCode ierr;

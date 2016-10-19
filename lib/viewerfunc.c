@@ -1,4 +1,4 @@
-#include <rescol/viewerfunc.h>
+#include "../include/viewerfunc.h"
 
 PetscErrorCode ViewerFuncCreate(MPI_Comm comm, ViewerFunc *p_self) {
   PetscErrorCode ierr;
@@ -101,11 +101,11 @@ PetscErrorCode ViewerFuncSetFromOptions(ViewerFunc self, PetscBool *_find) {
     ierr = ViewerFuncSetBase(self, viewer); CHKERRQ(ierr);
 
     PetscInt num;
-    ierr = PetscOptionsGetInt(NULL, "-viewerfunc_num",
+    ierr = PetscOptionsGetInt(NULL, NULL, "-viewerfunc_num",
 			      &num, &find_num); CHKERRQ(ierr);
 
     PetscReal xmax;
-    ierr = PetscOptionsGetReal(NULL, "-viewerfunc_xmax",
+    ierr = PetscOptionsGetReal(NULL, NULL, "-viewerfunc_xmax",
 			       &xmax, &find_xmax); CHKERRQ(ierr);  
 
     if(find_xmax && find_num) {

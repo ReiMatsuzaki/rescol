@@ -1,5 +1,5 @@
 #include <float.h>
-#include <rescol/y1s.h>
+#include "../include/y1s.h"
 
 
 // ---- Y1 Functions ----
@@ -113,8 +113,8 @@ PetscErrorCode Y1sSetFromOptions(Y1s self) {
   int lmax = 2;
   PetscErrorCode ierr;
   PetscBool find;
-  PetscOptionsGetString(NULL, "-y1s_rot", rot, 10, NULL);
-  PetscOptionsGetInt(NULL, "-y1s_lmax", &lmax, &find); 
+  PetscOptionsGetString(NULL, NULL, "-y1s_rot", rot, 10, NULL);
+  PetscOptionsGetInt(NULL, NULL, "-y1s_lmax", &lmax, &find); 
 
   int m = SIGMA;
   if(strcmp(rot, "sigma") == 0)
@@ -134,7 +134,7 @@ PetscErrorCode Y1sSetFromOptions(Y1s self) {
     char parity[10] = "gerade";
     int g_or_u = GERADE;
 
-    PetscOptionsGetString(NULL, "-y1s_parity", parity, 10, NULL); 
+    PetscOptionsGetString(NULL, NULL, "-y1s_parity", parity, 10, NULL); 
     
     if(strcmp(parity, "gerade") == 0)
       g_or_u = GERADE;
@@ -151,7 +151,7 @@ PetscErrorCode Y1sSetFromOptions(Y1s self) {
   } else {
 
     int L; 
-    PetscOptionsGetInt(NULL, "-y1s_L", &L, &find);
+    PetscOptionsGetInt(NULL, NULL, "-y1s_L", &L, &find);
     if(!find)
       SETERRQ(self->comm, 1, "-y1s_lmax or -y1s_L is necessary");
 

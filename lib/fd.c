@@ -1,4 +1,4 @@
-#include <rescol/fd.h>
+#include "../include/fd.h"
 
 // ---- Basic Methods ----
 PetscErrorCode FDCreate(MPI_Comm comm, FD *p_self) {
@@ -49,8 +49,8 @@ PetscErrorCode FDSetFromOptions(FD self) {
   PetscInt num = 30;
   PetscErrorCode ierr;
 
-  ierr = PetscOptionsGetReal(NULL, "-fd_xmax", &xmax, &find); CHKERRQ(ierr);
-  ierr = PetscOptionsGetInt(NULL, "-fd_num", &num, &find); CHKERRQ(ierr);
+  ierr = PetscOptionsGetReal(NULL, NULL, "-fd_xmax", &xmax, &find); CHKERRQ(ierr);
+  ierr = PetscOptionsGetInt(NULL, NULL, "-fd_num", &num, &find); CHKERRQ(ierr);
   
   ierr = FDSetMesh(self, num, xmax); CHKERRQ(ierr);
   return 0;

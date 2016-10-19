@@ -1,6 +1,5 @@
 
-#include <rescol/angmoment.h>
-
+#include "../include/angmoment.h"
 
 // --- Utils ---
 PetscReal wigner3j(int a, int b, int c, int d, int e, int f) {

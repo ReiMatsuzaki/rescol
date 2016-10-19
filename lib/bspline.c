@@ -1,4 +1,4 @@
-#include <rescol/bspline.h>
+#include "../include/bspline.h"
 
 // ---- External functions ----
 int NumBSpline(int order, int num_ele) {
@@ -352,7 +352,7 @@ PetscErrorCode BSSSetFromOptions(BSS self) {
   BPS bps;        BPSCreate(self->comm, &bps);
   CScaling scaler;  CScalingCreate(self->comm, &scaler);
   
-  ierr = PetscOptionsGetInt(NULL, "-bss_order", &order, &find); CHKERRQ(ierr);
+  ierr = PetscOptionsGetInt(NULL, NULL, "-bss_order", &order, &find); CHKERRQ(ierr);
   ierr = BPSSetFromOptions(bps); CHKERRQ(ierr);
   ierr = CScalingSetFromOptions(scaler); CHKERRQ(ierr);
   ierr = BSSSetKnots(self, order, bps); CHKERRQ(ierr);

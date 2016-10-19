@@ -1,6 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
-#include <rescol/pot.h>
+#include "../include/pot.h"
 
 int str_nele(const char *str, char key) {
 
@@ -351,14 +351,14 @@ PetscErrorCode PotSetFromOptions(Pot self) {
   PetscErrorCode ierr;
   PetscBool find;
 
-  ierr = PetscOptionsGetString(NULL, "-pot_type", type, 10, &find); CHKERRQ(ierr);
+  ierr = PetscOptionsGetString(NULL, NULL, "-pot_type", type, 10, &find); CHKERRQ(ierr);
 
   if(!find) 
     SETERRQ(comm, 1, "options -pot_type is not found");
   
   if(strcmp(type, "harm") == 0) {
     PetscReal a;
-    ierr = PetscOptionsGetReal(NULL, "-pot_a", &a, &find); CHKERRQ(ierr);
+    ierr = PetscOptionsGetReal(NULL, NULL, "-pot_a", &a, &find); CHKERRQ(ierr);
     if(!find)
       SETERRQ(comm, 1, "-pot_a is not found");
     PotSetHarm(self, a);
@@ -366,26 +366,26 @@ PetscErrorCode PotSetFromOptions(Pot self) {
   } else if(strcmp(type, "slater") == 0) {
     PetscReal v0, z;
     PetscInt n;
-    ierr = PetscOptionsGetReal(NULL, "-pot_v0", &v0, &find); CHKERRQ(ierr);
+    ierr = PetscOptionsGetReal(NULL, NULL, "-pot_v0", &v0, &find); CHKERRQ(ierr);
     if(!find)
       SETERRQ(comm, 1, "-pot_v0 is not found");
-    ierr = PetscOptionsGetReal(NULL, "-pot_z", &z, &find); CHKERRQ(ierr);
+    ierr = PetscOptionsGetReal(NULL, NULL, "-pot_z", &z, &find); CHKERRQ(ierr);
     if(!find)
       SETERRQ(comm, 1, "-pot_z is not found");
-    ierr = PetscOptionsGetInt(NULL, "-pot_n", &n, &find); CHKERRQ(ierr);
+    ierr = PetscOptionsGetInt(NULL, NULL, "-pot_n", &n, &find); CHKERRQ(ierr);
     if(!find)
       SETERRQ(comm, 1, "-pot_n is not found");
     PotSetSlater(self, v0, n, z);
 
   } else if(strcmp(type, "morse") == 0) {
     PetscReal D0, a, Re;
-    ierr = PetscOptionsGetReal(NULL, "-pot_D0", &D0, &find); CHKERRQ(ierr);
+    ierr = PetscOptionsGetReal(NULL, NULL, "-pot_D0", &D0, &find); CHKERRQ(ierr);
     if(!find)
       SETERRQ(comm, 1, "-pot_D0 is not found");
-    ierr = PetscOptionsGetReal(NULL, "-pot_a", &a, &find); CHKERRQ(ierr);
+    ierr = PetscOptionsGetReal(NULL, NULL, "-pot_a", &a, &find); CHKERRQ(ierr);
     if(!find)
       SETERRQ(comm, 1, "-pot_z is not found");
-    ierr = PetscOptionsGetReal(NULL, "-pot_Re", &Re, &find); CHKERRQ(ierr);
+    ierr = PetscOptionsGetReal(NULL, NULL, "-pot_Re", &Re, &find); CHKERRQ(ierr);
     if(!find)
       SETERRQ(comm, 1, "-pot_Re is not found");
 
@@ -393,7 +393,7 @@ PetscErrorCode PotSetFromOptions(Pot self) {
 
   } else if(strcmp(type, "coulomb") == 0) {
     PetscReal z = -1.0;
-    ierr = PetscOptionsGetReal(NULL, "-pot_z", &z, &find); CHKERRQ(ierr);
+    ierr = PetscOptionsGetReal(NULL, NULL, "-pot_z", &z, &find); CHKERRQ(ierr);
     ierr = PotSetCoulombNE(self, 0, 0.0, z); CHKERRQ(ierr);
   } else {
     char msg[100]; sprintf(msg, "unsupported pot_type: %s", type);
@@ -580,7 +580,7 @@ PetscErrorCode PotSetFromOptions2(Pot self, const char prefix[], PetscBool *_fin
 
   char option_res[100] = "0";
 
-  ierr = PetscOptionsGetString(NULL, option_name, option_res, 100, &find); CHKERRQ(ierr);
+  ierr = PetscOptionsGetString(NULL, NULL, option_name, option_res, 100, &find); CHKERRQ(ierr);
 
   if(strcmp(option_res, "none") == 0 ||
      strcmp(option_res, "None") == 0) {

@@ -1,9 +1,9 @@
 #include <slepceps.h>
 #include <time.h>
 #include "unittest.h"
-#include <rescol/bspline.h>
-#include <rescol/pot.h>
-#include <rescol/eeps.h>
+#include "../include/bspline.h"
+#include "../include/pot.h"
+#include "../include/eeps.h"
 
 static char help[] = "Unit test for bspline.c \n\n";
 

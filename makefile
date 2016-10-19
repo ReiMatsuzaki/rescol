@@ -33,10 +33,55 @@ $(OBJDIR)/%.o : %.c
 	@[ -d $(OBJDIR) ] || mkdir -p $(OBJDIR)
 	$(CC) $(CFLAGS) -MMD -c $< -o $@
 
-OBJS = test_bps.o gtest.a bps.o
+OBJS = test_bps.o bps.o gtest.a
 OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
 $(BINDIR)/test_bps.out : $(OBJSFULL)
 	cd $(OBJDIR); ${CXX} -o $@ $^  ${SLEPC_EPS_LIB}
+
+OBJS = test_angmoment.o y1s.o y2s.o angmoment.o gtest.a
+OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
+$(BINDIR)/test_angmoment.out : $(OBJSFULL)
+	cd $(OBJDIR); ${CXX} -o $@ $^  ${SLEPC_EPS_LIB} -lgsl
+
+OBJS = test_cscaling.o cscaling.o gtest.a
+OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
+$(BINDIR)/test_cscaling.out : $(OBJSFULL)
+	cd $(OBJDIR); ${CXX} -o $@ $^  ${SLEPC_EPS_LIB} -lgsl
+
+OBJS = test_mat.o mat.o synthesize.o gtest.a
+OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
+$(BINDIR)/test_mat.out : $(OBJSFULL)
+	cd $(OBJDIR); ${CXX} -o $@ $^  ${SLEPC_EPS_LIB} -lgsl
+
+OBJS = test_pot.o pot.o gtest.a
+OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
+$(BINDIR)/test_pot.out : $(OBJSFULL)
+	cd $(OBJDIR); ${CXX} -o $@ $^  ${SLEPC_EPS_LIB} -lgsl
+
+OBJS = test_synthesize.o synthesize.o gtest.a
+OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
+$(BINDIR)/test_synthesize.out : $(OBJSFULL)
+	cd $(OBJDIR); ${CXX} -o $@ $^  ${SLEPC_EPS_LIB} -lgsl
+
+OBJS = test_bspline.o bspline.o cscaling.o bps.o eeps.o pot.o mat.o gtest.a
+OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
+$(BINDIR)/test_bspline.out : $(OBJSFULL)
+	cd $(OBJDIR); ${CXX} -o $@ $^  ${SLEPC_EPS_LIB} -lgsl
+
+OBJS = test_dvr.o dvr.o cscaling.o bps.o eeps.o pot.o synthesize.o mat.o gtest.a
+OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
+$(BINDIR)/test_dvr.out : $(OBJSFULL)
+	cd $(OBJDIR); ${CXX} -o $@ $^  ${SLEPC_EPS_LIB} -lgsl
+
+OBJS = test_fem_inf.o fd.o fem_inf.o dvr.o bspline.o cscaling.o bps.o eeps.o pot.o synthesize.o mat.o viewerfunc.o gtest.a
+OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
+$(BINDIR)/test_fem_inf.out : $(OBJSFULL)
+	cd $(OBJDIR); ${CXX} -o $@ $^  ${SLEPC_EPS_LIB} -lgsl
+
+OBJS = test_oce1.o oce1.o fem_inf.o fd.o dvr.o bspline.o cscaling.o bps.o eeps.o pot.o synthesize.o mat.o viewerfunc.o y1s.o angmoment.o gtest.a
+OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
+$(BINDIR)/test_oce1.out : $(OBJSFULL)
+	cd $(OBJDIR); ${CXX} -o $@ $^  ${SLEPC_EPS_LIB} -lgsl
 
 check_%: $(BINDIR)/test_%.out
 	$<

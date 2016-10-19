@@ -1,5 +1,5 @@
 #include <petscviewer.h>
-#include <rescol/cscaling.h>
+#include "../include/cscaling.h"
 
 
 PetscErrorCode NoneApply(void *ctx, PetscInt n,
@@ -174,9 +174,9 @@ PetscErrorCode CScalingSetFromOptions(CScaling self) {
   PetscReal r0 = 0.0;
   PetscReal theta = 0.0;
 
-  ierr = PetscOptionsGetString(NULL, "-cscaling_type", type, 10, NULL); CHKERRQ(ierr);
-  ierr = PetscOptionsGetReal(NULL, "-cscaling_r0", &r0, NULL); CHKERRQ(ierr);
-  ierr = PetscOptionsGetReal(NULL, "-cscaling_theta", &theta, NULL);  CHKERRQ(ierr);
+  ierr = PetscOptionsGetString(NULL,NULL,"-cscaling_type", type, 10, NULL); CHKERRQ(ierr);
+  ierr = PetscOptionsGetReal(NULL,NULL,"-cscaling_r0", &r0, NULL); CHKERRQ(ierr);
+  ierr = PetscOptionsGetReal(NULL,NULL,"-cscaling_theta", &theta, NULL);  CHKERRQ(ierr);
 
   if(strcmp(type, "none") == 0) {
     CScalingSetNone(self);

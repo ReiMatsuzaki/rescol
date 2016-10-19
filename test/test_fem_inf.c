@@ -1,10 +1,10 @@
 #include <slepceps.h>
 #include <time.h>
 #include "unittest.h"
-#include <rescol/mat.h>
-#include <rescol/fem_inf.h>
-#include <rescol/viewerfunc.h>
-#include <rescol/eeps.h>
+#include "../include/mat.h"
+#include "../include/fem_inf.h"
+#include "../include/viewerfunc.h"
+#include "../include/eeps.h"
 
 static char help[] = "Unit test for fem_inf.c \n";
 

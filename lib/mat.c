@@ -1,4 +1,4 @@
-#include <rescol/mat.h>
+#include "../include/mat.h"
 
 PetscErrorCode VecGetAllValues(Vec A, PetscScalar **x) {
 

@@ -1,6 +1,6 @@
-#include <rescol/mat.h>
-#include <rescol/synthesize.h>
-#include <rescol/dvr.h>
+#include "../include/mat.h"
+#include "../include/synthesize.h"
+#include "../include/dvr.h"
 
 // ------- Lapack -------
 int dgetrf_(long*, long*, PetscReal*,   long*, long*, long*);
@@ -400,7 +400,7 @@ PetscErrorCode DVRSetFromOptions(DVR self) {
   BPS bps;
   ierr = BPSCreate(self->comm, &bps); CHKERRQ(ierr);
   ierr = BPSSetFromOptions(bps); CHKERRQ(ierr);
-  ierr = PetscOptionsGetInt(NULL, "-dvr_nq", &nq, &find); CHKERRQ(ierr);
+  ierr = PetscOptionsGetInt(NULL, NULL, "-dvr_nq", &nq, &find); CHKERRQ(ierr);
   ierr = DVRSetKnots(self, nq, bps); CHKERRQ(ierr);
 
   CScaling cscaling;

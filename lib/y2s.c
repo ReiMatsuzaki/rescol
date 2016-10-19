@@ -1,6 +1,6 @@
 #include <float.h>
-#include <rescol/y2s.h>
-#include <rescol/y1s.h>
+#include "../include/y2s.h"
+#include "../include/y1s.h"
 
 
 // ---- Y2 Functions ----
@@ -51,7 +51,6 @@ PetscReal Y2ElePq2A(Y2 yp, int q, Y2 y) {
 PetscReal Y2ElePq12(Y2 yp, int q, Y2 y) {
   return 4.0*M_PI/(2*q+1)*Y2EleYYq(yp, q, y);
 }
-
 
 // ---- Y2s Methods -----
 PetscErrorCode Y2sCreate(MPI_Comm comm, Y2s *p_self) {
@@ -159,12 +158,12 @@ PetscErrorCode Y2sSetFromOptions(Y2s self) {
   char mirror[10] = "plus";
   int lmax = 2;
   PetscErrorCode ierr;
-  ierr = PetscOptionsGetString(NULL, "-y2s_rot", rot, 10, NULL); CHKERRQ(ierr);
-  ierr = PetscOptionsGetString(NULL, "-y2s_parity", parity, 10, NULL); 
+  ierr = PetscOptionsGetString(NULL, NULL, "-y2s_rot", rot, 10, NULL); CHKERRQ(ierr);
+  ierr = PetscOptionsGetString(NULL, NULL, "-y2s_parity", parity, 10, NULL); 
   CHKERRQ(ierr);
-  ierr = PetscOptionsGetString(NULL, "-y2s_mirror", mirror, 10, NULL);
+  ierr = PetscOptionsGetString(NULL, NULL, "-y2s_mirror", mirror, 10, NULL);
   CHKERRQ(ierr);
-  ierr = PetscOptionsGetInt(NULL, "-y2s_lmax", &lmax, NULL); CHKERRQ(ierr);
+  ierr = PetscOptionsGetInt(NULL, NULL, "-y2s_lmax", &lmax, NULL); CHKERRQ(ierr);
   
   int m = SIGMA;
   if(strcmp(rot, "sigma") == 0)

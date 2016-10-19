@@ -1,6 +1,6 @@
 #include <slepceps.h>
 #include <gtest/gtest.h>
-#include <rescol/cscaling.h>
+#include "../include/cscaling.h"
 
 static char help[] = "Unit test for scale.c";
 

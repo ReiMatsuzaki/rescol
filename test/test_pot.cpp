@@ -1,6 +1,6 @@
 #include <slepceps.h>
 #include <gtest/gtest.h>
-#include <rescol/pot.h>
+#include "../include/pot.h"
 
 static char help[] = "unit test for pot.c";
 

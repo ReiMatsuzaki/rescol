@@ -1,9 +1,9 @@
 #include <slepceps.h>
 #include <gsl/gsl_sf_coupling.h>
 #include <gtest/gtest.h>
-#include <rescol/angmoment.h>
-#include <rescol/y1s.h>
-#include <rescol/y2s.h>
+#include "../include/angmoment.h"
+#include "../include/y1s.h"
+#include "../include/y2s.h"
 
 static char help[] = "Unit test for angmoment.c \n\n";
 

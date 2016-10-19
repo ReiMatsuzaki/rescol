@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include <petscmat.h>
-#include <rescol/synthesize.h>
+#include "../include/synthesize.h"
 
 static char help[] = "Unit test for synthesize.c";
 

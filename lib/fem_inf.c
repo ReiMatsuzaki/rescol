@@ -1,8 +1,7 @@
-#include <rescol/fem_inf.h>
+#include "../include/fem_inf.h"
 #include <petscdraw.h>
 
 // ----- Interface -----
-
 FEMSc FD_Sc;
 PetscErrorCode FEMInfSetFD(FEMInf self, FD target) {
 
@@ -260,7 +259,7 @@ PetscErrorCode FEMInfSetFromOptions(FEMInf self) {
   char type[10];
   PetscBool find;
   PetscErrorCode ierr;
-  ierr = PetscOptionsGetString(NULL, "-fem_type", type, 10, &find); CHKERRQ(ierr);
+  ierr = PetscOptionsGetString(NULL, NULL, "-fem_type", type, 10, &find); CHKERRQ(ierr);
   if (strcmp(type, "fd") == 0){
     FD fd; FDCreate(self->comm, &fd);
     ierr = FDSetFromOptions(fd); CHKERRQ(ierr);

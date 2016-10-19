@@ -1,4 +1,4 @@
-#include <rescol/oce1.h>
+#include "../include/oce1.h"
 
 PetscErrorCode OCE1Create(MPI_Comm comm, OCE1 *p_self) {
 
@@ -124,7 +124,7 @@ PetscErrorCode OCE1SetFromOptions(OCE1 self) {
   PetscBool find;
   PetscReal mu;
 
-  PetscOptionsGetReal(NULL, "-oce1_mu", &mu, &find); 
+  PetscOptionsGetReal(NULL, NULL, "-oce1_mu", &mu, &find); 
   if(find)
     OCE1SetMu(self, mu);
 
