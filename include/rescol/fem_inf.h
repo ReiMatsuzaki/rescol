@@ -10,9 +10,14 @@ extern "C" {
 #include "viewerfunc.h"
 #include "pot.h"
 
+static const int FEMInfType_FD = 0;
+static const int FEMInfType_BSS = 1;
+static const int FEMInfType_DVR = 2;
+
 // vtbl for FEM interface
 typedef struct {
   PetscErrorCode (*Create)();
+  PetscErrorCode (*Copy)();
   PetscErrorCode (*Destory)();
   PetscErrorCode (*View)();
   PetscErrorCode (*SetFromOptions)();
@@ -36,6 +41,7 @@ struct _p_FEMInf{
   MPI_Comm comm;
   FEMSc* sc; // scheme for polymorphism
   void* obj;  // address of object
+  int type;
 } ;
 typedef struct _p_FEMInf* FEMInf;
 
@@ -46,6 +52,8 @@ PetscErrorCode FEMInfSetDVR(FEMInf self, DVR target);
 
 // ---- Basic Method ------
 PetscErrorCode FEMInfCreate(MPI_Comm comm, FEMInf *inf);
+PetscErrorCode FEMInfDuplicate(FEMInf self, FEMInf *new_fem);  
+PetscErrorCode FEMInfCopy(FEMInf self, FEMInf b);
 PetscErrorCode FEMInfDestroy(FEMInf *inf);
 //PetscErrorCode FEMInfCreateFD(FEMInf *inf, FD self);
 PetscErrorCode FEMInfView(FEMInf self, PetscViewer v);

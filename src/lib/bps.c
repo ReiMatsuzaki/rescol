@@ -14,6 +14,17 @@ PetscErrorCode BPSCreate(MPI_Comm comm, BPS *p_self) {
   *p_self = self;
   return 0;
 }
+PetscErrorCode BPSCopy(BPS self, BPS other) {
+
+  strcpy(other->type, self->type);
+  int n = self->num_zs;
+  other->num_zs = n;
+  PetscMalloc1(n, &other->zs);
+  for(int i = 0; i < n; i++) {
+    other->zs[i] = self->zs[i];
+  }
+  return 0;
+}
 PetscErrorCode BPSDestroy(BPS *p_self) {
   PetscErrorCode ierr;
   ierr = PetscFree((*p_self)->zs); CHKERRQ(ierr);

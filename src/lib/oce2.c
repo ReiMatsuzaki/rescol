@@ -199,6 +199,54 @@ PetscErrorCode OCE2TMat(OCE2 self, MatReuse scall, Mat *M) {
   MatDestroy(&l_r1);
   return 0;
 }
+PetscErrorCode OCE2ZMat(OCE2 self, Y2s other, MatReuse scall, Mat *M) {
+
+  PetscErrorCode ierr;
+  if(self->s_r1 == NULL) {
+    ierr = OCE2SetSr1(self); CHKERRQ(ierr);
+  }
+  if(self->s_y2 == NULL) {
+    ierr = OCE2SetSy2(self); CHKERRQ(ierr);
+  }
+
+  // -- Angular part --
+  PetscBool non0;
+  Mat pq1_y2;
+  ierr = Y2sCreateY2Mat_o(self->y2s, other, &pq1_y2); CHKERRQ(ierr);
+  ierr = Y2sPq1Y2Mat_o(  self->y2s, other, 1, pq1_y2, &non0); CHKERRQ(ierr);
+  if(!non0) 
+    SETERRQ(self->comm, 1, "pq1_y2 is empty");
+  Mat pq2_y2;
+  ierr = Y2sCreateY2Mat_o(self->y2s, other, &pq2_y2); CHKERRQ(ierr);
+  ierr = Y2sPq2Y2Mat_o(  self->y2s, other, 1, pq2_y2, &non0); CHKERRQ(ierr);
+  if(!non0) 
+    SETERRQ(self->comm, 1, "pq2_y2 is empty");
+
+  // -- Radial part --
+  Pot r1; PotCreate(self->comm, &r1); PotSetPower(r1, 1.0, 1);
+  Mat r1_mat;
+  ierr = FEMInfCreateMat(self->fem, 1, &r1_mat); CHKERRQ(ierr);
+  ierr = FEMInfPotR1Mat(self->fem, r1, r1_mat); CHKERRQ(ierr);
+  
+
+  // -- Synthesize radial part and angular part --
+  ierr = MatMatMatSynthesize(r1_mat, self->s_r1, pq1_y2, 1.0, scall, M);
+  CHKERRQ(ierr);
+  Mat D;
+  ierr = MatMatMatSynthesize(self->s_r1, r1_mat, pq2_y2, 1.0, 
+			     MAT_INITIAL_MATRIX, &D);CHKERRQ(ierr);
+  ierr = MatAXPY(*M, 1.0, D, DIFFERENT_NONZERO_PATTERN);
+
+  // -- Finalize --
+  MatDestroy(&pq1_y2);
+  MatDestroy(&pq2_y2);
+  PFDestroy(&r1);
+  MatDestroy(&r1_mat);
+  MatDestroy(&D);
+  
+  return 0;  
+
+}
 PetscErrorCode OCE2PlusVneMat(OCE2 self, PetscReal a, PetscReal z, Mat M) {
 
   if(self->s_r1 == NULL)
@@ -214,10 +262,10 @@ PetscErrorCode OCE2PlusVneMat(OCE2 self, PetscReal a, PetscReal z, Mat M) {
     PetscBool non0_1, non0_2;
     Mat pq1A_y2;    
     ierr = Y2sCreateY2Mat(self->y2s, &pq1A_y2); CHKERRQ(ierr);
-    ierr = Y2sPq1AY2Mat(self->y2s, q, pq1A_y2, &non0_1); CHKERRQ(ierr);
+    ierr = Y2sPq1Y2Mat(self->y2s, q, pq1A_y2, &non0_1); CHKERRQ(ierr);
     Mat pq2A_y2;
     ierr = Y2sCreateY2Mat(self->y2s, &pq2A_y2); CHKERRQ(ierr);
-    ierr = Y2sPq1AY2Mat(self->y2s, q, pq2A_y2, &non0_2); CHKERRQ(ierr);
+    ierr = Y2sPq1Y2Mat(self->y2s, q, pq2A_y2, &non0_2); CHKERRQ(ierr);
     if(non0_1 && non0_2) {
       Mat q_r1;
       ierr = FEMInfCreateMat(self->fem, 1, &q_r1); CHKERRQ(ierr);

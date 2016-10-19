@@ -113,6 +113,15 @@ h_pi.out: h_pi.o ${OBJ_FEM} y1s.o angmoment.o
 
 eps_help.out:
 
+driv_he.out:driv_he.o ${OBJ_FEM} oce2.o angmoment.o eeps.o y2s.o synthesize.o y1s.o
+check_driv_he: driv_he.out
+	./driv_he.out -Li 0 -Mi -lmax 0 -Lf 1 -Mf 0 -lmax_f 1 \
+		-bps_num_zs 21 -bps_zmax 50.0 -bps_type line \
+		-fem_type dvr -dvr_nq 4 \
+		-cscaling_type sharp_ecs -cscaling_r0 40.0 -cscaling_theta 20.0 \
+		-eps_nev 1 -eps_max_it 1000 -eps_type jd -eps_view_values ascii -eps_target -4.0 \
+		-w 2.0 -e0 -0.9 -ksp_type cr
+
 h2mole.out: h2mole.o ${OBJ_FEM} oce2.o angmoment.o eeps.o y2s.o synthesize.o y1s.o
 basis=-fem_type bss -fem_type bss -bss_order 2 -bps_num_zs 21 -bps_zmax 20.0 -bps_type exp -y2s_rot sigma -y2s_parity gerade -y2s_mirror plus -y2s_lmax 0
 .PHONY: check_h2mole_bss
@@ -167,6 +176,18 @@ check_write_pot: write_pot.out
 
 
 eig_one.out: eig_one.o ${OBJ_FEM} oce1.o angmoment.o y1s.o eeps.o viewerfunc.o synthesize.o
+check_eig_one_dvr: eig_one.out
+	./$< -fem_type dvr -dvr_order 4 \
+	-bps_num_zs 51 -bps_zmax 51.0 -bps_type line \
+	-cscaling_type sharp_ecs -cscaling_r0 40.0 -cscaling_theta 25.0 \
+	-y1s_L 0 \
+	-pot_type slater -pot_v0 3.5 -pot_n 2 -pot_z 1.0 \
+	-eps_nev 2 \
+	-eps_converged_reason \
+	-eeps_view_values ::ascii_info_detail \
+	-viewerfunc_xmax 100.0 -viewerfunc_num 10 -viewerfunc_view ascii:stdout \
+	-malloc_dump
+
 .PHONY: check_eig_one
 check_eig_one: eig_one.out
 	./$< -fem_type bss -bss_order 4 \

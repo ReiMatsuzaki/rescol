@@ -55,6 +55,7 @@ PetscErrorCode DerivLS(PetscScalar *xs_c, PetscScalar *ws_c,
 
 // ---- Basic Methods ----
 PetscErrorCode DVRCreate(MPI_Comm comm, DVR *p_self);
+PetscErrorCode DVRCopy(DVR self, DVR other);
 PetscErrorCode DVRDestroy(DVR *p_self);
 
 PetscErrorCode DVRView(DVR self, PetscViewer v);

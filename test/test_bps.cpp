@@ -71,6 +71,35 @@ TEST(TestBPS, Getter) {
   BPSDestroy(&bps);
 
 }
+TEST(TestBPS, Copy) {
+
+  PetscErrorCode ierr;
+  BPS bps;
+  ierr = BPSCreate(PETSC_COMM_SELF, &bps); ASSERT_EQ(0, ierr);
+  ierr = BPSSetLine(bps, 5.0, 6); ASSERT_EQ(0, ierr);
+  
+  BPS bps2;
+  ierr = BPSCreate(PETSC_COMM_SELF, &bps2); ASSERT_EQ(0, ierr);
+  ierr = BPSCopy(bps, bps2); ASSERT_EQ(0, ierr);
+
+  double *zs;
+  double *zs2;
+  int num;
+  int num2;
+  ierr = BPSGetZs(bps,  &zs,  &num);
+  ierr = BPSGetZs(bps2, &zs2, &num2);
+
+  ASSERT_EQ(num, num2);
+  
+  for(int i = 0; i < num; i++)
+    ASSERT_DOUBLE_EQ(zs[i], zs2[i]);
+
+  PetscFree(zs);
+  PetscFree(zs2);
+  BPSDestroy(&bps);
+  BPSDestroy(&bps2);
+
+}
 
 int _main(int argc, char **args) {
   ::testing::InitGoogleTest(&argc, args);

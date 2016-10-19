@@ -42,6 +42,7 @@ PetscErrorCode OCE2GetSizes(OCE2 self, int *n_r1, int *n_y2);
 PetscErrorCode OCE2CreateMat(OCE2 self, Mat *M);
 PetscErrorCode OCE2SMat(OCE2 self, MatReuse scall, Mat *M, PetscBool *is_id);
 PetscErrorCode OCE2TMat(OCE2 self, MatReuse scall, Mat *M);
+PetscErrorCode OCE2ZMat(OCE2 self, Y2s other, MatReuse scall, Mat *M);
 PetscErrorCode OCE2VneMat(OCE2 self, PetscReal a, PetscReal z, 
 			  MatReuse scall, Mat *M);
 PetscErrorCode OCE2VeeMat(OCE2 self, MatReuse scall, Mat *M);
@@ -74,6 +75,9 @@ PetscErrorCode OCE2CreateH2mole(OCE2 self, PetscReal a, PetscReal z, OceH2mole *
 PetscErrorCode OCE2H2moleMat(OCE2 self, OceH2mole *p_ctx, Mat *H, Mat *S, PetscBool *is_id);
 PetscErrorCode OCE2H2moleMat_direct(OCE2 self, OceH2mole *p_ctx, Mat *H, Mat *S, PetscBool *is_id);
 PetscErrorCode OCE2H2moleDestroy(OceH2mole *p_ctx);
+
+// ==== External ====
+//PetscErrorCode ZMat(FEMInf fem, Y2s y2s_1, Y2s ys2_2, MatReuse scall, Mat *M);
 
 #ifdef __cplusplus
 }

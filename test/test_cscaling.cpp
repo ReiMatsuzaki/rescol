@@ -113,6 +113,46 @@ TEST(TestScaling, none) {
   ierr = CScalingDestroy(&cscaling); ASSERT_EQ(0, ierr);  
 
 }
+TEST(TestScaling , Copy) {
+  
+  PetscErrorCode ierr;
+  MPI_Comm comm = MPI_COMM_SELF;
+  PetscReal theta = M_PI*10.0/180.0;
+  PetscReal r0 = 4.0;
+  CScaling cscaling;
+  ierr = CScalingCreate(comm, &cscaling); ASSERT_EQ(0, ierr);
+  ierr = CScalingSetSharpECS(cscaling, r0, theta); ASSERT_EQ(0, ierr);
+
+  CScaling cscaling2;
+  ierr = CScalingCreate(comm, &cscaling2); ASSERT_EQ(0, ierr);
+  ierr = CScalingCopy(cscaling, cscaling2); ASSERT_EQ(0, ierr);
+
+  if(getenv("SHOW_DEBUG"))
+    CScalingView(cscaling, PETSC_VIEWER_STDOUT_SELF);
+
+  PetscReal xs[10];
+  PetscScalar Rr[10], Rr2[10];
+  PetscScalar qr[10], qr2[10];
+  for(int i = 0; i < 10; i++) {
+    xs[i] = i * 1.0; Rr[i] = 0.0; qr[i] = 0.0;
+  }
+
+  ierr = CScalingCalc(cscaling, xs, 10, qr, Rr);  ASSERT_EQ(0, ierr);  
+  ierr = CScalingCalc(cscaling2,xs, 10, qr2, Rr2);  ASSERT_EQ(0, ierr);  
+
+  double eps = 0.00000000001;
+
+  for(int i = 0; i < 10; i++) {
+    ASSERT_NEAR(PetscRealPart(Rr[i]), PetscRealPart(Rr2[i]), eps);
+    ASSERT_NEAR(PetscRealPart(qr[i]), PetscRealPart(qr2[i]), eps);
+    ASSERT_NEAR(PetscImaginaryPart(Rr[i]), PetscImaginaryPart(Rr2[i]), eps);
+    ASSERT_NEAR(PetscImaginaryPart(qr[i]), PetscImaginaryPart(qr2[i]), eps);
+  }
+
+  CScalingDestroy(&cscaling);
+  CScalingDestroy(&cscaling2);
+  
+}
 int _main(int argc, char **args) {
   ::testing::InitGoogleTest(&argc, args);
   return RUN_ALL_TESTS();  

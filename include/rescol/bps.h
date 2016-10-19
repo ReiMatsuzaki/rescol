@@ -21,6 +21,7 @@ typedef struct _p_BPS* BPS;
 
 // ------- Basic ----------
 PetscErrorCode BPSCreate(MPI_Comm comm, BPS *p_self);
+PetscErrorCode BPSCopy(BPS self, BPS other);
 PetscErrorCode BPSDestroy(BPS *p_self);
 PetscErrorCode BPSView(BPS self, PetscViewer v);
 PetscErrorCode BPSCheckState(BPS self);

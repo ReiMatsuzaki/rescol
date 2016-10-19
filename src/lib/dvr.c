@@ -179,6 +179,23 @@ PetscErrorCode DVRCreate(MPI_Comm comm, DVR *p_self) {
   *p_self = self;
   return 0;
 }
+PetscErrorCode DVRCopy(DVR self, DVR other) {
+
+  PetscErrorCode ierr;
+
+  BPS bps;
+  ierr = BPSCreate(self->comm, &bps); CHKERRQ(ierr);
+  ierr = BPSCopy(self->bps, bps); CHKERRQ(ierr);
+  ierr = DVRSetKnots(other, self->nq, bps); CHKERRQ(ierr);
+
+  CScaling cscaling;
+  ierr = CScalingCreate(self->comm, &cscaling); CHKERRQ(ierr);
+  ierr = CScalingCopy(self->cscaling, cscaling); CHKERRQ(ierr);
+  ierr = DVRSetCScaling(other, cscaling); CHKERRQ(ierr);
+
+  ierr = DVRSetUp(other); CHKERRQ(ierr);
+  return 0;
+}
 PetscErrorCode DVRDestroy(DVR *p_self) {
   PetscErrorCode ierr;
   DVR self = *p_self;

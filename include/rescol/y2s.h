@@ -38,13 +38,16 @@ PetscErrorCode Y2sGetSize(Y2s self, int *n);
 PetscErrorCode Y2sGetMaxL(Y2s self, int *L);
 
 PetscErrorCode Y2sCreateY2Mat(Y2s self, Mat *M);
+PetscErrorCode Y2sCreateY2Mat_o(Y2s self, Y2s other, Mat *M);
 PetscErrorCode Y2sCreateY2Vec(Y2s self, Vec *V);
 PetscErrorCode Y2sSY2Mat(Y2s self, Mat M);
 PetscErrorCode Y2sGuessY2Vec(Y2s self, int L1, int L2, Vec v);
 PetscErrorCode Y2sLambda1Y2Mat(Y2s self, Mat M, PetscBool *non0);
 PetscErrorCode Y2sLambda2Y2Mat(Y2s self, Mat M, PetscBool *non0);
-PetscErrorCode Y2sPq1AY2Mat(Y2s self, int q, Mat M, PetscBool *non0);
-PetscErrorCode Y2sPq2AY2Mat(Y2s self, int q, Mat M, PetscBool *non0);
+PetscErrorCode Y2sPq1Y2Mat(Y2s self, int q, Mat M, PetscBool *non0);
+PetscErrorCode Y2sPq2Y2Mat(Y2s self, int q, Mat M, PetscBool *non0);
+PetscErrorCode Y2sPq1Y2Mat_o(Y2s self, Y2s other, int q, Mat M, PetscBool *non0);
+PetscErrorCode Y2sPq2Y2Mat_o(Y2s self, Y2s other, int q, Mat M, PetscBool *non0);
 PetscErrorCode Y2sPq12Y2Mat(Y2s self, int q, Mat M, PetscBool *non0);
 
 #ifdef __cplusplus

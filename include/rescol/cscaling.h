@@ -7,18 +7,25 @@ extern "C" {
 /*
   arbitaly complex scaling
 */
-
+enum CScalingType {
+  CScalingNone,
+  CScalingUniformCS,
+  CScalingSharpECS
+};
 struct _p_CScaling {
   MPI_Comm comm;
   PF pf;
   PetscBool use_cscaling;
   PetscReal R0;
   PetscReal theta;
+  enum CScalingType type;
+  void *ctx;
 } _p_CScaling;
 typedef struct _p_CScaling* CScaling;
 
   // ---- Basics ----  
 PetscErrorCode CScalingCreate(MPI_Comm comm, CScaling *p_self);
+PetscErrorCode CScalingCopy(CScaling self, CScaling other);
 PetscErrorCode CScalingDestroy(CScaling *p_self);
 PetscErrorCode CScalingView(CScaling slef, PetscViewer v);
 PetscErrorCode CScalingSetNone(CScaling self);

@@ -436,7 +436,7 @@ PetscErrorCode Driv1dCalc2_double_driv(PetscReal energy) {
 
   PetscReal k = sqrt(2.0 * energy);
 
-  PetscScalar j_plmx = sqrt(-k * cimag(plmx_psi0p));
+  PetscScalar j_plmx = sqrt(-M_PI * cimag(plmx_psi0p));
   
   PetscScalar impsi0p_v_psip = (psi0p_v_psip - psi0m_v_psip)/(2.0*I);
   PetscScalar amp = (cimag(psi0p_s) + impsi0p_v_psip) / j_plmx;

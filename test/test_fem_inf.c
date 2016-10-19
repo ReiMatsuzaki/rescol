@@ -477,7 +477,53 @@ int testFit_DVR() {
   
   return 0;
 }
+int testCopy_DVR() {
 
+  PetscErrorCode ierr;
+  MPI_Comm comm = PETSC_COMM_SELF;  
+  PrintTimeStamp(comm, "Copy_DVR", NULL);
+  
+  BPS bps;
+  ierr = BPSCreate(comm, &bps); CHKERRQ(ierr);
+  ierr = BPSSetExp(bps, 20.0, 41, 5.0);CHKERRQ(ierr);
+  CScaling cscaling;
+  CScalingCreate(comm, &cscaling);
+  CScalingSetSharpECS(cscaling, 15.0, 20.0*M_PI/180.0);
+  DVR dvr;
+  ierr = DVRCreate(comm, &dvr);CHKERRQ(ierr);
+  ierr = DVRSetKnots(dvr, 8, bps);CHKERRQ(ierr);
+  ierr = DVRSetCScaling(dvr, cscaling);CHKERRQ(ierr);
+  ierr = DVRSetUp(dvr); CHKERRQ(ierr);
+  FEMInf fem;
+  ierr = FEMInfCreate(comm, &fem);CHKERRQ(ierr);
+  ierr = FEMInfSetDVR(fem, dvr);CHKERRQ(ierr);
+
+  FEMInf fem2;
+  ierr = FEMInfDuplicate(fem, &fem2); CHKERRQ(ierr);
+  ierr = FEMInfCopy(fem, fem2); CHKERRQ(ierr);
+
+  Mat H;
+  ierr = FEMInfCreateMat(fem, 1, &H);CHKERRQ(ierr);
+  ierr = FEMInfD2R1Mat(fem, H);CHKERRQ(ierr);
+
+  Mat H1;
+  ierr = FEMInfCreateMat(fem, 1, &H1); CHKERRQ(ierr);
+  ierr = FEMInfD2R1Mat(fem, H1); CHKERRQ(ierr);
+
+  FEMInfView(fem, PETSC_VIEWER_STDOUT_SELF);
+  PetscPrintf(comm, "\n");
+  FEMInfView(fem2, PETSC_VIEWER_STDOUT_SELF); 
+
+  int i[1] = {0}; 
+  int j[1] = {0};
+  PetscScalar v[1], v1[1];
+  MatGetValues(H, 1, i, 1, j, v);
+  MatGetValues(H1,1, i, 1, j, v1);
+  ASSERT_SCALAR_EQ(v[0], v1[0]);
+
+  return 0;
+
+}
 int main(int argc, char **args) {
   
   SlepcInitialize(&argc, &args, (char*)0, help);
@@ -489,7 +535,8 @@ int main(int argc, char **args) {
   testH_DVR();
   testFit_BSS();
   testFit_DVR();
-  ierr = testH_PI_DVR(); CHKERRQ(ierr);
+  testCopy_DVR();
+  //  ierr = testH_PI_DVR(); CHKERRQ(ierr);
 
   //  ierr = testH_BSS_accurate(); CHKERRQ(ierr);
   ierr = testH_PI_BSS(); CHKERRQ(ierr);

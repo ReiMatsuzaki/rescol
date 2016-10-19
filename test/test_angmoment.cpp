@@ -146,7 +146,7 @@ TEST_F(TestY2s, Pq12) {
 TEST_F(TestY2s, Pq1A) {
   Mat M; Y2sCreateY2Mat(y2s, &M);
   PetscBool find;
-  Y2sPq1AY2Mat(y2s, 2, M, &find);
+  Y2sPq1Y2Mat(y2s, 2, M, &find);
   const PetscScalar *row;
   PetscInt ncols;
   const PetscInt *cols;
@@ -157,13 +157,13 @@ TEST_F(TestY2s, Pq1A) {
   MatDestroy(&M);  
 
   Mat MM; Y2sCreateY2Mat(y2s, &MM);
-  Y2sPq1AY2Mat(y2s, 1, MM, &find);
+  Y2sPq1Y2Mat(y2s, 1, MM, &find);
   ASSERT_FALSE(find);
 }
 TEST_F(TestY2s, Pq2A) {
   Mat M; Y2sCreateY2Mat(y2s, &M);
   PetscBool find;
-  Y2sPq2AY2Mat(y2s, 2, M, &find);
+  Y2sPq2Y2Mat(y2s, 2, M, &find);
   const PetscScalar *row;
   PetscInt ncols;
   const PetscInt *cols;

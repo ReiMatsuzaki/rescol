@@ -15,14 +15,18 @@ TEST(TestOCE2_DVR, He) {
   FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
   Y2s y2s; Y2sCreate(comm, &y2s); Y2sSetLM(y2s, 0, 0, 0);
   OCE2 oce2; OCE2Create(comm, &oce2); OCE2Set(oce2, fem, y2s);
+  Y2s y2s_f; Y2sCreate(comm, &y2s_f); Y2sSetLM(y2s_f, 1, 0, 1);
+  //  OCE2 oce2_f; OCE2Create(comm, &oce2_f); OCE2Set(oce2, fem, y2s_f);
 
   // -- compute Matrix --
+  PrintTimeStamp(comm, "H0", NULL);  
   Mat H;
   ierr = OCE2TMat(oce2, MAT_INITIAL_MATRIX, &H); ASSERT_EQ(0, ierr);
   ierr = OCE2PlusVneMat(oce2, 0.0, 1.0, H); ASSERT_EQ(0, ierr);
   ierr = OCE2PlusVeeMat(oce2, H); ASSERT_EQ(0, ierr);
 
   // -- Solve eigenvalue problem --
+  PrintTimeStamp(comm, "Eps", NULL);  
   EPS eps;
   EPSCreate(comm, &eps);
   EPSSetProblemType(eps, EPS_HEP);
@@ -37,14 +41,21 @@ TEST(TestOCE2_DVR, He) {
   ASSERT_TRUE(n > 0);
   
   PetscScalar kr; EPSGetEigenpair(eps, 0, &kr, NULL, NULL, NULL);
-  EXPECT_NEAR(PetscRealPart(kr), -2.858256, 0.00001);
+  //  EXPECT_NEAR(PetscRealPart(kr), -2.858256, 0.00001);
+
+  // -- Solve Z matrix --
+  PrintTimeStamp(comm, "Z", NULL);  
+  Mat Z;
+  ierr = OCE2ZMat(oce2, y2s_f, MAT_INITIAL_MATRIX, &Z); ASSERT_EQ(0, ierr);
 
   // -- Finalize --
   OCE2Destroy(&oce2);
   MatDestroy(&H);
   EPSDestroy(&eps);
-  
+  Y2sDestroy(&y2s_f);
+  MatDestroy(&Z);
 }
+
 class TestOCE2 : public ::testing::Test {
 public:
   OCE2 oce2;

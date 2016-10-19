@@ -9,7 +9,9 @@ PetscErrorCode FEMInfSetFD(FEMInf self, FD target) {
   static int init = 0;
   if(init == 0) {
     FD_Sc.Create = FDCreate;
+    FD_Sc.Copy = NULL;
     FD_Sc.Destory = FDDestroy;
+    
     FD_Sc.View = FDView;
     FD_Sc.SetFromOptions = FDSetFromOptions;
 
@@ -32,6 +34,7 @@ PetscErrorCode FEMInfSetFD(FEMInf self, FD target) {
 
   self->sc = &FD_Sc;
   self->obj = target;
+  self->type = FEMInfType_FD;
 
   return 0;
 }
@@ -41,6 +44,7 @@ PetscErrorCode FEMInfSetBSS(FEMInf self, BSS target) {
   static int init = 0;
   if(init == 0) {
     BSS_Sc.Create = BSSCreate;
+    BSS_Sc.Copy = NULL;
     BSS_Sc.Destory = BSSDestroy;
     BSS_Sc.View = BSSView;
     BSS_Sc.SetFromOptions = BSSSetFromOptions;
@@ -63,7 +67,8 @@ PetscErrorCode FEMInfSetBSS(FEMInf self, BSS target) {
   
   self->sc = &BSS_Sc;
   self->obj = target;
-  
+  self->type = FEMInfType_BSS;
+
   return 0;
 }
 FEMSc DVR_Sc;
@@ -72,7 +77,9 @@ PetscErrorCode FEMInfSetDVR(FEMInf self, DVR target) {
   static int init = 0;
   if(init == 0) {
     DVR_Sc.Create = DVRCreate;
+    DVR_Sc.Copy = DVRCopy;
     DVR_Sc.Destory = DVRDestroy;
+    
     DVR_Sc.View = DVRView;
     DVR_Sc.SetFromOptions = DVRSetFromOptions;
 
@@ -94,6 +101,7 @@ PetscErrorCode FEMInfSetDVR(FEMInf self, DVR target) {
   
   self->sc = &DVR_Sc;
   self->obj = target;
+  self->type = FEMInfType_DVR;
   
   return 0;
 }
@@ -106,9 +114,44 @@ PetscErrorCode FEMInfCreate(MPI_Comm comm, FEMInf *p_self) {
   self->comm = comm;
   self->sc = NULL;
   self->obj = NULL;
+  self->type = -1;
 
   *p_self = self;
   return 0;
+}
+PetscErrorCode FEMInfDuplicate(FEMInf self, FEMInf *new_fem) {
+  //  if(self->sc->Duplicate == NULL)
+  //    SETERRQ(self->comm, 1, "method is null");
+
+  FEMInfCreate(self->comm, new_fem);
+  if(self->type == FEMInfType_FD) {
+    FD ptr;
+    FDCreate(self->comm, &ptr);
+    FEMInfSetFD(*new_fem, ptr);
+  }
+  if(self->type == FEMInfType_BSS) {
+    BSS ptr;
+    BSSCreate(self->comm, &ptr);
+    FEMInfSetBSS(*new_fem, ptr);
+  }
+  if(self->type == FEMInfType_DVR) {
+    DVR ptr;
+    DVRCreate(self->comm, &ptr);
+    FEMInfSetDVR(*new_fem, ptr);
+  }
+  return 0;
+}
+PetscErrorCode FEMInfCopy(FEMInf self, FEMInf other) {
+
+  if(self->sc->Copy == NULL)
+    SETERRQ(self->comm, 1, "method is null");
+  if(self->type != other->type) 
+    SETERRQ(self->comm, 1, "self and other is not same object");
+  
+  PetscErrorCode ierr;
+  ierr = self->sc->Copy(self->obj, other->obj); CHKERRQ(ierr);
+  return 0;
+
 }
 PetscErrorCode FEMInfDestroy(FEMInf *inf) {
 

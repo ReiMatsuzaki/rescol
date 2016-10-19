@@ -221,13 +221,19 @@ PetscErrorCode Y2sGetMaxL(Y2s self, int *L) {
 
 PetscErrorCode Y2sCreateY2Mat(Y2s self, Mat *M) {
 
-  int n; Y2sGetSize(self, &n);
+  return Y2sCreateY2Mat_o(self, self, M);
+
+}
+PetscErrorCode Y2sCreateY2Mat_o(Y2s self, Y2s other, Mat *M) {
+
+  int n1; Y2sGetSize(self,  &n1);
+  int n2; Y2sGetSize(other, &n2);
   MatCreate(self->comm, M);
-  MatSetSizes(*M, n, n, n, n);
+  MatSetSizes(*M, PETSC_DECIDE, PETSC_DECIDE, n1, n2);
   MatSetFromOptions(*M);
   MatSetUp(*M);
   return 0;
-
+  
 }
 PetscErrorCode Y2sCreateY2Vec(Y2s self, Vec *v) {
   int n; Y2sGetSize(self, &n);
@@ -309,8 +315,9 @@ PetscErrorCode Y2sLambda2Y2Mat(Y2s self, Mat M, PetscBool *non0) {
   
   return 0;
 }
-PetscErrorCode Y2sPq1AY2Mat(Y2s self, int q, Mat M, PetscBool *non0) {
-  
+PetscErrorCode Y2sPq1Y2Mat(Y2s self, int q, Mat M, PetscBool *non0) {
+
+  /*
   int n; Y2sGetSize(self, &n);
 
   PetscBool find = PETSC_FALSE;
@@ -331,10 +338,13 @@ PetscErrorCode Y2sPq1AY2Mat(Y2s self, int q, Mat M, PetscBool *non0) {
     *non0 = PETSC_FALSE;
   }
   return 0;
-
+  */
+  return Y2sPq1Y2Mat_o(self, self, q, M, non0);
 }
-PetscErrorCode Y2sPq2AY2Mat(Y2s self, int q, Mat M, PetscBool *non0) {
+PetscErrorCode Y2sPq2Y2Mat(Y2s self, int q, Mat M, PetscBool *non0) {
 
+  return Y2sPq2Y2Mat_o(self, self, q, M, non0);
+  /*
   int n; Y2sGetSize(self, &n);
 
   PetscBool find = PETSC_FALSE;
@@ -342,6 +352,56 @@ PetscErrorCode Y2sPq2AY2Mat(Y2s self, int q, Mat M, PetscBool *non0) {
   for(int i = 0; i < n; i++) 
     for(int j = 0; j < n; j++) {
       PetscReal v = Y2ElePq2A(self->y2_list[i], q, self->y2_list[j]);
+      if(fabs(v) > FLT_EPSILON * 10) {
+	find = PETSC_TRUE;
+	MatSetValue(M, i, j, v, INSERT_VALUES);
+      }
+    }
+  if(find) {
+    MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
+    *non0 = PETSC_TRUE;
+  } else {
+    *non0 = PETSC_FALSE;
+  }
+  return 0;
+  */
+}
+PetscErrorCode Y2sPq1Y2Mat_o(Y2s self, Y2s other, int q, Mat M, PetscBool *non0) {
+
+  int n1; Y2sGetSize(self, &n1);
+  int n2; Y2sGetSize(other, &n2);
+
+  PetscBool find = PETSC_FALSE;
+  for(int i = 0; i < n1; i++) 
+    for(int j = 0; j < n2; j++) {
+      PetscReal v = Y2ElePq1A(self->y2_list[i], q, other->y2_list[j]);
+      if(fabs(v) > FLT_EPSILON) {
+	find = PETSC_TRUE;
+	MatSetValue(M, i, j, v, INSERT_VALUES);
+      }
+    }
+
+  if(find) {
+    MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
+    *non0 = PETSC_TRUE;
+  } else {
+    *non0 = PETSC_FALSE;
+  }
+  return 0;
+
+
+}
+PetscErrorCode Y2sPq2Y2Mat_o(Y2s self, Y2s other, int q, Mat M, PetscBool *non0) {
+  int n1; Y2sGetSize(self, &n1);
+  int n2; Y2sGetSize(other, &n2);
+
+  PetscBool find = PETSC_FALSE;
+  
+  for(int i = 0; i < n1; i++) 
+    for(int j = 0; j < n2; j++) {
+      PetscReal v = Y2ElePq2A(self->y2_list[i], q, other->y2_list[j]);
       if(fabs(v) > FLT_EPSILON * 10) {
 	find = PETSC_TRUE;
 	MatSetValue(M, i, j, v, INSERT_VALUES);

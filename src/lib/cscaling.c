@@ -84,6 +84,22 @@ PetscErrorCode CScalingCreate(MPI_Comm comm, CScaling *p_self) {
   *p_self = self;
   return 0;
 }
+PetscErrorCode CScalingCopy(CScaling self, CScaling other) {
+  PetscErrorCode ierr;
+  if(self->type == CScalingNone) {
+    ierr = CScalingSetNone(other); CHKERRQ(ierr);
+  } else if(self->type == CScalingUniformCS) {
+    PetscScalar t = ((UniformCS*)self->ctx)->theta;
+    ierr = CScalingSetUniformCS(other, t); CHKERRQ(ierr);
+  } else if(self->type == CScalingSharpECS) {
+    SharpECS* ctx = (SharpECS*)self->ctx;
+    ierr = CScalingSetSharpECS(other, ctx->r0, ctx->theta); CHKERRQ(ierr);
+  } else {
+    SETERRQ(self->comm, 1, "Invalid type");
+  }
+  return 0;
+
+}
 PetscErrorCode CScalingDestroy(CScaling *p_self) {
   CScaling self = *p_self;
   PFDestroy(&self->pf);
@@ -124,6 +140,8 @@ PetscErrorCode CScalingSetNone(CScaling self) {
   self->use_cscaling = PETSC_FALSE;
   self->R0 = 0.0;
   self->theta = 0.0;
+  self->type = CScalingNone;
+  self->ctx = NULL;
   return 0;
 }
 PetscErrorCode CScalingSetUniformCS(CScaling self, PetscReal t) {
@@ -133,6 +151,8 @@ PetscErrorCode CScalingSetUniformCS(CScaling self, PetscReal t) {
   self->use_cscaling = PETSC_TRUE;
   self->R0 = 0.0;
   self->theta = t;
+  self->type = CScalingUniformCS;
+  self->ctx = ctx;
   return 0;  
 }
 PetscErrorCode CScalingSetSharpECS(CScaling self, PetscReal r0, PetscReal t) {
@@ -143,6 +163,8 @@ PetscErrorCode CScalingSetSharpECS(CScaling self, PetscReal r0, PetscReal t) {
   self->use_cscaling = PETSC_TRUE;
   self->R0 = r0;
   self->theta = t;
+  self->type = CScalingSharpECS;
+  self->ctx = ctx;
   return 0;    
 }
 PetscErrorCode CScalingSetFromOptions(CScaling self) {
