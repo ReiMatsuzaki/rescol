@@ -1,6 +1,6 @@
 #include <slepceps.h>
 #include <stdlib.h>
-#include <rescol/bps.h>
+#include "../include/bps.h"
 #include <gtest/gtest.h>
 
 static char help[] = "Unit test for dvr.c \n\n";

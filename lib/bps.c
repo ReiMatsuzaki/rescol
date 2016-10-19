@@ -1,4 +1,4 @@
-#include <rescol/bps.h>
+#include "../include/bps.h"
 
 // ---- Basic ----
 PetscErrorCode BPSCreate(MPI_Comm comm, BPS *p_self) {
@@ -89,10 +89,13 @@ PetscErrorCode BPSSetFromOptions(BPS self) {
   PetscInt num_zs = 3;
   char type[10] = "line";
   PetscErrorCode ierr;
-
-  ierr = PetscOptionsGetInt(NULL, "-bps_num_zs", &num_zs, &find); CHKERRQ(ierr);
-  ierr = PetscOptionsGetReal(NULL, "-bps_zmax", &zmax, &find); CHKERRQ(ierr);
-  ierr = PetscOptionsGetString(NULL, "-bps_type", type, 10, &find); CHKERRQ(ierr);
+  
+  //  ierr = PetscOptionsGetInt(NULL, "-bps_num_zs", &num_zs, &find); CHKERRQ(ierr);
+  //  ierr = PetscOptionsGetReal(NULL, "-bps_zmax", &zmax, &find); CHKERRQ(ierr);
+  //  ierr = PetscOptionsGetString(NULL, "-bps_type", type, 10, &find); CHKERRQ(ierr);
+  ierr = PetscOptionsGetInt(NULL, NULL, "-bps_num_zs", &num_zs, &find); CHKERRQ(ierr);
+  ierr = PetscOptionsGetReal(NULL, NULL, "-bps_zmax", &zmax, &find); CHKERRQ(ierr);
+  ierr = PetscOptionsGetString(NULL, NULL, "-bps_type", type, 10, &find); CHKERRQ(ierr);
 
   if(strcmp(type, "line") == 0 ) {
     ierr = BPSSetLine(self, zmax, num_zs); CHKERRQ(ierr); 

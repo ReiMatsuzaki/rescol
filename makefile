@@ -1,66 +1,47 @@
+include local.mk
 include ${SLEPC_DIR}/lib/slepc/conf/slepc_common
-# include ${RESCOL_DIR}/common/variable.mk
-RESCOL_DIR ?= $(realpath .)
 
-INC_DIR=${RESCOL_DIR}/include
+OBJDIR=$(realpath obj)
+BINDIR=$(realpath bin)
 
-VPATH = ${RESCOL_DIR}/src/lib \
-	${RESCOL_DIR}/src/bin \
-	${RESCOL_DIR}/test \
-	${RESCOL_DIR}/test/training
+VPATH=lib:test
 
-CPPFLAGS+=-I${INC_DIR} -I${PETSC_DIR}
-CFLAGS+=-std=gnu99
-CXXFLAGS=
-LIBS=-lgsl -lgtest
+OBJS=$(SRCS_C:.c=.o) $(SRCS_CPP:.cpp=.o)
+DEPS=$(SRCS_C:.c=.d) $(SRCS_CPP:.cpp=.d)
 
-OBJ_FEM= fem_inf.o fd.o bspline.o dvr.o bps.o mat.o pot.o cscaling.o viewerfunc.o synthesize.o op.o
+# -- google test --
+# read README in googletest
+GTEST_DIR=$(HOME)/local/src/googletest/googletest
+CPPFLAGS += -isystem ${GTEST_DIR}/include
+CXXFLAGS += -pthread
+GTEST_HEADERS = $(GTEST_DIR)/include/gtest/*.h \
+                $(GTEST_DIR)/include/gtest/internal/*.h
 
-include $(subst .c,.d,${SOURCE_LIST})
-include ${RESCOL_DIR}/test/make.mk
-include ${RESCOL_DIR}/test/training/make.mk
-include ${RESCOL_DIR}/src/bin/make.mk
+GTEST_SRCS_ = $(GTEST_DIR)/src/*.cc $(GTEST_DIR)/src/*.h $(GTEST_HEADERS)
+gtest-all.o : $(GTEST_SRCS_)
+	$(CXX) $(CPPFLAGS) -I$(GTEST_DIR) $(CXXFLAGS) -c \
+            $(GTEST_DIR)/src/gtest-all.cc -o $(OBJDIR)/$@
+gtest.a : gtest-all.o
+	$(AR) $(ARFLAGS) $(OBJDIR)/$@ $(OBJDIR)/$^
 
+.SUFFIXES:
+.SUFFIXES: .o .c .cpp
 
-${BIN_DIR}:
-	mkdir -p ${BIN_DIR}
-${TEST_BIN_DIR}:
-	mkdir -p ${TEST_BIN_DIR}
+%.o : %.cpp
+	@[ -d $(OBJDIR) ] || mkdir -p $(OBJDIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $(OBJDIR)/$@
+%.o : %.c
+	@[ -d $(OBJDIR) ] || mkdir -p $(OBJDIR)
+	$(CC) $(CFLAGS) -c $< -o $(OBJDIR)/$@
 
-%.o: %.c ${OBJ_DIR}
-	@echo [compile] $(notdir $<)
-	@${PCC} -c ${PCC_FLAGS} ${CFLAGS} ${CCPPFLAGS} ${CPPFLAGS} -o $@ $< 
-%.o : %.cpp ${OBJ_DIR}
-	@echo [compile] $(notdir $<)
-	@${CXX} -c ${PCC_FLAGS}  ${CXXFLAGS} ${CCPPFLAGS} ${CPPFLAGS} -o $@ $< 
-%.d: %.c
-	${PCC} -M ${CPPFLAGS} ${CCPPFLAGS}$< > $@.$$$$;                  \
-	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
-	rm -f $@.$$$$
+test_bps.out : test_bps.o gtest.a bps.o
+	cd $(OBJDIR); ${CXX} -o $(BINDIR)/$@ $^  ${SLEPC_EPS_LIB}
 
-%.d: %.cpp
-	${CXX} -M ${CPPFLAGS} ${CCPPFLAGS}$< > $@.$$$$;                  \
-	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
-	rm -f $@.$$$$
+check_%: test_%.out
+	$(BINDIR)/$<
 
-%.out : %.o
-	@echo [  link  ] $^
-	@${CLINKER} -o $@ $^ ${LIBS} ${SLEPC_EPS_LIB}
-
-.PHONY: TAGS
-TAGS: 
-	find ${PETSC_DIR}/include -regex '.*\.h$$' | grep -v ftn-auto | gtags -q -f -
-	find ${PETSC_DIR}/${PETSC_ARCH}/include -regex '.*\.h$$' | grep -v ftn-auto | gtags -q -f -
-
-.PHONY: check
-check: $(addprefix check_, ${TEST_LIST})
-
-.PHONY:myrm
-myrm: 
-	rm -f ${OBJ_DIR}/*.o
-	rm -f ${BIN_DIR}/*.out
-	rm -f ${TEST_BIN_DIR}/*.out
-	rm -f ./*.o
-	rm -f ./*.out
-	rm -f ./*.dat
+.PHONY: clean
+clean::
+	rm -f $(OBJDIR)/*.o $(OBJDIR)/*.d
+	rm -f $(BINDIR)/*.out
 
