@@ -1,6 +1,7 @@
 #include <slepceps.h>
 #include <time.h>
 #include "unittest.h"
+#include "../include/math.h"
 #include "../include/mat.h"
 #include "../include/dvr.h"
 

@@ -1,4 +1,5 @@
 #include <float.h>
+#include "../include/math.h"
 #include "../include/y2s.h"
 #include "../include/y1s.h"
 

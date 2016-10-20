@@ -1,6 +1,6 @@
 #include <float.h>
+#include "../include/math.h"
 #include "../include/y1s.h"
-
 
 // ---- Y1 Functions ----
 PetscReal Y1RedYq(int j1, int q, int j2) {

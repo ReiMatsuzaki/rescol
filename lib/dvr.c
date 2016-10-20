@@ -1,3 +1,4 @@
+#include "../include/math.h"
 #include "../include/mat.h"
 #include "../include/synthesize.h"
 #include "../include/dvr.h"
