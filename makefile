@@ -21,8 +21,8 @@ DEPS:=$(SRCS_cpp:%.cpp=${OBJDIR}/%.d) $(SRCS_c:%.c=${OBJDIR}/%.d)
 
 -include $(DEPS)
 
-# -- google test --
-# read README in googletest
+## ==== google test ====
+### read README in googletest
 CPPFLAGS += -isystem ${GTEST_DIR}/include
 CXXFLAGS += -pthread
 GTEST_HEADERS = $(GTEST_DIR)/include/gtest/*.h \
@@ -50,62 +50,40 @@ $(OBJDIR)/%.o : %.c
 	$(PCC) $(PCC_FLAGS) $(CFLAGS) $(CCPPFLAGS) -MMD -c $< -o $@
 
 
-OBJS = test_bps.o bps.o gtest.a
-OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
-$(BINDIR)/test_bps.out : $(OBJSFULL)
-	${CXX} -o $@ $^  ${SLEPC_EPS_LIB}
+## ==== build test ====
+$(BINDIR)/test_%.out:
+	@echo "build" $(notdir $@)
+	${CXX} -o $@ $^  ${SLEPC_EPS_LIB} -lgsl
+
+$(BINDIR)/test_bps.out: $(addprefix $(OBJDIR)/,test_bps.o bps.o gtest.a)
 
 OBJS = test_angmoment.o y1s.o y2s.o angmoment.o gtest.a
-OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
-$(BINDIR)/test_angmoment.out : $(OBJSFULL)
-	${CXX} -o $@ $^  ${SLEPC_EPS_LIB} -lgsl
+$(BINDIR)/test_angmoment.out : $(addprefix $(OBJDIR)/,$(OBJS))
 
 OBJS = test_cscaling.o cscaling.o gtest.a
-OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
-$(BINDIR)/test_cscaling.out : $(OBJSFULL)
-	${CXX} -o $@ $^  ${SLEPC_EPS_LIB} -lgsl
+$(BINDIR)/test_cscaling.out : $(addprefix $(OBJDIR)/,$(OBJS))
 
 OBJS = test_mat.o mat.o synthesize.o gtest.a
-OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
-$(BINDIR)/test_mat.out : $(OBJSFULL)
-	@echo "build" $@
-	${CXX} -o $@ $^  ${SLEPC_EPS_LIB} -lgsl
+$(BINDIR)/test_mat.out : $(addprefix $(OBJDIR)/,$(OBJS))
 
 OBJS = test_pot.o pot.o gtest.a
-OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
-$(BINDIR)/test_pot.out : $(OBJSFULL)
-	@echo "build" $@
-	${CXX} -o $@ $^  ${SLEPC_EPS_LIB} -lgsl
+$(BINDIR)/test_pot.out : $(addprefix $(OBJDIR)/,$(OBJS))
 
 OBJS = test_synthesize.o synthesize.o gtest.a
-OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
-$(BINDIR)/test_synthesize.out : $(OBJSFULL)
-	@echo "build" $@
-	${CXX} -o $@ $^  ${SLEPC_EPS_LIB} -lgsl
+$(BINDIR)/test_synthesize.out : $(addprefix $(OBJDIR)/,$(OBJS))
 
 OBJS = test_bspline.o bspline.o cscaling.o bps.o eeps.o pot.o mat.o gtest.a
-OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
-$(BINDIR)/test_bspline.out : $(OBJSFULL)
-	@echo "build" $@
-	${CXX} -o $@ $^  ${SLEPC_EPS_LIB} -lgsl
+$(BINDIR)/test_bspline.out : $(addprefix $(OBJDIR)/,$(OBJS))
 
 OBJS = test_dvr.o dvr.o cscaling.o bps.o eeps.o pot.o synthesize.o mat.o gtest.a
-OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
-$(BINDIR)/test_dvr.out : $(OBJSFULL)
-	@echo "build" $@
-	${CXX} -o $@ $^  ${SLEPC_EPS_LIB} -lgsl
+$(BINDIR)/test_dvr.out : $(addprefix $(OBJDIR)/,$(OBJS))
 
 OBJS = test_fem_inf.o fd.o fem_inf.o dvr.o bspline.o cscaling.o bps.o eeps.o pot.o synthesize.o mat.o viewerfunc.o gtest.a
-OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
-$(BINDIR)/test_fem_inf.out : $(OBJSFULL)
-	@echo "build" $@
-	${CXX} -o $@ $^  ${SLEPC_EPS_LIB} -lgsl
+$(BINDIR)/test_fem_inf.out : $(addprefix $(OBJDIR)/,$(OBJS))
 
 OBJS = test_oce1.o oce1.o fem_inf.o fd.o dvr.o bspline.o cscaling.o bps.o eeps.o pot.o synthesize.o mat.o viewerfunc.o y1s.o angmoment.o gtest.a
-OBJSFULL=$(foreach o, $(OBJS), $(OBJDIR)/$o)
-$(BINDIR)/test_oce1.out : $(OBJSFULL)
-	@echo "build" $@
-	${CXX} -o $@ $^  ${SLEPC_EPS_LIB} -lgsl
+$(BINDIR)/test_oce1.out : $(addprefix $(OBJDIR)/,$(OBJS))
+
 
 check_%: $(BINDIR)/test_%.out
 	@echo $@
