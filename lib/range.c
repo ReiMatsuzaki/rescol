@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "../include/range.h"
 
 PetscErrorCode RangeCreate(MPI_Comm comm, Range *p_self) {
@@ -13,7 +14,7 @@ PetscErrorCode RangeDestroy(Range *p_self) {
   ierr = PetscFree(*p_self); CHKERRQ(ierr);
   return 0;
 }
-PetscErrorCode RangeSetFromOptions(Range self, const char prefix[]) {
+PetscErrorCode RangeSetFromOptions(Range self, const char prefix[]) {  
   PetscErrorCode ierr;
   char range_string[100];
   PetscBool find;
@@ -21,7 +22,9 @@ PetscErrorCode RangeSetFromOptions(Range self, const char prefix[]) {
   //  char option_name[100] = "-";
   //  strcat(option_name, prefix);
   //  strcat(option_name, "-range");
-  char option_name[100] = "-range";
+  //char option_name[100] = "-range";
+  char option_name[100];
+  sprintf(option_name, "-%s-range", prefix);
   ierr = PetscOptionsGetString(NULL, NULL, option_name, range_string, 100, &find);
   CHKERRQ(ierr);
   if(!find) {
@@ -32,11 +35,8 @@ PetscErrorCode RangeSetFromOptions(Range self, const char prefix[]) {
     printf("aa\n");
     */
     SETERRQ(self->comm, 1, "range option");
-    printf("b\n");
   }
-
   ierr = RangeSetFromStr(self, range_string); CHKERRQ(ierr);
-
   return 0;
 
 }
@@ -69,7 +69,11 @@ PetscErrorCode RangeSet(Range self, PetscReal x0,
   self->x0 = x0;
   self->x1 = x1;
   self->num = num;
-  self->dx = (x1-x0)/(num-1);
+  if(num == 1) {
+    self->dx = 0.0;
+  } else {
+    self->dx = (x1-x0)/(num-1);
+  }
 
   return 0;
   
@@ -99,7 +103,7 @@ PetscErrorCode RangeSetFromStr(Range self, const char str[]) {
     ierr = RangeSet(self, x0, x0, 1); CHKERRQ(ierr);
     return 0;
   }
-  
+
   if(num_sep == 2) {
     char str2[100];
     strcpy(str2, str);

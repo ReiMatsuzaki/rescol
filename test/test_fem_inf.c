@@ -265,8 +265,10 @@ int testH_PI_DVR() {
 
   Mat L; FEMInfCreateMat(fem, 1, &L); FEMInfD2R1Mat(fem, L);
   MatScale(L, -0.5);
+  
   Mat V; FEMInfCreateMat(fem, 1, &V); FEMInfENR1Mat(fem, 0, 0.0, V); 
   MatAXPY(L, -1.0, V, DIFFERENT_NONZERO_PATTERN);
+  
   Pot r2; PotCreate(comm, &r2); PotSetPower(r2, 1.0, -2);
   Mat LV; FEMInfCreateMat(fem, 1, &LV); FEMInfPotR1Mat(fem, r2, LV);
   //  Mat LV; FEMInfCreateMat(fem, 1, &LV); FEMInfR2invR1Mat(fem, LV); 
@@ -360,13 +362,22 @@ int testH_DVR() {
   ierr = FEMInfENR1Mat(fem, 0, 0.0, V); CHKERRQ(ierr);
   ierr = MatAXPY(H, -1.0, V, DIFFERENT_NONZERO_PATTERN);CHKERRQ(ierr);
 
-  EEPS eps; 
+  KSP ksp;
+  ierr = KSPCreate(comm, &ksp); CHKERRQ(ierr);
+  Pot slater;
+  ierr = PotCreate(comm, &slater); CHKERRQ(ierr);
+  ierr = PotSetSlater(slater, 1.9, 1, 1.0); CHKERRQ(ierr);
+  //  Vec c_fit; VecCreate(comm, &c_fit); VecSetType(c_fit, "seq");
+  Vec c_fit; FEMInfCreateVec(fem, 1, &c_fit); 
+  ierr = FEMInfFit(fem, slater, ksp, c_fit); CHKERRQ(ierr);
+
+  EEPS eps;
   ierr = EEPSCreate(PETSC_COMM_SELF, &eps);CHKERRQ(ierr);
   ierr = EEPSSetOperators(eps, H, NULL); CHKERRQ(ierr);
-  ierr = EPSSetType(eps->eps, EPSJD);CHKERRQ(ierr);
+  ierr = EPSSetInitialSpace(eps->eps, 1, &c_fit); CHKERRQ(ierr);
+  ierr = EPSSetType(eps->eps, EPSGD);CHKERRQ(ierr);
   ierr = EEPSSetTarget(eps, -0.6);CHKERRQ(ierr);
   ierr = EEPSSolve(eps);CHKERRQ(ierr);
-
 
   int nconv;
   PetscScalar kr;
@@ -374,8 +385,6 @@ int testH_DVR() {
   ASSERT_TRUE(nconv > 0);
   ierr = EPSGetEigenpair(eps->eps, 0, &kr, NULL, NULL, NULL);CHKERRQ(ierr);
   ASSERT_DOUBLE_NEAR(-0.5, kr, pow(10.0, -5.0));
-
-
 
   Vec cs;
   ierr = MatCreateVecs(H, &cs, NULL); CHKERRQ(ierr);
@@ -419,7 +428,7 @@ int testFit_BSS() {
 
   KSP ksp; KSPCreate(comm, &ksp); 
 
-  Vec c;   VecCreate(comm, &c); VecSetType(c, "seq");
+  Vec c;   FEMInfCreateVec(fem, 1, &c); VecSetType(c, "seq");
 
   FEMInfFit(fem, sto, ksp, c);
   PetscScalar x = 2.2;
@@ -455,7 +464,7 @@ int testFit_DVR() {
 
   Pot sto; PotCreate(comm, &sto); PotSetSlater(sto, 1.1, 2, 1.2);
   KSP ksp; KSPCreate(comm, &ksp); 
-  Vec c;   VecCreate(comm, &c); VecSetType(c, "seq");
+  Vec c;   FEMInfCreateVec (fem, 1, &c); VecSetType(c, "seq");
 
   FEMInfFit(fem, sto, ksp, c);
   PetscScalar x = 2.2;
@@ -511,10 +520,6 @@ int testCopy_DVR() {
   ierr = FEMInfCreateMat(fem, 1, &H1); CHKERRQ(ierr);
   ierr = FEMInfD2R1Mat(fem, H1); CHKERRQ(ierr);
 
-  FEMInfView(fem, PETSC_VIEWER_STDOUT_SELF);
-  PetscPrintf(comm, "\n");
-  FEMInfView(fem2, PETSC_VIEWER_STDOUT_SELF); 
-
   int i[1] = {0}; 
   int j[1] = {0};
   PetscScalar v[1], v1[1];
@@ -532,15 +537,16 @@ int main(int argc, char **args) {
 
   test1();    
   testH_BSS();
+  testH_PI_DVR(); 
   testPOT_BSS();
   testH_DVR();
+  
   testFit_BSS();
   testFit_DVR();
   testCopy_DVR();
-  //  ierr = testH_PI_DVR(); CHKERRQ(ierr);
-
+  
   //  ierr = testH_BSS_accurate(); CHKERRQ(ierr);
-  ierr = testH_PI_BSS(); CHKERRQ(ierr);
+  //  ierr = testH_PI_BSS(); CHKERRQ(ierr);
 
   SlepcFinalize();
   return 0;

@@ -91,13 +91,17 @@ check_%: $(BINDIR)/test_%.out
 	$(AT)$<
 
 ## ==== build main ====
-OBJS=driv_1d.o fem_inf.o fd.o dvr.o bspline.o cscaling.o bps.o eeps.o pot.o synthesize.o mat.o viewerfunc.o range.o
+OBJS=driv_1d.o fem_inf.o fd.o dvr.o bspline.o cscaling.o bps.o eeps.o pot.o synthesize.o mat.o viewerfunc.o range.o pot.o
 $(BINDIR)/driv_1d: $(addprefix $(OBJDIR)/,$(OBJS))
 	$(CXX) -o $@ $^ $(SLEPC_EPS_LIB) -lgsl
 
-run_%: $(BINDIR)/%
-	@echo $@
-	$(AT)$<
+.PHONY: run_driv_1d
+run_driv_1d: $(BINDIR)/driv_1d
+	cd calc/driv_1d/hatom_1skp_l/; sh run.sh
+
+#run_%: $(BINDIR)/%
+#	@echo $@
+#	$(AT)$<
 
 
 .PHONY: check

@@ -7,7 +7,7 @@ using namespace std;
 
 static char help[] = "Test for range.c\n\n";
 
-TEST(TestRange, first) {
+TEST(TestRange, five_element) {
 
   PetscErrorCode ierr;
   Range range;
@@ -20,13 +20,38 @@ TEST(TestRange, first) {
   ASSERT_EQ(0, ierr);
 
   PetscReal x_ref(1.0);
-  PetscReal x = RangeInit(range);
+  PetscReal x;
+  RangeInit(range);
   while(RangeNext(range, &x)) {
     ASSERT_DOUBLE_EQ(x_ref, x);
     x_ref += 1.0;
   }
   ierr = RangeView(range, PETSC_VIEWER_STDOUT_SELF);
   ASSERT_EQ(0, ierr);
+}
+TEST(TestRange, one_element) {
+
+  PetscErrorCode ierr;
+  Range range;
+  ierr = RangeCreate(PETSC_COMM_SELF, &range);
+  ASSERT_EQ(0, ierr);
+  //  ierr = RangeSet(range, 1.0, 5.0, 5);
+  ierr = RangeSetFromStr(range, "1.0");
+  ASSERT_EQ(0, ierr);
+  ierr = RangeSetName(range, "xs");
+  ASSERT_EQ(0, ierr);
+
+  ierr = RangeView(range, PETSC_VIEWER_STDOUT_SELF);
+  ASSERT_EQ(0, ierr);
+
+  PetscReal x_ref(1.0);
+  PetscReal x;
+  RangeInit(range);
+  while(RangeNext(range, &x)) {
+    ASSERT_DOUBLE_EQ(x_ref, x);
+    x_ref += 1.0;
+  }
+  
 }
 
 int _main(int argc, char **args) {

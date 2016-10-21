@@ -293,8 +293,8 @@ PetscErrorCode FEMInfFit(FEMInf self, PF pf, KSP ksp, Vec c) {
   Mat S; FEMInfCreateMat(self, 1, &S); FEMInfSR1Mat(self, S);
   Vec V; FEMInfCreateVec(self, 1, &V); FEMInfPotR1Vec(self, pf, V);
 
-  int n; FEMInfGetSize(self, &n);
-  VecSetSizes(c, PETSC_DECIDE, n);
+  //  int n; FEMInfGetSize(self, &n);
+  //  VecSetSizes(c, PETSC_DECIDE, n);
 
   ierr = KSPSetOperators(ksp, S, S); CHKERRQ(ierr);
   ierr = KSPSetFromOptions(ksp); CHKERRQ(ierr);
