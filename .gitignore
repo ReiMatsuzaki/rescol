@@ -9,6 +9,7 @@ qsub*.sh
 GPATH
 GRTAGS
 GTAGS
-build/
+bin/*
+obj/*
 *.png
 *.a

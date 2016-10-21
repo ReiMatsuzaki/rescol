@@ -55,8 +55,9 @@ PetscErrorCode RangeView(Range self, PetscViewer v) {
     PetscViewerASCIIPushTab(v);
     PetscViewerASCIIPrintf(v, "name:%s\n", self->name);
     PetscViewerASCIIPrintf(v, "x0:  %f\n", self->x0);
-    PetscViewerASCIIPrintf(v, "x1:  %f\n", self->x1);
-    PetscViewerASCIIPrintf(v, "num: %d\n", self->num);  
+    PetscViewerASCIIPrintf(v, "x1:  %f\n", self->x1);    
+    PetscViewerASCIIPrintf(v, "num: %d\n", self->num);
+    PetscViewerASCIIPrintf(v, "dx:  %f\n", self->dx);
     PetscViewerASCIIPopTab(v);
   } else {
     SETERRQ(self->comm, 1, "only ascii is supported.");

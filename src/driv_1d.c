@@ -230,6 +230,10 @@ PetscErrorCode Driv1dCalc(Driv1d self, PetscViewer viewer) {
     PetscScalar alpha;
     ierr = VecTDot(svec, cvec, &alpha); CHKERRQ(ierr);
 
+    if(self->use_func_view) {
+      ierr = FEMInfViewFunc(self->fem, cvec, self->viewer); CHKERRQ(ierr);
+    }
+
     // -- destroy --
     ierr = MatDestroy(&lmat); CHKERRQ(ierr);
     ierr = VecDestroy(&svec); CHKERRQ(ierr);

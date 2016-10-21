@@ -49,8 +49,19 @@ PetscErrorCode ViewerFuncView(ViewerFunc self, PetscViewer v) {
     PetscViewerASCIIPrintf(v, "ViewerFunc object:\n");
     PetscViewerASCIIPushTab(v);
     PetscViewerASCIIPrintf(v, "num: %d\n", self->num);
-    PetscViewerASCIIPrintf(v, "x[0]: %d\n", self->xs[0]);
-    PetscViewerASCIIPrintf(v, "x[num-1]: %d\n", self->xs[self->num-1]);
+    PetscReal *xs = self->xs;
+    int n = self->num;
+    if(self->num > 5) {
+      PetscViewerASCIIPrintf(v, "xs = %f, %f, %f, ..., %f, %f\n",
+			     xs[0], xs[1], xs[2], xs[n-2], xs[n-1]);
+    } else {
+      PetscViewerASCIIPrintf(v, "xs = ");
+      for(int i = 0; i < n; i++) {
+	PetscViewerASCIIPrintf(v, "%f", xs[i]);
+	if(i != n-1)
+	  PetscViewerASCIIPrintf(v, ", ");
+      }
+    }
     PetscViewerASCIIPopTab(v);
   } else if(isbinary) {
 
@@ -70,10 +81,10 @@ PetscErrorCode ViewerFuncSetBase(ViewerFunc self, PetscViewer base) {
 PetscErrorCode ViewerFuncSetRange(ViewerFunc self, int num, PetscReal xmax) {
 
   self->num = num;
-  PetscReal h = xmax/num;  
+  PetscReal h = xmax/(num-1);  
   PetscMalloc1(num, &self->xs);
   for(int i = 0; i < num; i++) {
-    self->xs[i] = (i+1) * h;
+    self->xs[i] = i * h;
   }
 
   self->active_range = PETSC_TRUE;

@@ -8,11 +8,11 @@ extern "C" {
 
 typedef struct {
   MPI_Comm comm;
+  char name[100];
   PetscReal x0;
   PetscReal x1;
   PetscReal dx;
   PetscInt num;
-  char name[100];
   PetscInt index;  
 } p_Range;
 typedef p_Range* Range;
