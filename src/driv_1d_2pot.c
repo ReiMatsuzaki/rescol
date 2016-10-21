@@ -176,7 +176,7 @@ PetscErrorCode Driv1dSetFromOptions() {
   if(!find)
     SETERRQ(comm, 1, "-L is not found"); 
   if(L < 0)
-    SETERRQ(comm, 1, "L must be zero or positive integer"); 
+    SETERRQ(comm, 1, "L must be zero or positive integer");
 
   // -- set Z --
   ierr = PetscOptionsGetReal(NULL, "-Z", &Z, &find); CHKERRQ(ierr);

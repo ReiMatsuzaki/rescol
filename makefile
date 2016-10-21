@@ -57,6 +57,8 @@ $(BINDIR)/test_%.out:
 
 $(BINDIR)/test_bps.out: $(addprefix $(OBJDIR)/,test_bps.o bps.o gtest.a)
 
+$(BINDIR)/test_range.out: $(addprefix $(OBJDIR)/,test_range.o range.o gtest.a)
+
 OBJS = test_angmoment.o y1s.o y2s.o angmoment.o gtest.a
 $(BINDIR)/test_angmoment.out : $(addprefix $(OBJDIR)/,$(OBJS))
 
@@ -78,16 +80,25 @@ $(BINDIR)/test_bspline.out : $(addprefix $(OBJDIR)/,$(OBJS))
 OBJS = test_dvr.o dvr.o cscaling.o bps.o eeps.o pot.o synthesize.o mat.o gtest.a
 $(BINDIR)/test_dvr.out : $(addprefix $(OBJDIR)/,$(OBJS))
 
-OBJS = test_fem_inf.o fd.o fem_inf.o dvr.o bspline.o cscaling.o bps.o eeps.o pot.o synthesize.o mat.o viewerfunc.o gtest.a
+OBJS = test_fem_inf.o fem_inf.o fd.o dvr.o bspline.o cscaling.o bps.o eeps.o pot.o synthesize.o mat.o viewerfunc.o gtest.a
 $(BINDIR)/test_fem_inf.out : $(addprefix $(OBJDIR)/,$(OBJS))
 
 OBJS = test_oce1.o oce1.o fem_inf.o fd.o dvr.o bspline.o cscaling.o bps.o eeps.o pot.o synthesize.o mat.o viewerfunc.o y1s.o angmoment.o gtest.a
 $(BINDIR)/test_oce1.out : $(addprefix $(OBJDIR)/,$(OBJS))
 
-
 check_%: $(BINDIR)/test_%.out
 	@echo $@
 	$(AT)$<
+
+## ==== build main ====
+OBJS=driv_1d.o fem_inf.o fd.o dvr.o bspline.o cscaling.o bps.o eeps.o pot.o synthesize.o mat.o viewerfunc.o range.o
+$(BINDIR)/driv_1d: $(addprefix $(OBJDIR)/,$(OBJS))
+	$(CXX) -o $@ $^ $(SLEPC_EPS_LIB) -lgsl
+
+run_%: $(BINDIR)/%
+	@echo $@
+	$(AT)$<
+
 
 .PHONY: check
 check:: check_bps check_angmoment check_cscaling check_mat check_pot check_synthesize check_bspline check_dvr check_fem_inf check_oce1

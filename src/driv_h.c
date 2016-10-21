@@ -1,10 +1,10 @@
-#include <rescol/fem_inf.h>
-#include <rescol/pot.h>
-#include <rescol/y1s.h>
-#include <rescol/angmoment.h>
-#include <rescol/viewerfunc.h>
+#include "../fem_inf.h"
+#include "../pot.h"
+#include "../y1s.h"
+#include "../angmoment.h"
+#include "../viewerfunc.h"
 
-static char help[] = "solve H atom photoionization problem";
+static char help[] = "solve driven equation of H atom photoionization problem";
 
 struct _p_HAtom {
   MPI_Comm comm;

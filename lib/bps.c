@@ -190,3 +190,5 @@ PetscErrorCode BPSInElementQ(BPS self, int iele, PetscReal x, PetscBool *in_q) {
   *in_q = (z0-eps < x && x < z1+eps);
   return 0;
 }
+
+
