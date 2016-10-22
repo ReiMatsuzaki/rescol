@@ -106,7 +106,6 @@ PetscErrorCode Driv1dPrintIn(Driv1d self, PetscViewer viewer) {
   
   PrintTimeStamp(self->comm, "PrintIn", NULL);
   
-  
   PetscViewerASCIIPrintf(viewer, "L:%d\n", self->L);
   
   PetscViewerASCIIPrintf(viewer, "L: %d\n", self->L);

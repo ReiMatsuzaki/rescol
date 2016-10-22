@@ -42,6 +42,21 @@ TEST(Y1, Pq) {
 		     Y1ElePq(+2, +2, +4,
 			     +1,     +1),
 		     0.000000001);
+
+  int jmax = 5;
+  for(int j1 = 0; j1 < jmax; j1++)
+    for(int j2 = 0; j2 < jmax; j2++) {
+      int maxm = j1<j2 ? j1 : j2;
+      for(int m = 0; m <= maxm; m++) {
+	for(int q = 0; q <= jmax; q++) {
+	  ASSERT_NEAR(Y1ElePq(j1, q, j2,
+			      m,     m),
+		      Y1ElePq(j2, q, j1,
+			      m,     m),
+		      0.000000001);
+	}
+      }
+    }
 }
 TEST(Y1, Y1s) {
   Y1s y1s;
@@ -53,6 +68,18 @@ TEST(Y1, Y1s) {
     Y1sView(y1s, PETSC_VIEWER_STDOUT_SELF);
   Y1sDestroy(&y1s);
 }
+/*
+TEST(Y1, Pq_mat) {
+  PetscErrorCode ierr;
+  PetscBool non0;
+  Y1s y1s;
+  Mat pq_y; 
+  ierr = Y1sCreateY1Mat(self->y1s, &pq_y); CHKERRQ(ierr);
+  ierr = Y1sPqY1Mat(self->y1s, q, pq_y, &non0); CHKERRQ(ierr);
+  MatAssemblyBegin(pq_y, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(pq_y,   MAT_FINAL_ASSEMBLY);  
+}
+*/
 TEST(Y2, Pq) {
 
   Y2 a = {1, 1, 1, 0};

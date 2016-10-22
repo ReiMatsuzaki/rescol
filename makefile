@@ -99,11 +99,17 @@ $(BINDIR)/driv_1d: $(addprefix $(OBJDIR)/,$(OBJS))
 run_driv_1d: $(BINDIR)/driv_1d
 	cd calc/driv_1d/hatom_1skp_l/; sh run.sh
 
-#run_%: $(BINDIR)/%
-#	@echo $@
-#	$(AT)$<
 
+OBJS=eig_h2plus.o oce1.o y1s.o angmoment.o fem_inf.o fd.o dvr.o bspline.o cscaling.o bps.o eeps.o pot.o synthesize.o mat.o viewerfunc.o range.o pot.o
+$(BINDIR)/eig_h2plus: $(addprefix $(OBJDIR)/,$(OBJS))
+	@echo "build " $@
+	$(CXX) -o $@ $^ $(SLEPC_EPS_LIB) -lgsl
 
+.PHONY: run_eig_h2plus
+run_eig_h2plus: $(BINDIR)/eig_h2plus
+	cd calc/h2plus/eig/; sh run.sh
+
+## ==== Command ====
 .PHONY: check
 check:: check_bps check_angmoment check_cscaling check_mat check_pot check_synthesize check_bspline check_dvr check_fem_inf check_oce1
 

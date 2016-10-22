@@ -68,6 +68,84 @@ TEST_F(TestOCE1, HAtom2) {
   
 }
 
+TEST(TestOCE1DVR, HAtom) {
+  PetscErrorCode ierr;
+
+  MPI_Comm comm = PETSC_COMM_SELF;
+  Y1s y1s;
+  Y1sCreate(comm, &y1s); Y1sSet(y1s, SIGMA, GERADE, 4);
+  BPS bps;
+  BPSCreate(comm, &bps); BPSSetLine(bps, 20.0, 21);
+  DVR dvr;
+  DVRCreate(comm, &dvr); DVRSetKnots(dvr, 5, bps); DVRSetUp(dvr);
+  FEMInf fem;
+  FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
+  OCE1 oce;
+  OCE1Create(comm, &oce); OCE1Set(oce, fem, y1s);
+  
+  Pot pot;
+  PotCreate(comm, &pot); PotSetCoulombNE(pot, 0, 0.0, -1.0);
+  Mat H; OCE1TMat(oce, MAT_INITIAL_MATRIX, &H);
+  Mat V; OCE1PotMat(oce, ROT_SCALAR, pot, MAT_INITIAL_MATRIX, &V);
+  MatAXPY(H, 1.0, V, DIFFERENT_NONZERO_PATTERN);
+  
+  EEPS eps;
+  ierr = EEPSCreate(comm, &eps); ASSERT_EQ(0, ierr);
+  ierr = EEPSSetOperators(eps, H, NULL); ASSERT_EQ(0, ierr);
+  ierr = EEPSSetTarget(eps, -0.2); ASSERT_EQ(0, ierr);
+  ierr = EEPSSolve(eps); ASSERT_EQ(0, ierr);
+
+  PetscScalar k;
+  EPSGetEigenpair(eps->eps, 0, &k, 0, 0, 0);
+  ASSERT_NEAR(-0.125, PetscRealPart(k), 0.0001);
+
+  PFDestroy(&pot);
+  MatDestroy(&H); MatDestroy(&V);
+  EEPSDestroy(&eps);
+}
+TEST(TestOCE1DVR, HAtom2) {
+  PetscErrorCode ierr;
+
+  MPI_Comm comm = PETSC_COMM_SELF;
+  Y1s y1s;
+  Y1sCreate(comm, &y1s); Y1sSet(y1s, SIGMA, GERADE, 2);
+  BPS bps;
+  BPSCreate(comm, &bps); BPSSetLine(bps, 20.0, 21);
+  DVR dvr;
+  DVRCreate(comm, &dvr); DVRSetKnots(dvr, 5, bps);
+  DVRSetUp(dvr);
+  FEMInf fem;
+  FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
+  OCE1 oce;
+  OCE1Create(comm, &oce); OCE1Set(oce, fem, y1s);
+  
+  Mat H;
+  OCE1TMat(oce, MAT_INITIAL_MATRIX, &H);
+  OCE1PlusVneMat(oce, 0.0, 0.5, H);
+
+
+  // -- Transpose matrix or not --
+  Mat Ht;
+  MatTranspose(H, MAT_INITIAL_MATRIX, &Ht);
+  MatAXPY(Ht, -1.0, H, DIFFERENT_NONZERO_PATTERN);
+  PetscReal norm;
+  MatNorm(Ht, NORM_1, &norm);
+  printf("norm=%f\n", norm);
+  
+  EEPS eps;
+  ierr = EEPSCreate(comm, &eps); ASSERT_EQ(0, ierr);
+  ierr = EEPSSetOperators(eps, H, NULL); ASSERT_EQ(0, ierr);
+  ierr = EEPSSetTarget(eps, -0.2); ASSERT_EQ(0, ierr);
+  ierr = EEPSSolve(eps); ASSERT_EQ(0, ierr);
+
+  PetscScalar k;
+  EPSGetEigenpair(eps->eps, 0, &k, 0, 0, 0);
+  ASSERT_NEAR(-0.125, PetscRealPart(k), 0.0001);
+
+  MatDestroy(&H);
+  EEPSDestroy(&eps);
+}
+
 class TestOCE1H2plus :public ::testing::Test {
 public:
   MPI_Comm comm;

@@ -48,18 +48,25 @@ PetscErrorCode ViewerFuncView(ViewerFunc self, PetscViewer v) {
   if(iascii) {
     PetscViewerASCIIPrintf(v, "ViewerFunc object:\n");
     PetscViewerASCIIPushTab(v);
-    PetscViewerASCIIPrintf(v, "num: %d\n", self->num);
-    PetscReal *xs = self->xs;
-    int n = self->num;
-    if(self->num > 5) {
-      PetscViewerASCIIPrintf(v, "xs = %f, %f, %f, ..., %f, %f\n",
-			     xs[0], xs[1], xs[2], xs[n-2], xs[n-1]);
-    } else {
-      PetscViewerASCIIPrintf(v, "xs = ");
-      for(int i = 0; i < n; i++) {
-	PetscViewerASCIIPrintf(v, "%f", xs[i]);
-	if(i != n-1)
-	  PetscViewerASCIIPrintf(v, ", ");
+
+    PetscBool is_active = ViewerFuncIsActive(self);
+    PetscViewerASCIIPrintf(v, "is_active: %s\n",
+			   is_active ? "Yes" : "No");
+
+    if(is_active) {
+      PetscViewerASCIIPrintf(v, "num: %d\n", self->num);
+      PetscReal *xs = self->xs;
+      int n = self->num;
+      if(self->num > 5) {
+	PetscViewerASCIIPrintf(v, "xs = %f, %f, %f, ..., %f, %f\n",
+			       xs[0], xs[1], xs[2], xs[n-2], xs[n-1]);
+      } else {
+	PetscViewerASCIIPrintf(v, "xs = ");
+	for(int i = 0; i < n; i++) {
+	  PetscViewerASCIIPrintf(v, "%f", xs[i]);
+	  if(i != n-1)
+	    PetscViewerASCIIPrintf(v, ", ");
+	}
       }
     }
     PetscViewerASCIIPopTab(v);

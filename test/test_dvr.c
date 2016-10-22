@@ -113,6 +113,29 @@ int testPsi() {
 
   return 0;
 }
+int testPower() {
+
+  PetscScalar x, y;
+  PetscInt    n;
+  
+  x = 1.2;
+  n = 2;
+  ScalarPower(PETSC_COMM_SELF, x, n, &y);
+  ASSERT_DOUBLE_EQ(x*x, y);
+
+  x = 0.0;
+  n = 1;
+  ScalarPower(PETSC_COMM_SELF, x, n, &y);
+  ASSERT_DOUBLE_EQ(0.0, y);
+
+  x = 2.0;
+  n = 0;
+  ScalarPower(PETSC_COMM_SELF, x, n, &y);
+  ASSERT_DOUBLE_EQ(1.0, y); 
+  
+  return 0;
+  
+}
 int testSR1LSMat() {
   PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
@@ -250,6 +273,23 @@ int testENR1Mat() {
   DVRDestroy(&dvr);
 
   return 0;
+}
+int testENR1Mat_at0() {
+
+  MPI_Comm comm = PETSC_COMM_SELF;
+  int nq = 3;
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 5);
+  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, nq, bps);
+  DVRSetUp(dvr);
+
+  Mat V; DVRCreateR1Mat(dvr, &V);
+  DVRENR1Mat(dvr, 1, 0.0, V);
+  PetscReal norm;
+  MatNorm(V, NORM_1, &norm);
+  
+  ASSERT_DOUBLE_NEAR(0.0, norm, 0.0000000001);
+  return 0;
+  
 }
 int testEE() {
 
@@ -483,10 +523,10 @@ int testECSMatrix() {
   MatScale(T, -0.5);
   Mat V;
   DVRCreateR1LSMat(dvr, &V);
-  DVRENR1LSMat(dvr, 2, 0.0, V);
+  DVRENR1LSMat(dvr, 0, 0.0, V);
   Mat V0;
   DVRCreateR1Mat(dvr, &V0);
-  DVRENR1Mat(dvr, 2, 0.0, V0);
+  DVRENR1Mat(dvr, 0, 0.0, V0);
   
 
   Mat SS;
@@ -684,6 +724,12 @@ int testLapack() {
 int main(int argc, char **args) {
 
   SlepcInitialize(&argc, &args, (char*)0, help);
+
+  PrintTimeStamp(PETSC_COMM_SELF, "power", NULL);
+  testPower();
+
+  PrintTimeStamp(PETSC_COMM_SELF, "ENR1_at0", NULL);
+  testENR1Mat_at0();
 
   PrintTimeStamp(PETSC_COMM_SELF, "test_valueLS", NULL);
   testLS();

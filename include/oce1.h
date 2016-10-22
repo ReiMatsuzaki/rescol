@@ -34,8 +34,10 @@ PetscErrorCode OCE1SetFromOptions(OCE1 self);
 
 PetscErrorCode OCE1GetSizes(OCE1 self, int *n_r, int *n_y);
 
+PetscErrorCode OCE1Fit(OCE1 self, PF pf, int L, KSP ksp, Vec c);
+  
 PetscErrorCode OCE1CreateMat(OCE1 self, Mat *M);
-// PetscErrorCode OCE1CreateVec(OCE1 self, Vec *v);
+PetscErrorCode OCE1CreateVec(OCE1 self, Vec *v);
 PetscErrorCode OCE1SMat(OCE1 self,MatReuse scall,  Mat *M, PetscBool *is_id);
   //PetscErrorCode OCE1SMatNullable(OCE1 self, Mat M);
 PetscErrorCode OCE1TMat(OCE1 self, MatReuse scall, Mat *M);

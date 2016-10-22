@@ -145,6 +145,48 @@ PetscErrorCode OCE1GetSizes(OCE1 self, int *n_r, int *n_y) {
   return 0;
 }
 
+PetscErrorCode OCE1Fit(OCE1 self, PF pf, int L, KSP ksp, Vec c) {
+
+  PetscErrorCode ierr;
+
+  if(L != 0) {
+    SETERRQ(self->comm, 1, "now only L=0 is supported");
+  }
+
+  ierr = VecSet(c, 0.0); CHKERRQ(ierr);
+  Vec c_fem;
+  ierr = FEMInfCreateVec(self->fem, 1, &c_fem);  CHKERRQ(ierr);
+  ierr = FEMInfFit(self->fem, pf, ksp, c_fem);  CHKERRQ(ierr);
+
+  int numr;
+  ierr = FEMInfGetSize(self->fem, &numr); CHKERRQ(ierr);
+  PetscInt *indices;
+  PetscScalar *values;
+  ierr = PetscMalloc(numr*(sizeof(PetscInt)), &indices); CHKERRQ(ierr);
+  ierr = PetscMalloc(numr*(sizeof(PetscScalar)), &values); CHKERRQ(ierr);
+  
+  PetscScalar *ptr_c_fem;
+  ierr = VecGetArray(c_fem, &ptr_c_fem); CHKERRQ(ierr);
+  for(int i = 0; i < numr; i++) {
+    indices[i] = i;
+    values[i] = ptr_c_fem[i];
+  }
+  ierr = VecRestoreArray(c_fem, &ptr_c_fem); CHKERRQ(ierr);
+  
+  ierr = VecSetValues(c, numr, indices, values, INSERT_VALUES); CHKERRQ(ierr);
+  
+  
+  ierr = VecAssemblyBegin(c); CHKERRQ(ierr);
+  ierr = VecAssemblyEnd(c); CHKERRQ(ierr);
+
+  ierr = VecDestroy(&c_fem); CHKERRQ(ierr);
+  ierr = PetscFree(indices); CHKERRQ(ierr);
+  ierr = PetscFree(values); CHKERRQ(ierr);
+  
+  return 0;
+  
+}
+
 PetscErrorCode OCE1CalcSr(OCE1 self) {
   PetscErrorCode ierr;
   ierr = FEMInfCreateMat(self->fem, 1, &self->s_r);CHKERRQ(ierr);
@@ -171,6 +213,16 @@ PetscErrorCode OCE1CreateMat(OCE1 self, Mat *M) {
   ierr = MatMatSynthesizeSymbolic(self->s_r, self->s_y, M);
   
   return 0;
+}
+PetscErrorCode OCE1CreateVec(OCE1 self, Vec *v) {
+
+  int num_r, num_y;
+  OCE1GetSizes(self, &num_r, &num_y);
+  VecCreate(self->comm, v);
+  VecSetSizes(*v, PETSC_DECIDE, num_r*num_y);
+  VecSetUp(*v);
+  return 0;
+  
 }
 PetscErrorCode OCE1SMat(OCE1 self, MatReuse scall, Mat *M, PetscBool *is_id) {
 
@@ -273,6 +325,10 @@ PetscErrorCode OCE1PlusVneMat(OCE1 self, PetscReal a, PetscReal z, Mat M) {
     Mat pq_y; 
     ierr = Y1sCreateY1Mat(self->y1s, &pq_y); CHKERRQ(ierr);
     ierr = Y1sPqY1Mat(self->y1s, q, pq_y, &non0); CHKERRQ(ierr);
+    MatAssemblyBegin(pq_y, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(pq_y,   MAT_FINAL_ASSEMBLY);
+    //    printf("q = %d\n", q);
+    //    MatView(pq_y, PETSC_VIEWER_STDOUT_SELF);
     if(non0) {
       Mat pq_r;
       ierr = FEMInfCreateMat(self->fem, 1, &pq_r); CHKERRQ(ierr);

@@ -640,7 +640,7 @@ PetscErrorCode DVRPrepareT2(DVR self) {
 PetscErrorCode ScalarPower(MPI_Comm comm,
 			   PetscScalar x, int n, PetscScalar* y) {
   if(n < 0) {
-    SETERRQ(comm, 1, "n must be negative");
+    SETERRQ(comm, 1, "n is negative");
   } else if(n == 0) {
     *y = 1.0;
   } else {
@@ -768,7 +768,8 @@ PetscErrorCode DVRENR1Mat(DVR self, int q, double a, Mat M) {
     PetscScalar g = x > a ? xc : a;
     PetscScalar s = x < a ? xc : a;
     PetscScalar v;
-    ScalarPower(self->comm, q, s/g, &v);
+    //ScalarPower(self->comm, q, s/g, &v);
+    ScalarPower(self->comm, s/g, q, &v);
     v /= g;
     ierr = MatSetValue(M, i, i, v, INSERT_VALUES); CHKERRQ(ierr);
 
@@ -1066,7 +1067,7 @@ PetscErrorCode DVRENR1LSMat(DVR self, int q, PetscReal a, Mat M) {
       else {
 	PetscScalar g = x > a ? xc : a;
 	PetscScalar s = x < a ? xc : a;
-	ScalarPower(self->comm, q, s/g, &v);
+	ScalarPower(self->comm, s/g, q, &v);
 	v /= g;
       }
       ierr = MatSetValue(M, idx, idx, v*wc, INSERT_VALUES);

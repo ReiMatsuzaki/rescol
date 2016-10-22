@@ -25,6 +25,26 @@ int test1() {
 
   return 0;
 }
+int testDVR_EN() {
+
+  PetscErrorCode ierr;
+
+  MPI_Comm comm = PETSC_COMM_SELF;
+  PrintTimeStamp(comm, "H_PI_DVR", NULL);
+
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 10.0, 11);
+  DVR dvr; DVRCreate(comm, &dvr);
+  DVRSetKnots(dvr, 5, bps); 
+  DVRSetUp(dvr);
+  FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
+
+  Mat pq_r;
+  FEMInfCreateMat(fem, 1, &pq_r);
+  FEMInfENR1Mat(fem,   2, 0.0, pq_r);
+
+  MatView(pq_r, PETSC_VIEWER_STDOUT_SELF);
+  
+}
 int testH_BSS() {
 
   MPI_Comm comm = PETSC_COMM_SELF;
@@ -535,7 +555,8 @@ int main(int argc, char **args) {
   SlepcInitialize(&argc, &args, (char*)0, help);
   PetscErrorCode ierr;
 
-  test1();    
+  test1();
+  testDVR_EN();
   testH_BSS();
   testH_PI_DVR(); 
   testPOT_BSS();

@@ -78,6 +78,8 @@ PetscErrorCode DVRDerivPsi(DVR self, Vec c, Vec x, Vec y);
 
 
 // ------- R1Mat/R2Mat ----------
+PetscErrorCode ScalarPower(MPI_Comm comm,
+			   PetscScalar x, int n, PetscScalar* y);
 PetscErrorCode DVRCreateR1Vec(DVR self, Vec *m);
 PetscErrorCode DVRCreateR1Mat(DVR self, Mat *M);
 PetscErrorCode DVRCreateR2Mat(DVR self, Mat *M);
