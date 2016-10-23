@@ -83,6 +83,7 @@ int testH_BSS_accurate() {
   //           Reports on Progress in Physics 64, 1815
   // see 2016/4/20
 
+  /*
   PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
   PrintTimeStamp(comm, "H_BSS2", NULL);
@@ -167,7 +168,8 @@ int testH_BSS_accurate() {
   MatDestroy(&H); MatDestroy(&V); MatDestroy(&S);
   EEPSDestroy(&eps);  VecDestroy(&cs);
   // VecDestroy(&xs[0]);
-
+  */
+  
   return 0;
 }
 int testH_PI_BSS() {
@@ -196,7 +198,10 @@ int testH_PI_BSS() {
 
   Mat L; FEMInfCreateMat(fem, 1, &L); FEMInfD2R1Mat(fem, L);
   MatScale(L, -0.5);
-  Mat V; FEMInfCreateMat(fem, 1, &V); FEMInfENR1Mat(fem, 0, 0.0, V); 
+  Pot pot; PotCreate(comm, &pot);
+  PotSetCoulombNE(pot, 0, 0.0, -1.0);  
+  Mat V; FEMInfCreateMat(fem, 1, &V); //FEMInfENR1Mat(fem, 0, 0.0, V);
+  FEMInfPotR1Mat(fem, pot, V);
   MatAXPY(L, -1.0, V, DIFFERENT_NONZERO_PATTERN);
   Pot r2; PotCreate(comm, &r2); PotSetPower(r2, 1.0, -2);
   Mat LV; FEMInfCreateMat(fem, 1, &LV); FEMInfPotR1Mat(fem, r2, LV);
@@ -503,7 +508,6 @@ int testCopy_DVR() {
 int main(int argc, char **args) {
   
   SlepcInitialize(&argc, &args, (char*)0, help);
-  PetscErrorCode ierr;
 
   testH_BSS();
   // testH_BSS_accurate();

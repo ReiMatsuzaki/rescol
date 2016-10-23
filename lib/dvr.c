@@ -710,12 +710,12 @@ PetscErrorCode DVRPotR1Vec(DVR self, Pot pot, Vec v) {
   */
 }
 PetscErrorCode DVRSR1Mat(DVR self, Mat M) {
-  PetscErrorCode ierr;
+  PetscErrorCode ierr = 0;
   
   for(int i = 0; i < self->num_basis; i++) 
     ierr = MatSetValue(M, i, i, 1.0, INSERT_VALUES); CHKERRQ(ierr);
-  MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
+  ierr = MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  ierr = MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
   return 0;
 }
 PetscErrorCode DVRD2R1Mat(DVR self, Mat M) {
@@ -767,7 +767,7 @@ PetscErrorCode DVRENR1Mat(DVR self, int q, double a, Mat M) {
     PetscScalar xc = self->xs_basis_c[i];
     PetscScalar g = x > a ? xc : a;
     PetscScalar s = x < a ? xc : a;
-    PetscScalar v;
+    PetscScalar v=0.0;
     //ScalarPower(self->comm, q, s/g, &v);
     ScalarPower(self->comm, s/g, q, &v);
     v /= g;
@@ -791,7 +791,7 @@ PetscErrorCode DVREER2Mat_direct(DVR self, int q, Mat M) {
       } else {
 	g = rj; s = ri;
       }
-      PetscScalar val;
+      PetscScalar val=0.0;
       ScalarPower(self->comm, q, s/g, &val);
       val /= g;
       int idx = i*num+j;
@@ -1054,11 +1054,10 @@ PetscErrorCode DVRENR1LSMat(DVR self, int q, PetscReal a, Mat M) {
   int idx = 0;
   for(int i_ele = 0; i_ele < ne; i_ele++) {
     for(int i_q = 0; i_q < nq;   i_q++) {
-      PetscReal x;
-      PetscScalar wc, xc, v;
-      x = self->xs[idx];
-      xc = self->xs_c[idx];
-      wc = self->ws_c[idx];
+      PetscReal x = x = self->xs[idx];
+      PetscScalar xc = self->xs_c[idx];
+      PetscScalar wc = self->ws_c[idx];
+      PetscScalar v = 0.0;
       if(i_ele == 0 && i_q == 0)
 	v = 0.0;
       else if(q == 0) {

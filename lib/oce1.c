@@ -79,7 +79,7 @@ PetscErrorCode OCE1ViewFunc(OCE1 self, Vec c, ViewerFunc v) {
 
   PetscInt num_xs; 
   PetscReal *xs;
-  ViewerFuncGetXs(v, &num_xs, &xs);
+  ViewerFuncGetRange(v, &num_xs, &xs);
 
   int num_r, num_y;
   OCE1GetSizes(self, &num_r, &num_y);

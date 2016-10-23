@@ -64,7 +64,7 @@ PetscErrorCode EigH2plusSetFromOptions(EigH2plus self) {
   ierr = OCE1SetFromOptions(self->oce); CHKERRQ(ierr);
   
   // -- set function viewer --
-  ierr = ViewerFuncSetFromOptions(self->viewer_func, &find); CHKERRQ(ierr);  
+  ierr = ViewerFuncSetFromOptions(self->viewer_func); CHKERRQ(ierr);  
 
   // -- EPS --
   ierr = EEPSSetFromOptions(self->eps); CHKERRQ(ierr);
@@ -83,23 +83,21 @@ PetscErrorCode EigH2plusSetFromOptions(EigH2plus self) {
 
   return 0;
 }
-PetscErrorCode EigH2plusPrintIn(EigH2plus self, PetscViewer v) {
-  
+PetscErrorCode EigH2plusPrintIn(EigH2plus self) {
+
+  PetscViewer v = PETSC_VIEWER_STDOUT_SELF;
   PrintTimeStamp(self->comm, "PrintIn", NULL);
 
-  PetscViewerASCIIPrintf(v, "R:%f\n", self->R);
+  PetscPrintf(self->comm, "R:%f\n", self->R);
 
-  PetscViewerASCIIPrintf(v, "oce: ");
+  PetscPrintf(self->comm, "oce: ");
   OCE1View(self->oce, v);
-
-  //  PetscViewerASCIIPrintf(v, "viewer_func: ");
-  //  ViewerFuncView(self->viewer_func, v);
 
   PetscPrintf(self->comm, "in: %s\n", self->path_in);
   PetscPrintf(self->comm, "out: %s\n", self->path_out);
   return 0;
 }
-PetscErrorCode EigH2plusCalc(EigH2plus self, PetscViewer v) {
+PetscErrorCode EigH2plusCalc(EigH2plus self) {
 
   PetscErrorCode ierr;  
 
@@ -120,13 +118,12 @@ PetscErrorCode EigH2plusCalc(EigH2plus self, PetscViewer v) {
   Mat S;
   ierr = OCE1TMat(self->oce, MAT_INITIAL_MATRIX, &H); CHKERRQ(ierr);
   ierr = OCE1PlusVneMat(self->oce, self->R/2.0, 1.0, H); CHKERRQ(ierr);
-  ierr = OCE1SMat(self->oce, MAT_INITIAL_MATRIX, &S, &s_is_id); CHKERRQ(ierr);
 
+  ierr = OCE1SMat(self->oce, MAT_INITIAL_MATRIX, &S, &s_is_id); CHKERRQ(ierr);
 
   // Solve
   PrintTimeStamp(self->comm, "EPS", NULL);
   ierr = EPSSetInitialSpace(self->eps->eps, 1, &c_guess); CHKERRQ(ierr);
-  PrintTimeStamp(self->comm, "EPS", NULL);
   if(s_is_id)
     EEPSSetOperators(self->eps, H, NULL);
   else
@@ -143,16 +140,17 @@ PetscErrorCode EigH2plusCalc(EigH2plus self, PetscViewer v) {
 
   return 0;
 }
-PetscErrorCode EigH2plusPrintOut(EigH2plus self, PetscViewer v) {
+PetscErrorCode EigH2plusPrintOut(EigH2plus self) {
 
+  PetscViewer v = PETSC_VIEWER_STDOUT_SELF;
   int nconv;
   EPSGetConverged(self->eps->eps, &nconv);
   if(nconv == 0) {
     PetscViewerASCIIPrintf(v, "Failed to compute eigen values \n");
     return 0;
   }
-
-  PetscViewerASCIIPrintf(v, "nconv: %d\n", nconv);
+  
+  PetscPrintf(self->comm, "nconv: %d\n", nconv);
   for(int i = 0; i < nconv; i++) {
     PetscScalar ene;
     Vec c; OCE1CreateVec(self->oce, &c);
@@ -170,20 +168,20 @@ int main(int argc, char **args) {
   ierr = SlepcInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);
   
   MPI_Comm comm = PETSC_COMM_SELF;
-  PetscViewer v = PETSC_VIEWER_STDOUT_SELF;
-  PetscViewerFormat format;
 
-  PetscViewerASCIIPrintf(v, "\n");
-  PetscViewerASCIIPrintf(v, "eig_h2plus program.\n");
-  PetscViewerASCIIPrintf(v, "Solve eigen value problem ob hydrogen ion\n");
-  PetscViewerASCIIPrintf(v, "\n");
+  PetscPrintf(comm, "\n");
+  PetscPrintf(comm, ">>>> eig_h2plus >>>>\n");
+  PetscPrintf(comm, "Solve eigen value problem ob hydrogen ion\n");
+  PetscPrintf(comm, "\n");
 
-  EigH2plus h2plus;
+  EigH2plus h2plus = NULL;
   ierr = EigH2plusCreate(comm, &h2plus); CHKERRQ(ierr);
   ierr = EigH2plusSetFromOptions(h2plus); CHKERRQ(ierr);
-  ierr = EigH2plusPrintIn(h2plus, v); CHKERRQ(ierr);
-  ierr = EigH2plusCalc(h2plus, v); CHKERRQ(ierr);
-  ierr = EigH2plusPrintOut(h2plus, v); CHKERRQ(ierr);
+  ierr = EigH2plusPrintIn(h2plus); CHKERRQ(ierr);
+  ierr = EigH2plusCalc(h2plus); CHKERRQ(ierr);
+  ierr = EigH2plusPrintOut(h2plus); CHKERRQ(ierr);
+
+  PetscPrintf(comm, "<<<< eig_h2plus <<<<\n\n");
 
   return 0;
 }

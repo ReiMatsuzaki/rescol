@@ -192,7 +192,7 @@ PetscErrorCode FEMInfView(FEMInf self, PetscViewer v) {
 PetscErrorCode FEMInfViewFunc_ASCII(FEMInf self, Vec c, ViewerFunc v) {
     PetscInt num;
     PetscReal *xs;
-    ViewerFuncGetXs(v, &num, &xs);
+    ViewerFuncGetRange(v, &num, &xs);
 
     for(int i = 0; i < num; i++) {
       PetscReal x = xs[i];
@@ -215,7 +215,7 @@ PetscErrorCode FEMInfViewFunc_Draw(FEMInf self, Vec c, ViewerFunc v) {
 
   PetscInt num;
   PetscReal *xs;
-  ViewerFuncGetXs(v, &num, &xs);
+  ViewerFuncGetRange(v, &num, &xs);
 
   for(int i = 0; i < num; i++) {
     PetscReal x = xs[i];

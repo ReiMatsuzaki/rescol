@@ -12,16 +12,21 @@ PetscErrorCode ViewerFuncCreate(MPI_Comm comm, ViewerFunc *p_self) {
   self->xs = NULL;
   self->active_base = PETSC_FALSE;
   self->active_range= PETSC_FALSE;
+  strcpy(self->opt_prefix, "");
+  strcpy(self->opt_base, "viewerfunc");
   *p_self = self;
 
   return 0;
 }
 PetscErrorCode ViewerFuncDestroy(ViewerFunc *p_self) {
-  PetscErrorCode ierr;
+  PetscErrorCode ierr=0;
   ViewerFunc self = *p_self;
 
-  ierr = PetscViewerDestroy(&self->base); CHKERRQ(ierr);
-  ierr = PetscFree(self->xs); CHKERRQ(ierr);
+  if(self->base != NULL)
+    ierr = PetscViewerDestroy(&self->base); CHKERRQ(ierr);
+
+  if(self->xs != NULL)
+    ierr = PetscFree(self->xs); CHKERRQ(ierr);
 
   ierr = PetscFree(*p_self); CHKERRQ(ierr);
   return 0;
@@ -31,6 +36,10 @@ PetscViewer ViewerFuncGetBase(ViewerFunc self) {
   return self->base;
 }
 PetscErrorCode ViewerFuncView(ViewerFunc self, PetscViewer v) {
+
+  if(!ViewerFuncIsActive(self)) {
+    SETERRQ(self->comm, 1, "ViewerFunc object is not setup");
+  }
 
   PetscErrorCode ierr;
 
@@ -80,15 +89,21 @@ PetscErrorCode ViewerFuncView(ViewerFunc self, PetscViewer v) {
 
 PetscErrorCode ViewerFuncSetBase(ViewerFunc self, PetscViewer base) {
   
-  self->base = base;
+  self->base = base;  
   self->active_base = PETSC_TRUE;
 
   return 0;
 }
 PetscErrorCode ViewerFuncSetRange(ViewerFunc self, int num, PetscReal xmax) {
 
+  PetscErrorCode ierr;
   self->num = num;
-  PetscReal h = xmax/(num-1);  
+  PetscReal h = xmax/(num-1);
+
+  if(self->xs != NULL) {
+    ierr = PetscFree(self->xs); CHKERRQ(ierr);
+  }
+  
   PetscMalloc1(num, &self->xs);
   for(int i = 0; i < num; i++) {
     self->xs[i] = i * h;
@@ -98,46 +113,51 @@ PetscErrorCode ViewerFuncSetRange(ViewerFunc self, int num, PetscReal xmax) {
   return 0;
 
 }
-PetscErrorCode ViewerFuncSetFromOptions(ViewerFunc self, PetscBool *_find) {
+PetscErrorCode ViewerFuncSetOptionsPrefix(ViewerFunc self, const char prefix[]) {
+  strcpy(self->opt_prefix, prefix);
+  return 0;
+}
+PetscErrorCode ViewerFuncSetFromOptions(ViewerFunc self) {
 
   PetscErrorCode ierr;
-  PetscBool find, find_xmax, find_num;
-  PetscViewer viewer;
-  PetscViewerFormat format;
-  printf("2\n"); 
-  ierr = PetscOptionsGetViewer(self->comm, NULL, "-viewerfunc_view", 
-			       &viewer, &format, &find); CHKERRQ(ierr);
-  printf("2\n"); 
-  if(_find != NULL) {
-    *_find = find;
-  }
-  printf("2\n"); 
-  if(_find == NULL && !find) {
-    SETERRQ(self->comm, 1, "Failed find viewerfunc");
-  }
-  printf("2\n"); 
-  if(find) {
+
+  char opt_path[100];
+  char opt_num[100];
+  char opt_xmax[100];
+
+  sprintf(opt_path, "-%s%s_path",
+	  self->opt_prefix, self->opt_base);
+  sprintf(opt_num,  "-%s%s_num",
+	  self->opt_prefix, self->opt_base);
+  sprintf(opt_xmax, "-%s%s_xmax",
+	  self->opt_prefix, self->opt_base);
+
+  PetscBool find_path, find_xmax, find_num;
+  char path[100];
+  PetscInt  num;
+  PetscReal xmax;
+  ierr = PetscOptionsGetString(NULL, NULL,opt_path, path,  100, &find_path); CHKERRQ(ierr);
+  ierr = PetscOptionsGetInt(NULL, NULL,   opt_num,  &num, &find_num); CHKERRQ(ierr);
+  ierr = PetscOptionsGetReal(NULL, NULL,  opt_xmax, &xmax, &find_xmax); CHKERRQ(ierr);
+
+  if(find_path) {
+    PetscViewer viewer;
+    ierr = PetscViewerASCIIOpen(self->comm, path, &viewer); CHKERRQ(ierr);
     ierr = ViewerFuncSetBase(self, viewer); CHKERRQ(ierr);
-    printf("2\n"); 
-    PetscInt num;
-    ierr = PetscOptionsGetInt(NULL, NULL, "-viewerfunc_num",
-			      &num, &find_num); CHKERRQ(ierr);
-printf("2\n"); 
-    PetscReal xmax;
-    ierr = PetscOptionsGetReal(NULL, NULL, "-viewerfunc_xmax",
-			       &xmax, &find_xmax); CHKERRQ(ierr);  
-printf("2\n"); 
-    if(find_xmax && find_num) {
-      ierr = ViewerFuncSetRange(self ,num, xmax); CHKERRQ(ierr);
-    } else {
-      SETERRQ(self->comm, 1, "-viewerfunc_num and -viewerfunc_xmax is necessary");
-    }
   }
-printf("2\n"); 
+
+  if(find_num && find_xmax) {
+    ierr = ViewerFuncSetRange(self, num, xmax); CHKERRQ(ierr);
+  }
+
   return 0;
 }
 
-PetscErrorCode ViewerFuncGetXs(ViewerFunc self, int *num, PetscReal **xs) {
+PetscErrorCode ViewerFuncGetRange(ViewerFunc self, int *num, PetscReal **xs) {
+
+  if(!ViewerFuncIsActive(self))
+    SETERRQ(self->comm, 1, "ViewerFunc object is not setup");
+  
   *num = self->num;
   *xs = self->xs;
   return 0;
@@ -145,8 +165,4 @@ PetscErrorCode ViewerFuncGetXs(ViewerFunc self, int *num, PetscReal **xs) {
 PetscBool ViewerFuncIsActive(ViewerFunc self) {
   return self->active_range && self->active_base;
 }
-PetscErrorCode ViewerFuncCheckAcrive(ViewerFunc self) {
-  if(ViewerFuncIsActive(self))
-    SETERRQ(self->comm, 1, "ViewerFunc is not active");
-  return 0;
-}
+
