@@ -4,7 +4,7 @@ basis=(-fem_type dvr -dvr_nq 6 -bps_num_zs 81 -bps_zmax 40.0 -bps_type line -y1s
 echo "stat fit"
 ../../../bin/fit_oce1 ${basis} \
 		      -v_pot "sto 2.0 1 1.0" \
-		      -out "fit.dat"
+		      -out fit.dat
 
 echo "stat eig"
 ../../../bin/eig_h2plus \

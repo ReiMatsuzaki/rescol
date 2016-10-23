@@ -44,6 +44,7 @@ PetscErrorCode EigH2plusCreate(MPI_Comm comm, EigH2plus *p_self) {
   self->R = 2.0;
   ierr = OCE1Create(comm, &self->oce); CHKERRQ(ierr);
   ierr = EEPSCreate(comm, &self->eps); CHKERRQ(ierr);
+  ierr = ViewerFuncCreate(comm, &self->viewer_func); CHKERRQ(ierr);
 
   return 0;
 }
@@ -61,12 +62,11 @@ PetscErrorCode EigH2plusSetFromOptions(EigH2plus self) {
 
   // -- set grid method --
   ierr = OCE1SetFromOptions(self->oce); CHKERRQ(ierr);
+  
   // -- set function viewer --
-  //  ierr = ViewerFuncSetFromOptions(self->viewer_func, &find); CHKERRQ(ierr);
-  //  self->use_func_view = find;
+  ierr = ViewerFuncSetFromOptions(self->viewer_func, &find); CHKERRQ(ierr);  
 
   // -- EPS --
-  //  ierr = EEPSSetTarget(self->eps, -1.2);  CHKERRQ(ierr);
   ierr = EEPSSetFromOptions(self->eps); CHKERRQ(ierr);
   
   // -- in/out --
@@ -135,14 +135,12 @@ PetscErrorCode EigH2plusCalc(EigH2plus self, PetscViewer v) {
   
   // Write
   PrintTimeStamp(self->comm, "Write", NULL);
-  /*
   if(ViewerFuncIsActive(self->viewer_func)) {
     Vec c; MatCreateVecs(H, &c, NULL);
     ierr = EPSGetEigenpair(self->eps->eps, 0, NULL, NULL, c, NULL); CHKERRQ(ierr);
     ierr = OCE1ViewFunc(self->oce, c, self->viewer_func); CHKERRQ(ierr);
-
   }
-  */
+
   return 0;
 }
 PetscErrorCode EigH2plusPrintOut(EigH2plus self, PetscViewer v) {
