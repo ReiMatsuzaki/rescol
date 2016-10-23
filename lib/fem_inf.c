@@ -16,13 +16,13 @@ PetscErrorCode FEMInfSetFD(FEMInf self, FD target) {
 
     FD_Sc.Psi = NULL;
     FD_Sc.DerivPsi = NULL;
-    FD_Sc.GuessHEig = FDGuessHEig;
+    //    FD_Sc.GuessHEig = FDGuessHEig;
     FD_Sc.GetSize = FDGetSize;
     
     FD_Sc.SR1Mat = FDSR1Mat;
     FD_Sc.D2R1Mat = FDD2R1Mat;
-    FD_Sc.R2invR1Mat = FDR2invR1Mat;
-    FD_Sc.ENR1Mat = FDENR1Mat;    
+    //    FD_Sc.R2invR1Mat = FDR2invR1Mat;
+    //    FD_Sc.ENR1Mat = FDENR1Mat;    
     FD_Sc.PotR1Mat = NULL;
     FD_Sc.PotR1Vec = NULL;
     FD_Sc.EER2Mat = FDEER2Mat;        
@@ -50,13 +50,13 @@ PetscErrorCode FEMInfSetBSS(FEMInf self, BSS target) {
 
     BSS_Sc.Psi = BSSPsi;
     BSS_Sc.DerivPsi = BSSDerivPsi;
-    BSS_Sc.GuessHEig = NULL;
+    //    BSS_Sc.GuessHEig = NULL;
     BSS_Sc.GetSize = BSSGetSize;
     
     BSS_Sc.SR1Mat = BSSSR1Mat;
     BSS_Sc.D2R1Mat = BSSD2R1Mat;
-    BSS_Sc.R2invR1Mat = BSSR2invR1Mat;
-    BSS_Sc.ENR1Mat = BSSENR1Mat;    
+    //    BSS_Sc.R2invR1Mat = BSSR2invR1Mat;
+    //   BSS_Sc.ENR1Mat = BSSENR1Mat;    
     BSS_Sc.PotR1Mat = BSSPotR1Mat;    
     BSS_Sc.PotR1Vec = BSSPotR1Vec;
     BSS_Sc.EER2Mat = BSSEER2Mat;
@@ -85,12 +85,12 @@ PetscErrorCode FEMInfSetDVR(FEMInf self, DVR target) {
     DVR_Sc.Psi = DVRPsi;
     DVR_Sc.DerivPsi = DVRDerivPsi;
     DVR_Sc.GetSize = DVRGetSize;
-    DVR_Sc.GuessHEig = NULL;
+    //    DVR_Sc.GuessHEig = NULL;
 
     DVR_Sc.SR1Mat = DVRSR1Mat;
     DVR_Sc.D2R1Mat = DVRD2R1Mat;
-    DVR_Sc.R2invR1Mat = DVRR2invR1Mat;
-    DVR_Sc.ENR1Mat = DVRENR1Mat;
+    //    DVR_Sc.R2invR1Mat = DVRR2invR1Mat;
+    //    DVR_Sc.ENR1Mat = DVRENR1Mat;
     DVR_Sc.PotR1Mat = DVRPotR1Mat;
     DVR_Sc.PotR1Vec = DVRPotR1Vec;
     DVR_Sc.EER2Mat = DVREER2Mat;
@@ -395,13 +395,18 @@ PetscErrorCode FEMInfDerivPsiOne(FEMInf self, Vec c, PetscReal x, PetscScalar *y
   return 0;  
 
 }
+// - to be removed
 PetscErrorCode FEMInfGuessHEig(FEMInf self, int n, int l, PetscScalar z, Vec *v) {
 
+
+  SETERRQ(self->comm, 1, "unsupported method");
+  /*
   if(self->sc->GuessHEig == NULL)
     SETERRQ(self->comm, 1, "method is null: GuessHEig");
 
   self->sc->GuessHEig(self->obj, n, l, z, v);
   return 0;
+  */
 }
 
 PetscErrorCode FEMInfCreateMat(FEMInf self, int dim, Mat *M) {
@@ -442,7 +447,9 @@ PetscErrorCode FEMInfSR1Mat(FEMInf self, Mat M) {
   self->sc->SR1Mat(self->obj, M);
   return 0;
 }
+// - to be removed
 PetscErrorCode FEMInfSR1MatNullable(FEMInf self, Mat M) {
+  SETERRQ(self->comm, 1, "unsupported method");
   PetscErrorCode ierr;
   PetscBool s_is_id;
   ierr = FEMInfGetOverlapIsId(self, &s_is_id); CHKERRQ(ierr);
@@ -463,20 +470,26 @@ PetscErrorCode FEMInfD2R1Mat(FEMInf self, Mat M) {
   return 0;
 
 }
+// - to be removed
 PetscErrorCode FEMInfR2invR1Mat(FEMInf self, Mat M) {
-
+  SETERRQ(self->comm, 1, "unsupported method");
+  /*
   if(self->sc->R2invR1Mat == NULL)
     SETERRQ(self->comm, 1, "method is null: R2invR1Mat");
 
   self->sc->R2invR1Mat(self->obj, M);
   return 0;
+  */
 }
+// - to be removed
 PetscErrorCode FEMInfENR1Mat(FEMInf self, int q, double a, Mat M) {
-
+  SETERRQ(self->comm, 1, "unsupported method");
+  /*
   if(self->sc->ENR1Mat == NULL)
     SETERRQ(self->comm, 1, "method is null: ENR1Mat");
 
   self->sc->ENR1Mat(self->obj, q, a, M);
+  */
   return 0;
 
 }

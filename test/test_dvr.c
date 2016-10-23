@@ -291,6 +291,42 @@ int testENR1Mat_at0() {
   return 0;
   
 }
+int testENR1Mat_time() {
+
+  MPI_Comm comm = PETSC_COMM_SELF;
+  int nq = 8;
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 50.0, 50);
+  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, nq, bps);
+  DVRSetUp(dvr);
+
+  clock_t t0 = clock();
+
+  Mat V1; DVRCreateR1Mat(dvr, &V1);
+
+  for(int i = 0; i < 1000; i++)
+    DVRENR1Mat(dvr, 3, 0.6, V1);
+
+  clock_t t1 = clock();
+
+
+  Mat V2; DVRCreateR1Mat(dvr, &V2);
+  Pot pot;
+  PotCreate(comm, &pot); PotSetCoulombNE(pot, 3, 0.6, 0.5);
+  for(int i = 0; i < 1000; i++)
+    DVRPotR1Mat(dvr, pot, V2);
+
+  
+  clock_t t2 = clock();
+  
+  //ASSERT_MAT_EQ(V1, V2);  
+  
+  printf("non_pot = %f\n",  (double)(t1-t0)/CLOCKS_PER_SEC);
+  printf("with_pot = %f\n", (double)(t2-t1)/CLOCKS_PER_SEC);
+  //  printf("non_pot = %d\n",  (t1-t0));
+  //  printf("with_pot = %d\n", (t2-t1));
+
+  return 0;  
+}
 int testEE() {
 
   PrintTimeStamp(PETSC_COMM_SELF, "testEE", NULL); 
@@ -541,7 +577,7 @@ int testECSMatrix() {
   // MatView(dvr->TT, PETSC_VIEWER_STDOUT_SELF);
   // MatView(VV,PETSC_VIEWER_STDOUT_SELF);
 
-  //  ASSERT_MAT_EQ(V0, VV);
+  //  ASSERT_MAT_EQ(V0, VV); 
   test_mat_eq(V0, VV, pow(10.0, -10.0), __FILE__, __LINE__);
 
   int n; DVRGetSize(dvr, &n);
@@ -730,6 +766,9 @@ int main(int argc, char **args) {
 
   PrintTimeStamp(PETSC_COMM_SELF, "ENR1_at0", NULL);
   testENR1Mat_at0();
+
+  PrintTimeStamp(PETSC_COMM_SELF, "ENR1_time", NULL);
+  testENR1Mat_time();
 
   PrintTimeStamp(PETSC_COMM_SELF, "test_valueLS", NULL);
   testLS();

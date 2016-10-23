@@ -263,11 +263,13 @@ PetscErrorCode OCE1TMat(OCE1 self, MatReuse scall, Mat *M) {
 			  scall, M); CHKERRQ(ierr);
   ierr = MatDestroy(&d2_r); CHKERRQ(ierr);
 
-  
-
+  Pot pot_r2;
+  ierr = PotCreate(self->comm, &pot_r2); CHKERRQ(ierr);
+  ierr = PotSetPower(pot_r2, 1.0, -2); CHKERRQ(ierr);
   Mat l_r;
   ierr = FEMInfCreateMat(self->fem, 1, &l_r); CHKERRQ(ierr);
-  ierr = FEMInfR2invR1Mat(self->fem, l_r);    CHKERRQ(ierr);
+  //ierr = FEMInfR2invR1Mat(self->fem, l_r);    CHKERRQ(ierr);
+  ierr = FEMInfPotR1Mat(self->fem, pot_r2, l_r); CHKERRQ(ierr);
 
   Mat l_y;
   ierr = Y1sCreateY1Mat(self->y1s, &l_y); CHKERRQ(ierr);
@@ -327,22 +329,24 @@ PetscErrorCode OCE1PlusVneMat(OCE1 self, PetscReal a, PetscReal z, Mat M) {
     ierr = Y1sPqY1Mat(self->y1s, q, pq_y, &non0); CHKERRQ(ierr);
     MatAssemblyBegin(pq_y, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(pq_y,   MAT_FINAL_ASSEMBLY);
-    //    printf("q = %d\n", q);
-    //    MatView(pq_y, PETSC_VIEWER_STDOUT_SELF);
     if(non0) {
+      Pot pot;
+      ierr = PotCreate(self->comm, &pot); CHKERRQ(ierr);
+      ierr = PotSetCoulombNE(pot, q, a, zz); CHKERRQ(ierr);
+      
       Mat pq_r;
-      ierr = FEMInfCreateMat(self->fem, 1, &pq_r); CHKERRQ(ierr);
-      ierr = FEMInfENR1Mat(self->fem, q, a, pq_r); CHKERRQ(ierr);
+      ierr = FEMInfCreateMat(self->fem, 1, &pq_r);CHKERRQ(ierr);
+      ierr = FEMInfPotR1Mat(self->fem, pot, pq_r); CHKERRQ(ierr);
 
       Mat V;
       ierr = MatMatSynthesize(pq_r, pq_y, 1.0, 
 			      MAT_INITIAL_MATRIX, &V); CHKERRQ(ierr);
 
-      ierr = MatAXPY(M, zz, V, DIFFERENT_NONZERO_PATTERN);
+      ierr = MatAXPY(M, 1.0, V, DIFFERENT_NONZERO_PATTERN);
       CHKERRQ(ierr);
       
-      
       MatDestroy(&pq_r); MatDestroy(&V);
+      PFDestroy(&pot);
     }
     MatDestroy(&pq_y);
   }
@@ -378,7 +382,10 @@ PetscErrorCode OceH2plusMatMultS(Mat S, Vec x, Vec y) {
 
 PetscErrorCode OCE1CreateH2plus(OCE1 self, PetscReal a, PetscReal z, OceH2plus *p_ctx) {
   PetscErrorCode ierr;
-  OceH2plus ctx; 
+  OceH2plus ctx;
+
+  SETERRQ(self->comm, 1, "not supported now");
+  
   ierr = PetscNew(&ctx); CHKERRQ(ierr);
 
   ctx->a = a; ctx->z = z;
@@ -399,7 +406,7 @@ PetscErrorCode OCE1CreateH2plus(OCE1 self, PetscReal a, PetscReal z, OceH2plus *
   // calculate ctx 
   MatCopy(self->s_r, ctx->s_r1, DIFFERENT_NONZERO_PATTERN);
   FEMInfD2R1Mat(self->fem, ctx->d2_r1);
-  FEMInfR2invR1Mat(self->fem, ctx->r2inv_r1);  
+  //FEMInfR2invR1Mat(self->fem, ctx->r2inv_r1);  
   MatCopy(self->s_y, ctx->s_y1, DIFFERENT_NONZERO_PATTERN);
   Y1sLambdaY1Mat(self->y1s, ctx->lambda_y1);
 
@@ -416,7 +423,7 @@ PetscErrorCode OCE1CreateH2plus(OCE1 self, PetscReal a, PetscReal z, OceH2plus *
     ierr = FEMInfCreateMat(self->fem, 1, &pq_r); CHKERRQ(ierr);
     ierr = Y1sPqY1Mat(self->y1s, q, pq_y, &non0); CHKERRQ(ierr);
     if(non0) {
-      ierr = FEMInfENR1Mat(self->fem, q, a, pq_r); CHKERRQ(ierr);
+      //ierr = FEMInfENR1Mat(self->fem, q, a, pq_r); CHKERRQ(ierr);
       ctx->q[idx] = q;
       ctx->ne_r1[idx] = pq_r;
       ctx->pq_y1[idx] = pq_y;

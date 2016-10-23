@@ -9,42 +9,6 @@
 
 static char help[] = "Unit test for fem_inf.c \n";
 
-int test1() {
-
-  MPI_Comm comm = PETSC_COMM_SELF;
-  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 6);
-  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, 5, bps);
-  FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
-
-  if(getenv("SHOW_DEBUG")) {
-    PetscErrorCode ierr;
-    ierr = FEMInfView(fem, PETSC_VIEWER_STDOUT_SELF); CHKERRQ(ierr);
-  }
-
-  FEMInfDestroy(&fem);
-
-  return 0;
-}
-int testDVR_EN() {
-
-  PetscErrorCode ierr;
-
-  MPI_Comm comm = PETSC_COMM_SELF;
-  PrintTimeStamp(comm, "H_PI_DVR", NULL);
-
-  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 10.0, 11);
-  DVR dvr; DVRCreate(comm, &dvr);
-  DVRSetKnots(dvr, 5, bps); 
-  DVRSetUp(dvr);
-  FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
-
-  Mat pq_r;
-  FEMInfCreateMat(fem, 1, &pq_r);
-  FEMInfENR1Mat(fem,   2, 0.0, pq_r);
-
-  MatView(pq_r, PETSC_VIEWER_STDOUT_SELF);
-  
-}
 int testH_BSS() {
 
   MPI_Comm comm = PETSC_COMM_SELF;
@@ -64,9 +28,14 @@ int testH_BSS() {
     printf("\n");
   }
 
+  Pot pot; PotCreate(comm, &pot);
+  PotSetCoulombNE(pot, 0, 0.0, -1.0);
+
   Mat H; FEMInfCreateMat(fem, 1, &H); FEMInfD2R1Mat(fem, H); MatScale(H, -0.5);
-  Mat V; FEMInfCreateMat(fem, 1, &V); FEMInfENR1Mat(fem, 0, 0.0, V); 
-  MatAXPY(H, -1.0, V, DIFFERENT_NONZERO_PATTERN);
+  //  Mat V; FEMInfCreateMat(fem, 1, &V); FEMInfENR1Mat(fem, 0, 0.0, V);
+  Mat V; FEMInfCreateMat(fem, 1, &V);
+  FEMInfPotR1Mat(fem, pot, V);
+  MatAXPY(H, 1.0, V, DIFFERENT_NONZERO_PATTERN);
 
   Mat S; FEMInfCreateMat(fem, 1, &S); FEMInfSR1Mat(fem, S);
 
@@ -286,8 +255,12 @@ int testH_PI_DVR() {
   Mat L; FEMInfCreateMat(fem, 1, &L); FEMInfD2R1Mat(fem, L);
   MatScale(L, -0.5);
   
-  Mat V; FEMInfCreateMat(fem, 1, &V); FEMInfENR1Mat(fem, 0, 0.0, V); 
-  MatAXPY(L, -1.0, V, DIFFERENT_NONZERO_PATTERN);
+  //Mat V; FEMInfCreateMat(fem, 1, &V); FEMInfENR1Mat(fem, 0, 0.0, V);
+  Pot pot; PotCreate(comm, &pot);
+  PotSetCoulombNE(pot, 0, 0.0, -1.0);
+  Mat V; FEMInfCreateMat(fem, 1, &V);
+  FEMInfPotR1Mat(fem, pot, V);
+  MatAXPY(L, 1.0, V, DIFFERENT_NONZERO_PATTERN);
   
   Pot r2; PotCreate(comm, &r2); PotSetPower(r2, 1.0, -2);
   Mat LV; FEMInfCreateMat(fem, 1, &LV); FEMInfPotR1Mat(fem, r2, LV);
@@ -326,33 +299,6 @@ int testH_PI_DVR() {
   return 0;
 
 }
-int testPOT_BSS() {
-  
-  MPI_Comm comm = PETSC_COMM_SELF;
-  PrintTimeStamp(comm, "POT_BSS", NULL);
-
-  BPS bps; BPSCreate(comm, &bps); BPSSetExp(bps, 20.0, 21, 5.0);
-  BSS bss; BSSCreate(comm, &bss); 
-  BSSSetKnots(bss, 5, bps); BSSSetUp(bss);
-  FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetBSS(fem, bss);
-
-  Pot r2inv; PotCreate(comm, &r2inv); PotSetPower(r2inv, 1.0, -2.0); 
-  Mat A; FEMInfCreateMat(fem, 1, &A); FEMInfPotR1Mat(fem, r2inv, A);
-  Mat B; FEMInfCreateMat(fem, 1, &B); FEMInfR2invR1Mat(fem, B);
-
-  MatAXPY(A, -1.0, B, DIFFERENT_NONZERO_PATTERN);
-
-  PetscReal norm;
-  MatNorm(A, NORM_1, &norm);
-  ASSERT_DOUBLE_NEAR(norm, 0.0, 0.00000001);
-
-  FEMInfDestroy(&fem);
-  PFDestroy(&r2inv);
-  MatDestroy(&A);
-  MatDestroy(&B);
-
-  return 0;
-}
 int testH_DVR() {
 
   PetscErrorCode ierr;
@@ -377,10 +323,14 @@ int testH_DVR() {
   ierr = FEMInfCreateMat(fem, 1, &H);CHKERRQ(ierr);
   ierr = FEMInfD2R1Mat(fem, H);CHKERRQ(ierr);
   ierr = MatScale(H, -0.5);CHKERRQ(ierr);
+  Pot pot; PotCreate(comm, &pot);
+  PotSetCoulombNE(pot, 0, 0.0, -1.0);
   Mat V;
   ierr = FEMInfCreateMat(fem, 1, &V);CHKERRQ(ierr);
-  ierr = FEMInfENR1Mat(fem, 0, 0.0, V); CHKERRQ(ierr);
-  ierr = MatAXPY(H, -1.0, V, DIFFERENT_NONZERO_PATTERN);CHKERRQ(ierr);
+  //  ierr = FEMInfENR1Mat(fem, 0, 0.0, V); CHKERRQ(ierr);
+  //  ierr = MatAXPY(H, -1.0, V, DIFFERENT_NONZERO_PATTERN);CHKERRQ(ierr);
+  ierr = FEMInfPotR1Mat(fem, pot, V); CHKERRQ(ierr);
+  ierr = MatAXPY(H, 1.0, V, DIFFERENT_NONZERO_PATTERN);CHKERRQ(ierr);
 
   KSP ksp;
   ierr = KSPCreate(comm, &ksp); CHKERRQ(ierr);
@@ -555,19 +505,14 @@ int main(int argc, char **args) {
   SlepcInitialize(&argc, &args, (char*)0, help);
   PetscErrorCode ierr;
 
-  test1();
-  testDVR_EN();
   testH_BSS();
+  // testH_BSS_accurate();
+  // testH_PI_BSS(); 
   testH_PI_DVR(); 
-  testPOT_BSS();
   testH_DVR();
-  
   testFit_BSS();
   testFit_DVR();
   testCopy_DVR();
-  
-  //  ierr = testH_BSS_accurate(); CHKERRQ(ierr);
-  //  ierr = testH_PI_BSS(); CHKERRQ(ierr);
 
   SlepcFinalize();
   return 0;

@@ -103,62 +103,61 @@ TEST(TestOCE1DVR, HAtom) {
   MatDestroy(&H); MatDestroy(&V);
   EEPSDestroy(&eps);
 }
-TEST(TestOCE1DVR, HAtom2) {
+TEST(TestOce1DVR, H2plus) {
+
   PetscErrorCode ierr;
+
+  PetscReal R = 2.0;
 
   MPI_Comm comm = PETSC_COMM_SELF;
   Y1s y1s;
-  Y1sCreate(comm, &y1s); Y1sSet(y1s, SIGMA, GERADE, 2);
+  Y1sCreate(comm, &y1s); Y1sSet(y1s, SIGMA, GERADE, 8);
   BPS bps;
-  BPSCreate(comm, &bps); BPSSetLine(bps, 20.0, 21);
+  BPSCreate(comm, &bps); BPSSetLine(bps, 40.0, 41);
   DVR dvr;
-  DVRCreate(comm, &dvr); DVRSetKnots(dvr, 5, bps);
-  DVRSetUp(dvr);
+  DVRCreate(comm, &dvr); DVRSetKnots(dvr, 6, bps); DVRSetUp(dvr);
   FEMInf fem;
   FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
   OCE1 oce;
   OCE1Create(comm, &oce); OCE1Set(oce, fem, y1s);
   
-  Mat H;
-  OCE1TMat(oce, MAT_INITIAL_MATRIX, &H);
-  OCE1PlusVneMat(oce, 0.0, 0.5, H);
+  Mat H; OCE1TMat(oce, MAT_INITIAL_MATRIX, &H);
+  OCE1PlusVneMat(oce, R/2.0, 1.0, H);
 
-
-  // -- Transpose matrix or not --
-  Mat Ht;
-  MatTranspose(H, MAT_INITIAL_MATRIX, &Ht);
-  MatAXPY(Ht, -1.0, H, DIFFERENT_NONZERO_PATTERN);
-  PetscReal norm;
-  MatNorm(Ht, NORM_1, &norm);
-  printf("norm=%f\n", norm);
+  // initial guess
+  KSP ksp;
+  ierr = KSPCreate(comm, &ksp); ASSERT_EQ(0, ierr);
+  Pot slater;
+  ierr = PotCreate(comm, &slater); ASSERT_EQ(0, ierr);
+  ierr = PotSetSlater(slater, 3.0, 1, 2.0); ASSERT_EQ(0, ierr);
+  Vec c_guess;
+  ierr = OCE1CreateVec(oce, &c_guess); ASSERT_EQ(0, ierr);
+  ierr = OCE1Fit(oce, slater, 0, ksp, c_guess); ASSERT_EQ(0, ierr);  
   
   EEPS eps;
   ierr = EEPSCreate(comm, &eps); ASSERT_EQ(0, ierr);
+  ierr = EPSSetInitialSpace(eps->eps, 1, &c_guess); ASSERT_EQ(0, ierr);  
   ierr = EEPSSetOperators(eps, H, NULL); ASSERT_EQ(0, ierr);
-  ierr = EEPSSetTarget(eps, -0.2); ASSERT_EQ(0, ierr);
+  ierr = EEPSSetTarget(eps, -3.0); ASSERT_EQ(0, ierr);
   ierr = EEPSSolve(eps); ASSERT_EQ(0, ierr);
 
   PetscScalar k;
-  EPSGetEigenpair(eps->eps, 0, &k, 0, 0, 0);
-  ASSERT_NEAR(-0.125, PetscRealPart(k), 0.0001);
-
+  ierr = EPSGetEigenpair(eps->eps, 0, &k, 0, 0, 0);
+  ASSERT_EQ(0, ierr);
+  ASSERT_NEAR(-1.1026342144949, PetscRealPart(k), 0.002);
+  
   MatDestroy(&H);
-  EEPSDestroy(&eps);
-}
+  EEPSDestroy(&eps);  
 
+}
+/*
 class TestOCE1H2plus :public ::testing::Test {
 public:
   MPI_Comm comm;
   OCE1 oce;   
   virtual void SetUp() {
     comm = PETSC_COMM_SELF;
-    /*
-    Y1s y1s; Y1sCreate(comm, &y1s); Y1sSet(y1s, SIGMA, GERADE, 10);
-    BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 50.0, 101);
-    int order = 5;
-    BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);  BSSSetUp(bss);
-    FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetBSS(fem, bss);
-    */
+
     Y1s y1s; Y1sCreate(comm, &y1s); Y1sSet(y1s, SIGMA, GERADE, 4);
     BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 40.0, 41);
     int order = 4;
@@ -248,7 +247,7 @@ TEST_F(TestOCE1H2plus, H2plusEPS_direct) {
   ierr = MatDestroy(&H); ASSERT_EQ(0, ierr);
   ierr = MatDestroy(&S); ASSERT_EQ(0, ierr);
 }
-
+*/
 int _main(int argc, char **args) {
  ::testing::InitGoogleTest(&argc, args);
   return RUN_ALL_TESTS();
