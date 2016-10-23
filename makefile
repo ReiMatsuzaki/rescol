@@ -94,20 +94,22 @@ check_%: $(BINDIR)/test_%.out
 OBJS=driv_1d.o fem_inf.o fd.o dvr.o bspline.o cscaling.o bps.o eeps.o pot.o synthesize.o mat.o viewerfunc.o range.o pot.o
 $(BINDIR)/driv_1d: $(addprefix $(OBJDIR)/,$(OBJS))
 	$(CXX) -o $@ $^ $(SLEPC_EPS_LIB) -lgsl
-
 .PHONY: run_driv_1d
 run_driv_1d: $(BINDIR)/driv_1d
 	cd calc/driv_1d/hatom_1skp_l/; sh run.sh
 
+OBJS=fit_oce1.o oce1.o y1s.o angmoment.o fem_inf.o fd.o dvr.o bspline.o cscaling.o bps.o eeps.o pot.o synthesize.o mat.o viewerfunc.o range.o pot.o
+$(BINDIR)/fit_oce1: $(addprefix $(OBJDIR)/,$(OBJS))
+	@echo "build " $@
+	$(CXX) -o $@ $^ $(SLEPC_EPS_LIB) -lgsl
 
 OBJS=eig_h2plus.o oce1.o y1s.o angmoment.o fem_inf.o fd.o dvr.o bspline.o cscaling.o bps.o eeps.o pot.o synthesize.o mat.o viewerfunc.o range.o pot.o
 $(BINDIR)/eig_h2plus: $(addprefix $(OBJDIR)/,$(OBJS))
 	@echo "build " $@
 	$(CXX) -o $@ $^ $(SLEPC_EPS_LIB) -lgsl
-
-.PHONY: run_eig_h2plus
-run_eig_h2plus: $(BINDIR)/eig_h2plus
-	cd calc/h2plus/eig/; sh run.sh
+.PHONY: run_eig_h2plus 
+run_eig_h2plus: $(BINDIR)/eig_h2plus $(BINDIR)/fit_oce1
+	cd calc/h2plus/eig/; zsh run.sh
 
 ## ==== Command ====
 .PHONY: check

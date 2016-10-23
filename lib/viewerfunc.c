@@ -104,35 +104,36 @@ PetscErrorCode ViewerFuncSetFromOptions(ViewerFunc self, PetscBool *_find) {
   PetscBool find, find_xmax, find_num;
   PetscViewer viewer;
   PetscViewerFormat format;
-
+  printf("2\n"); 
   ierr = PetscOptionsGetViewer(self->comm, NULL, "-viewerfunc_view", 
 			       &viewer, &format, &find); CHKERRQ(ierr);
-
+  printf("2\n"); 
   if(_find != NULL) {
     *_find = find;
   }
+  printf("2\n"); 
   if(_find == NULL && !find) {
     SETERRQ(self->comm, 1, "Failed find viewerfunc");
   }
-
+  printf("2\n"); 
   if(find) {
     ierr = ViewerFuncSetBase(self, viewer); CHKERRQ(ierr);
-
+    printf("2\n"); 
     PetscInt num;
     ierr = PetscOptionsGetInt(NULL, NULL, "-viewerfunc_num",
 			      &num, &find_num); CHKERRQ(ierr);
-
+printf("2\n"); 
     PetscReal xmax;
     ierr = PetscOptionsGetReal(NULL, NULL, "-viewerfunc_xmax",
 			       &xmax, &find_xmax); CHKERRQ(ierr);  
-
+printf("2\n"); 
     if(find_xmax && find_num) {
       ierr = ViewerFuncSetRange(self ,num, xmax); CHKERRQ(ierr);
     } else {
       SETERRQ(self->comm, 1, "-viewerfunc_num and -viewerfunc_xmax is necessary");
     }
   }
-
+printf("2\n"); 
   return 0;
 }
 

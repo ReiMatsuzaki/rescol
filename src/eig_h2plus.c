@@ -24,9 +24,10 @@ typedef struct {
   MPI_Comm comm;
   PetscReal R;    // bond length
   OCE1      oce;  // grid mehtod for one center expansion
-  //  PetscBool use_func_view // True=>print function values
   ViewerFunc viewer_func;
   EEPS        eps;
+  char path_in[100];
+  char path_out[100];
 } p_EigH2plus;
 typedef p_EigH2plus *EigH2plus;
 
@@ -42,15 +43,13 @@ PetscErrorCode EigH2plusCreate(MPI_Comm comm, EigH2plus *p_self) {
 
   self->R = 2.0;
   ierr = OCE1Create(comm, &self->oce); CHKERRQ(ierr);
-  //  self->use_func_view = PETSC_FALSE;
-  ierr = ViewerFuncCreate(comm, &self->viewer_func); CHKERRQ(ierr);
   ierr = EEPSCreate(comm, &self->eps); CHKERRQ(ierr);
 
   return 0;
 }
 PetscErrorCode EigH2plusSetFromOptions(EigH2plus self) {
   PetscErrorCode ierr;
-  PetscBool find;
+  PetscBool find = PETSC_TRUE;
   PrintTimeStamp(self->comm, "Set", NULL);
   PetscOptionsBegin(self->comm, "", "eig_h2plus.c options", "none");
 
@@ -62,16 +61,26 @@ PetscErrorCode EigH2plusSetFromOptions(EigH2plus self) {
 
   // -- set grid method --
   ierr = OCE1SetFromOptions(self->oce); CHKERRQ(ierr);
-  
   // -- set function viewer --
-  ierr = ViewerFuncSetFromOptions(self->viewer_func, &find); CHKERRQ(ierr);
+  //  ierr = ViewerFuncSetFromOptions(self->viewer_func, &find); CHKERRQ(ierr);
   //  self->use_func_view = find;
 
   // -- EPS --
   //  ierr = EEPSSetTarget(self->eps, -1.2);  CHKERRQ(ierr);
   ierr = EEPSSetFromOptions(self->eps); CHKERRQ(ierr);
   
+  // -- in/out --
+  ierr = PetscOptionsGetString(NULL, NULL, "-in", self->path_in, 100, &find); CHKERRQ(ierr);
+  if(!find) {
+    SETERRQ(self->comm, 1, "-in not found");
+  }
+  PetscOptionsGetString(NULL, NULL, "-out", self->path_out,
+			100, &find);
+  if(!find) {
+    SETERRQ(self->comm, 1, "-out not found");
+  }  
   PetscOptionsEnd();
+
   return 0;
 }
 PetscErrorCode EigH2plusPrintIn(EigH2plus self, PetscViewer v) {
@@ -83,36 +92,39 @@ PetscErrorCode EigH2plusPrintIn(EigH2plus self, PetscViewer v) {
   PetscViewerASCIIPrintf(v, "oce: ");
   OCE1View(self->oce, v);
 
-  PetscViewerASCIIPrintf(v, "viewer_func: ");
-  ViewerFuncView(self->viewer_func, v);
+  //  PetscViewerASCIIPrintf(v, "viewer_func: ");
+  //  ViewerFuncView(self->viewer_func, v);
 
+  PetscPrintf(self->comm, "in: %s\n", self->path_in);
+  PetscPrintf(self->comm, "out: %s\n", self->path_out);
   return 0;
 }
 PetscErrorCode EigH2plusCalc(EigH2plus self, PetscViewer v) {
 
-  PetscErrorCode ierr;
-  PrintTimeStamp(self->comm, "Mat", NULL);
+  PetscErrorCode ierr;  
 
   PetscBool s_is_id;
 
+  // read initial guess
+  PrintTimeStamp(self->comm, "read in", NULL);
+  Vec c_guess;
+  PetscViewer v_in;
+  ierr = PetscViewerBinaryOpen(self->comm, self->path_in, FILE_MODE_READ, &v_in); CHKERRQ(ierr);  
+  ierr = OCE1CreateVec(self->oce, &c_guess); CHKERRQ(ierr);
+  ierr = VecLoad(c_guess, v_in); CHKERRQ(ierr);
+  ierr = PetscViewerDestroy(&v_in); CHKERRQ(ierr);
+
   // Matrix
+  PrintTimeStamp(self->comm, "Mat", NULL);
   Mat H;
   Mat S;
   ierr = OCE1TMat(self->oce, MAT_INITIAL_MATRIX, &H); CHKERRQ(ierr);
   ierr = OCE1PlusVneMat(self->oce, self->R/2.0, 1.0, H); CHKERRQ(ierr);
   ierr = OCE1SMat(self->oce, MAT_INITIAL_MATRIX, &S, &s_is_id); CHKERRQ(ierr);
 
-  // initial guess
-  KSP ksp;
-  ierr = KSPCreate(self->comm, &ksp); CHKERRQ(ierr);
-  Pot slater;
-  ierr = PotCreate(self->comm, &slater); CHKERRQ(ierr);
-  ierr = PotSetSlater(slater, 3.0, 1, 2.0); CHKERRQ(ierr);
-  Vec c_guess;
-  ierr = OCE1CreateVec(self->oce, &c_guess); CHKERRQ(ierr);
-  ierr = OCE1Fit(self->oce, slater, 0, ksp, c_guess); CHKERRQ(ierr);
 
   // Solve
+  PrintTimeStamp(self->comm, "EPS", NULL);
   ierr = EPSSetInitialSpace(self->eps->eps, 1, &c_guess); CHKERRQ(ierr);
   PrintTimeStamp(self->comm, "EPS", NULL);
   if(s_is_id)
@@ -123,11 +135,14 @@ PetscErrorCode EigH2plusCalc(EigH2plus self, PetscViewer v) {
   
   // Write
   PrintTimeStamp(self->comm, "Write", NULL);
+  /*
   if(ViewerFuncIsActive(self->viewer_func)) {
     Vec c; MatCreateVecs(H, &c, NULL);
     ierr = EPSGetEigenpair(self->eps->eps, 0, NULL, NULL, c, NULL); CHKERRQ(ierr);
     ierr = OCE1ViewFunc(self->oce, c, self->viewer_func); CHKERRQ(ierr);
+
   }
+  */
   return 0;
 }
 PetscErrorCode EigH2plusPrintOut(EigH2plus self, PetscViewer v) {
@@ -155,7 +170,7 @@ int main(int argc, char **args) {
   
   PetscErrorCode ierr;
   ierr = SlepcInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);
-
+  
   MPI_Comm comm = PETSC_COMM_SELF;
   PetscViewer v = PETSC_VIEWER_STDOUT_SELF;
   PetscViewerFormat format;

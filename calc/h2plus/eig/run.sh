@@ -1,12 +1,20 @@
+#!/bin/zsh
+basis=(-fem_type dvr -dvr_nq 6 -bps_num_zs 81 -bps_zmax 40.0 -bps_type line -y1s_lmax 6)
+
+echo "stat fit"
+../../../bin/fit_oce1 ${basis} \
+		      -v_pot "sto 2.0 1 1.0" \
+		      -out "fit.dat"
+
+echo "stat eig"
 ../../../bin/eig_h2plus \
     -R 2.0 \
-    -fem_type dvr \
-    -dvr_nq 6 \
-    -bps_num_zs 81 -bps_zmax 40.0 -bps_type line \
-    -y1s_lmax 6 \
-    -eps_target -3.5
-#    -viewerfunc_view ascii:psi.dat \
-#    -viewerfunc_num 501 -viewerfunc_xmax 100.0
+    ${basis} \
+    -eps_target -3.5 \
+    -in fit.dat \
+    -out cs.dat \
+    -viewerfunc_view ascii:psi.dat \
+    -viewerfunc_num 501 -viewerfunc_xmax 100.0
 
 echo "reference energy is -1.1026342144949."
 echo "from H.Wind, JCP 42, 2371 (1965)"
