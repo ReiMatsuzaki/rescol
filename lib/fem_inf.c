@@ -287,21 +287,26 @@ PetscErrorCode FEMInfSetFromOptions(FEMInf self) {
 // ---- Calculation ----
 PetscErrorCode FEMInfFit(FEMInf self, PF pf, KSP ksp, Vec c) {
 
+  int EVENT_id;
+  PetscLogEventRegister("FEMInfFit", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+
+  
   PetscErrorCode ierr;
   PetscBool is_id; FEMInfGetOverlapIsId(self, &is_id);
   
   Mat S; FEMInfCreateMat(self, 1, &S); FEMInfSR1Mat(self, S);
   Vec V; FEMInfCreateVec(self, 1, &V); FEMInfPotR1Vec(self, pf, V);
 
-  //  int n; FEMInfGetSize(self, &n);
-  //  VecSetSizes(c, PETSC_DECIDE, n);
-
   ierr = KSPSetOperators(ksp, S, S); CHKERRQ(ierr);
-  ierr = KSPSetFromOptions(ksp); CHKERRQ(ierr);
+  //  ierr = KSPSetFromOptions(ksp); CHKERRQ(ierr);
   ierr = KSPSolve(ksp, V, c); CHKERRQ(ierr);
 
   MatDestroy(&S);
   VecDestroy(&V);
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+    
   return 0;
   
 }
@@ -326,12 +331,21 @@ PetscErrorCode FEMInfPsi(FEMInf self, Vec cs, Vec xs, Vec ys) {
     xs: x list
     ys: result
    */
+
+  int EVENT_id;
+  PetscLogEventRegister("FEMInfPsi", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+  
+  
   if(self->sc->Psi == NULL) {
     SETERRQ(self->comm, 1, "method is null: Psi");
   }
 
   PetscErrorCode ierr;
   ierr = self->sc->Psi(self->obj, cs, xs, ys); CHKERRQ(ierr);
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+  
   return 0;
 }
 PetscErrorCode FEMInfPsiOne(FEMInf self, Vec cs, PetscScalar x, PetscScalar *y) {
@@ -444,7 +458,14 @@ PetscErrorCode FEMInfSR1Mat(FEMInf self, Mat M) {
   if(self->sc->SR1Mat == NULL)
     SETERRQ(self->comm, 1, "method is null: SR1Mat");
 
+  int EVENT_id;
+  PetscLogEventRegister("FEMInfSR1Mat", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+  
   self->sc->SR1Mat(self->obj, M);
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+  
   return 0;
 }
 // - to be removed
@@ -463,10 +484,19 @@ PetscErrorCode FEMInfSR1MatNullable(FEMInf self, Mat M) {
 }
 PetscErrorCode FEMInfD2R1Mat(FEMInf self, Mat M) {
 
+  int EVENT_id;
+  PetscLogEventRegister("FEMInfD2R1Mat", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+
+  
   if(self->sc->D2R1Mat == NULL)
     SETERRQ(self->comm, 1, "method is null: D2R1Mat");
 
   self->sc->D2R1Mat(self->obj, M);
+
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+  
   return 0;
 
 }
@@ -495,28 +525,52 @@ PetscErrorCode FEMInfENR1Mat(FEMInf self, int q, double a, Mat M) {
 }
 PetscErrorCode FEMInfPotR1Mat(FEMInf self, Pot pot, Mat M) {
 
+  int EVENT_id;
+  PetscLogEventRegister("FEMInfPotR1Mat", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+
+  
   if(self->sc->PotR1Mat == NULL)
     SETERRQ(self->comm, 1, "method is null: PotR1Mat");
 
   self->sc->PotR1Mat(self->obj, pot, M);
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+  
   return 0;
 }
 PetscErrorCode FEMInfPotR1Vec(FEMInf self, Pot pot, Vec V) {
 
+  int EVENT_id;
+  PetscLogEventRegister("FEMInfPotR1Vec", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+
+  
   if(self->sc->PotR1Vec == NULL)
     SETERRQ(self->comm, 1, "method is null: PotR1Vec");
 
   self->sc->PotR1Vec(self->obj, pot, V);
-  return 0;
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+
   return 0;
 
 }
 PetscErrorCode FEMInfEER2Mat(FEMInf self, int q, Mat M) {
 
+  int EVENT_id;
+  PetscLogEventRegister("FEMInfEER2Mat", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+
+  
   if(self->sc->EER2Mat == NULL)
     SETERRQ(self->comm, 1, "method is null: EER2Mat");
 
   self->sc->EER2Mat(self->obj, q, M);
+
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+  
   return 0;
 
 }

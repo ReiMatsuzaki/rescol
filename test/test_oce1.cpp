@@ -145,8 +145,10 @@ TEST(TestOce1DVR, H2plus) {
   ierr = EPSGetEigenpair(eps->eps, 0, &k, 0, 0, 0);
   ASSERT_EQ(0, ierr);
   ASSERT_NEAR(-1.1026342144949, PetscRealPart(k), 0.002);
-  
-  MatDestroy(&H);
+
+  OCE1Destroy(&oce); MatDestroy(&H);
+  KSPDestroy(&ksp)   PFDestroy(&slater); 
+  VecDestroy(&c_guess); 
   EEPSDestroy(&eps);  
 
 }

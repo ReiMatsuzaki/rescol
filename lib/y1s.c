@@ -74,8 +74,8 @@ PetscErrorCode Y1sView(Y1s self, PetscViewer v) {
 PetscErrorCode Y1sSet(Y1s self, int m, int g_or_u, int lmax) {
 
   PetscErrorCode ierr;
-  if(m < 0)
-    SETERRQ(self->comm, 1, "M must be 0 or positive");
+  if(m != 0)
+    SETERRQ(self->comm, 1, "now only m==0 is supported");
 
   if(g_or_u != GERADE && g_or_u != UNGERADE)
     SETERRQ(self->comm, 1, "illegal g_or_u");
@@ -84,11 +84,12 @@ PetscErrorCode Y1sSet(Y1s self, int m, int g_or_u, int lmax) {
   ierr = PetscMalloc1(self->num, &self->ls); CHKERRQ(ierr);
   self->m = m;
 
+  int l0 = (g_or_u == GERADE ? 0 : 1);
+  
   int i = 0;
-  for(int L = m; L <= lmax; L+=2) {
+  for(int L = l0; L <= lmax; L+=2) {
     self->ls[i] = L; i++;
   }
-
   return 0;
 }
 PetscErrorCode Y1sSetOne(Y1s self, int M, int L) {
@@ -175,27 +176,49 @@ PetscErrorCode Y1sGetMaxL(Y1s self, int *lmax) {
 
 PetscErrorCode Y1sCreateY1Mat(Y1s self, Mat *M) {
   
-  int n = self->num;
-  MatCreate(self->comm, M);
-  MatSetSizes(*M, n, n, n, n);
-  MatSetFromOptions(*M);
-  MatSetUp(*M);
+  PetscErrorCode ierr;
+  ierr = Y1sCreateY1MatOther(self, self, M); CHKERRQ(ierr);
   return 0;
 
 }
+PetscErrorCode Y1sCreateY1MatOther(Y1s self, Y1s other, Mat *M) {
+    
+  PetscErrorCode ierr;
+  int na = self->num; 
+  int nb = other->num; 
+  ierr = MatCreate(self->comm, M);
+  CHKERRQ(ierr);
+  ierr = MatSetSizes(*M, PETSC_DECIDE, PETSC_DECIDE, na, nb);
+  CHKERRQ(ierr);
+  ierr = MatSetUp(*M);
+  CHKERRQ(ierr);
+  return 0;
+  
+}
 PetscErrorCode Y1sSY1Mat(Y1s self, Mat M) {
 
+  PetscLogEvent EVENT_id;
+  PetscLogEventRegister("Y1sSY1Mat", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);  
+  
   int n = self->num;
   for (int i = 0; i < n; i++) {
       MatSetValue(M, i, i, 1.0, INSERT_VALUES);
   }
   MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
+
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
   return 0;
 
 }
 PetscErrorCode Y1sLambdaY1Mat(Y1s self, Mat M) {
 
+  PetscLogEvent EVENT_id;
+  PetscLogEventRegister("Y1sLambdaY1Mat", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);  
+  
   int n = self->num;
   for (int i = 0; i < n; i++) {
     int L = self->ls[i];
@@ -204,10 +227,16 @@ PetscErrorCode Y1sLambdaY1Mat(Y1s self, Mat M) {
   }
   MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
   return 0;
 
 }
 PetscErrorCode Y1sPqY1Mat(Y1s self, int q, Mat M, PetscBool *non0) {
+
+  PetscLogEvent EVENT_id;
+  PetscLogEventRegister("Y1sPqY1Mat", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
 
   int n = self->num;
   int *ls = self->ls;
@@ -233,6 +262,49 @@ PetscErrorCode Y1sPqY1Mat(Y1s self, int q, Mat M, PetscBool *non0) {
     *non0 = PETSC_FALSE;
   }
 
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+  return 0;
+}
+PetscErrorCode Y1sYqkY1MatOther(Y1s self, Y1s other, int q, int k, Mat M, PetscBool *non0) {
+
+  PetscLogEvent EVENT_id;
+  PetscLogEventRegister("Y1sYqkY1MatOther", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+  
+
+  PetscErrorCode ierr;
+
+  int na = self->num;
+  int *lsa = self->ls;
+  int ma = self->m;
+
+  int nb = other->num;
+  int *lsb = other->ls;
+  int mb = other->m;  
+  
+  PetscBool find = PETSC_FALSE;
+  
+  for(int i = 0; i < na; i++) {
+    for(int j = 0; j < nb; j++) {
+      PetscReal v = Y1EleYqk(lsa[i], q, lsb[j], 
+			     ma,     k, mb);
+      if(fabs(v) > FLT_EPSILON) {
+	find = PETSC_TRUE;
+	ierr = MatSetValue(M, i, j, v, INSERT_VALUES);
+	CHKERRQ(ierr);
+      }
+    }
+  }
+
+  if(find) {
+    MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
+    *non0 = PETSC_TRUE;
+  } else {
+    *non0 = PETSC_FALSE;
+  }
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
   return 0;
 }
 

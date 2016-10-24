@@ -88,7 +88,7 @@ $(BINDIR)/test_oce1.out : $(addprefix $(OBJDIR)/,$(OBJS))
 
 check_%: $(BINDIR)/test_%.out
 	@echo $@
-	$(AT)$<
+	$(AT)$< -malloc_dump
 
 ## ==== build main ====
 OBJS=driv_1d.o fem_inf.o fd.o dvr.o bspline.o cscaling.o bps.o eeps.o pot.o synthesize.o mat.o viewerfunc.o range.o pot.o

@@ -58,15 +58,63 @@ TEST(Y1, Pq) {
       }
     }
 }
-TEST(Y1, Y1s) {
+TEST(Y1, Y1s_gerade) {
+  
   Y1s y1s;
   Y1sCreate(PETSC_COMM_SELF, &y1s);
-  Y1sSet(y1s, SIGMA, GERADE, 5);
+  Y1sSet(y1s, 0, GERADE, 5);
   int n; Y1sGetSize(y1s, &n);
   ASSERT_EQ(3, n);
   if(getenv("SHOW_DEBUG"))
     Y1sView(y1s, PETSC_VIEWER_STDOUT_SELF);
+  EXPECT_EQ(3, y1s->num);
+  EXPECT_EQ(0, y1s->ls[0]);
+  EXPECT_EQ(2, y1s->ls[1]);
+  EXPECT_EQ(4, y1s->ls[2]);
+  EXPECT_EQ(0, y1s->m);
   Y1sDestroy(&y1s);
+  
+}
+TEST(Y1, Y1s_ungerade) {
+  
+  Y1s y1s;
+  Y1sCreate(PETSC_COMM_SELF, &y1s);
+  Y1sSet(y1s, 0, UNGERADE, 5);
+  int n; Y1sGetSize(y1s, &n);
+  ASSERT_EQ(3, n);
+  if(getenv("SHOW_DEBUG"))
+    Y1sView(y1s, PETSC_VIEWER_STDOUT_SELF);
+  EXPECT_EQ(3, y1s->num);
+  EXPECT_EQ(1, y1s->ls[0]);
+  EXPECT_EQ(3, y1s->ls[1]);
+  EXPECT_EQ(5, y1s->ls[2]);
+  EXPECT_EQ(0, y1s->m);
+  Y1sDestroy(&y1s);
+  
+}
+TEST(Y1, Y1s_Y1s) {
+
+  PetscErrorCode ierr;
+  MPI_Comm comm = PETSC_COMM_SELF;
+  Y1s a; Y1sCreate(comm, &a); Y1sSet(a, 0, GERADE, 6);
+  Y1s b; Y1sCreate(comm, &b); Y1sSet(b, 0, UNGERADE, 5);
+
+  PetscBool non0;
+  Mat m;
+  ierr = Y1sCreateY1MatOther(a, b, &m); ASSERT_EQ(0,ierr);
+  ierr = Y1sYqkY1MatOther(a, b, 1, 0, m, &non0); ASSERT_EQ(0,ierr);
+
+  ASSERT_TRUE(non0);
+
+  int idx_i[1] = {0};
+  int idx_j[1] = {1};
+  PetscScalar xs[1];
+  MatGetValues(m, 1, idx_i, 1, idx_j, xs);
+  EXPECT_DOUBLE_EQ(0.0, PetscRealPart(xs[0]));
+
+  Y1sDestroy(&a);
+  Y1sDestroy(&b);
+  MatDestroy(&m);
 }
 /*
 TEST(Y1, Pq_mat) {

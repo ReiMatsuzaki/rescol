@@ -12,6 +12,7 @@ static char help[] = "Unit test for dvr.c \n\n";
 
 int testLS() {
 
+  PrintTimeStamp(PETSC_COMM_SELF, "LS", NULL);
   MPI_Comm comm = MPI_COMM_SELF;
   BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 2.0, 3);
   PetscScalar xs_c[6] = {0.0, 0.5, 1.0, 1.0, 1.5, 2.0};
@@ -45,6 +46,8 @@ int testLS() {
   return 0;
 }
 int testXS() {
+
+  PrintTimeStamp(PETSC_COMM_SELF, "XS", NULL);
   MPI_Comm comm = PETSC_COMM_SELF;
   int nq = 3;
   BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 6);
@@ -68,7 +71,7 @@ int testXS() {
   return 0;
 }
 int testPsi() {
-
+  PrintTimeStamp(PETSC_COMM_SELF, "Psi", NULL); 
   PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
   
@@ -115,6 +118,7 @@ int testPsi() {
 }
 int testPower() {
 
+  PrintTimeStamp(PETSC_COMM_SELF, "power", NULL);
   PetscScalar x, y;
   PetscInt    n;
   
@@ -137,6 +141,8 @@ int testPower() {
   
 }
 int testSR1LSMat() {
+  PrintTimeStamp(PETSC_COMM_SELF, "SR1LSMat", NULL);
+  
   PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
   
@@ -172,6 +178,7 @@ int testSR1LSMat() {
 
 }
 int testD2R1LSMat() {
+  PrintTimeStamp(PETSC_COMM_SELF, "D2R1LSMat", NULL);
   /*
     1: 2.66666667 -5.33333333  2.66666667
    */
@@ -212,6 +219,8 @@ int testENR1LSMat() {
   /*
     |...|...|...|... |
    */
+
+  PrintTimeStamp(PETSC_COMM_SELF, "ENR1LSMat", NULL);
   PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
   int nq = 3;
@@ -252,7 +261,7 @@ int testENR1Mat() {
   /*
     |...|...|...|... |
    */
-
+  PrintTimeStamp(PETSC_COMM_SELF, "ENR1Mat", NULL);
   MPI_Comm comm = PETSC_COMM_SELF;
   int nq = 3;
   BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 5);
@@ -275,7 +284,7 @@ int testENR1Mat() {
   return 0;
 }
 int testENR1Mat_at0() {
-
+  PrintTimeStamp(PETSC_COMM_SELF, "ENR1_at0", NULL);
   MPI_Comm comm = PETSC_COMM_SELF;
   int nq = 3;
   BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 5);
@@ -288,11 +297,14 @@ int testENR1Mat_at0() {
   MatNorm(V, NORM_1, &norm);
   
   ASSERT_DOUBLE_NEAR(0.0, norm, 0.0000000001);
+
+  DVRDestroy(&dvr);
+  MatDestroy(&V);
   return 0;
   
 }
 int testENR1Mat_time() {
-
+  PrintTimeStamp(PETSC_COMM_SELF, "ENR1_time", NULL);
   MPI_Comm comm = PETSC_COMM_SELF;
   int nq = 8;
   BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 50.0, 50);
@@ -325,11 +337,16 @@ int testENR1Mat_time() {
   //  printf("non_pot = %d\n",  (t1-t0));
   //  printf("with_pot = %d\n", (t2-t1));
 
+  DVRDestroy(&dvr);
+  MatDestroy(&V1);
+  MatDestroy(&V2);
+
+  PFDestroy(&pot);
   return 0;  
 }
 int testEE() {
 
-  PrintTimeStamp(PETSC_COMM_SELF, "testEE", NULL); 
+  PrintTimeStamp(PETSC_COMM_SELF, "EE", NULL); 
 
   MPI_Comm comm = PETSC_COMM_SELF;
   int nq = 3;
@@ -385,7 +402,7 @@ int testLSMat_to_Mat() {
   return 0;
 }
 int testHAtom() {
-
+  PrintTimeStamp(PETSC_COMM_SELF, "HAtom", NULL);
   MPI_Comm comm = PETSC_COMM_SELF;
   int nq = 5;
   BPS bps; BPSCreate(comm, &bps); BPSSetExp(bps, 20.0, 20, 5.0);
@@ -425,7 +442,7 @@ int testHAtom() {
   return 0;
 }
 int testHAtom2() {
-
+  PrintTimeStamp(PETSC_COMM_SELF, "HAtom2", NULL);
   MPI_Comm comm = PETSC_COMM_SELF;
   int nq = 5;
   BPS bps; BPSCreate(comm, &bps); BPSSetExp(bps, 20.0, 20, 5.0);
@@ -532,7 +549,7 @@ int testHeAtom() {
   return 0;  
 }
 int testECSMatrix() {
-
+  PrintTimeStamp(PETSC_COMM_SELF, "ECSMatrix", NULL);
   MPI_Comm comm = PETSC_COMM_SELF;
   int nq = 5;
   BPS bps;
@@ -608,7 +625,7 @@ int testECSMatrix() {
   return 0;
 }
 int testECSTMat() {
-
+  PrintTimeStamp(PETSC_COMM_SELF, "ECS_T", NULL);
   PetscErrorCode ierr;
 
   MPI_Comm comm = PETSC_COMM_SELF;
@@ -670,7 +687,7 @@ int testECSTMat() {
 
 }
 int testECSVector() {
-
+  PrintTimeStamp(PETSC_COMM_SELF, "ECSVector", NULL);
   MPI_Comm comm = PETSC_COMM_SELF;
   int nq = 3;
   BPS bps;
@@ -761,47 +778,25 @@ int main(int argc, char **args) {
 
   SlepcInitialize(&argc, &args, (char*)0, help);
 
-  PrintTimeStamp(PETSC_COMM_SELF, "power", NULL);
+  testLS();  
+  testXS();  
+  testPsi();  
   testPower();
-
-  PrintTimeStamp(PETSC_COMM_SELF, "ENR1_at0", NULL);
-  testENR1Mat_at0();
-
-  PrintTimeStamp(PETSC_COMM_SELF, "ENR1_time", NULL);
-  testENR1Mat_time();
-
-  PrintTimeStamp(PETSC_COMM_SELF, "test_valueLS", NULL);
-  testLS();
-
-  PrintTimeStamp(PETSC_COMM_SELF, "testPsi", NULL); 
-  testPsi();
-
-  PrintTimeStamp(PETSC_COMM_SELF, "testXS", NULL);
-  testXS();
-  PrintTimeStamp(PETSC_COMM_SELF, "testSR1LSMat", NULL);
   testSR1LSMat();
-  PrintTimeStamp(PETSC_COMM_SELF, "testD2R1LSMat", NULL);
+  testENR1Mat_at0();
+  testENR1Mat_time();
   testD2R1LSMat();
-  PrintTimeStamp(PETSC_COMM_SELF, "testENR1LSMat", NULL);
   testENR1LSMat();
   testENR1Mat();
   testEE();
-  
-  // testLSMat_to_Mat();
-  PrintTimeStamp(PETSC_COMM_SELF, "testHAtom", NULL);
-  testHAtom();
-  PrintTimeStamp(PETSC_COMM_SELF, "testHAtom2", NULL);
+  //// testLSMat_to_Mat();  
+  testHAtom();  
   testHAtom2();
-
-  PrintTimeStamp(PETSC_COMM_SELF, "testECSMatrix", NULL);
-  testECSMatrix();
-  PrintTimeStamp(PETSC_COMM_SELF, "testECS_T", NULL);
-  testECSTMat();
-  PrintTimeStamp(PETSC_COMM_SELF, "testECSVector", NULL);
+  //// testHeAtom(); 
+  testECSMatrix();  
+  testECSTMat();  
   testECSVector();
-
-  //testHeAtom();
-  //testLapack();
+  ////testLapack();
   SlepcFinalize();
   return 0;
 }

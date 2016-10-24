@@ -31,9 +31,11 @@ PetscErrorCode Y1sGetSize(Y1s y1s, int *n);
 PetscErrorCode Y1sGetMaxL(Y1s ys, int *lmax);
 
 PetscErrorCode Y1sCreateY1Mat(Y1s self, Mat *M);
+PetscErrorCode Y1sCreateY1MatOther(Y1s self, Y1s other, Mat *M);
 PetscErrorCode Y1sSY1Mat(Y1s self, Mat M);
 PetscErrorCode Y1sLambdaY1Mat(Y1s self, Mat M);
 PetscErrorCode Y1sPqY1Mat(Y1s self, int q, Mat M, PetscBool *non0);
+PetscErrorCode Y1sYqkY1MatOther(Y1s self, Y1s other, int q, int k, Mat M, PetscBool *non0);
 
 #ifdef __cplusplus
 }

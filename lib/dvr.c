@@ -853,9 +853,9 @@ PetscErrorCode DVREER2Mat_poisson(DVR self, int q, Mat M) {
 
   // -- Finalize --
   MatDestroy(&T);  
-  PetscFree(ys);
   VecDestroy(&c);
   VecDestroy(&y);
+  PetscFree(ys);
   KSPDestroy(&ksp);
   return 0;
 }

@@ -140,6 +140,9 @@ PetscErrorCode EigH2plusCalc(EigH2plus self) {
 
   return 0;
 }
+PetscErrorCode EigH2plusFinalize(EigH2plus self) {
+  return 0;
+}
 PetscErrorCode EigH2plusPrintOut(EigH2plus self) {
 
   PetscViewer v = PETSC_VIEWER_STDOUT_SELF;

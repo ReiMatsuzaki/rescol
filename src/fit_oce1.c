@@ -70,6 +70,8 @@ int main(int argc, char **args) {
 
 
   // -- finalize --
+  OCE1Destroy(&oce); PFDestroy(&pot); KSPDestroy(&ksp); VecDestroy(&c);
+  SlepcFinalize();
   
   return 0;
   

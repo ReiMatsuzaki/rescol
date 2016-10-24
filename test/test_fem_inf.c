@@ -74,6 +74,7 @@ int testH_BSS() {
   ASSERT_DOUBLE_NEAR(2.0*(1.0-x)*exp(-x), creal(dy), pow(10.0, -3.0));
   
   FEMInfDestroy(&fem);
+  PFDestroy(&pot);
   MatDestroy(&H); MatDestroy(&V); MatDestroy(&S);
   EEPSDestroy(&eps); VecDestroy(&x0[0]); VecDestroy(&cs);
   return 0;
@@ -297,7 +298,8 @@ int testH_PI_DVR() {
   ASSERT_DOUBLE_NEAR(1.08811622008, cimag(alpha),  0.000001);
 
   FEMInfDestroy(&fem);
-  MatDestroy(&L); MatDestroy(&V); MatDestroy(&LV); MatDestroy(&S);
+  MatDestroy(&L); PFDestroy(&pot); 
+  MatDestroy(&V); MatDestroy(&LV); MatDestroy(&S);
   PFDestroy(&r2); PFDestroy(&driv); VecDestroy(&m); 
   KSPDestroy(&ksp); VecDestroy(&c); 
 
@@ -376,11 +378,11 @@ int testH_DVR() {
   ASSERT_SCALAR_NEAR(2.0*exp(-x)-2.0*x*exp(-x), dy, pow(10.0, -6.0));
 
   // -- Destroy --
-  ierr = FEMInfDestroy(&fem); CHKERRQ(ierr);
-  ierr = MatDestroy(&H);      CHKERRQ(ierr);
-  ierr = MatDestroy(&V);      CHKERRQ(ierr);
-  ierr = EEPSDestroy(&eps);   CHKERRQ(ierr);
-  ierr = VecDestroy(&cs);     CHKERRQ(ierr);
+  FEMInfDestroy(&fem); MatDestroy(&H); PFDestroy(&pot);
+  MatDestroy(&V);     
+  KSPDestroy(&ksp);    PFDestroy(&slater);
+  VecDestroy(&c_fit);  EEPSDestroy(&eps);
+  VecDestroy(&cs);    
 
   return 0;
 }
@@ -502,6 +504,11 @@ int testCopy_DVR() {
   MatGetValues(H1,1, i, 1, j, v1);
   ASSERT_SCALAR_EQ(v[0], v1[0]);
 
+
+  FEMInfDestroy(&fem);
+  FEMInfDestroy(&fem2);
+  MatDestroy(&H);
+  MatDestroy(&H1);
   return 0;
 
 }
@@ -510,14 +517,14 @@ int main(int argc, char **args) {
   SlepcInitialize(&argc, &args, (char*)0, help);
 
   testH_BSS();
-  // testH_BSS_accurate();
-  // testH_PI_BSS(); 
-  testH_PI_DVR(); 
+  /// testH_BSS_accurate();
+  /// testH_PI_BSS();
+
+  testH_PI_DVR();
   testH_DVR();
   testFit_BSS();
   testFit_DVR();
   testCopy_DVR();
-
   SlepcFinalize();
   return 0;
 

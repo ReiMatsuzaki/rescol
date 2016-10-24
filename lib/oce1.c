@@ -146,9 +146,13 @@ PetscErrorCode OCE1GetSizes(OCE1 self, int *n_r, int *n_y) {
 }
 
 PetscErrorCode OCE1Fit(OCE1 self, PF pf, int L, KSP ksp, Vec c) {
+  // >> Start LogEvent >>
+  int EVENT_id;
+  PetscLogEventRegister("OCE1Fit", 0, &EVENT_id);  
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+  
 
   PetscErrorCode ierr;
-
   if(L != 0) {
     SETERRQ(self->comm, 1, "now only L=0 is supported");
   }
@@ -182,21 +186,39 @@ PetscErrorCode OCE1Fit(OCE1 self, PF pf, int L, KSP ksp, Vec c) {
   ierr = VecDestroy(&c_fem); CHKERRQ(ierr);
   ierr = PetscFree(indices); CHKERRQ(ierr);
   ierr = PetscFree(values); CHKERRQ(ierr);
+
+
+  // >> End LogEvent >>
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
   
   return 0;
   
 }
 
 PetscErrorCode OCE1CalcSr(OCE1 self) {
+  int EVENT_id;
+  PetscLogEventRegister("OCE1CalcSr", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+  
   PetscErrorCode ierr;
   ierr = FEMInfCreateMat(self->fem, 1, &self->s_r);CHKERRQ(ierr);
   ierr = FEMInfSR1Mat(self->fem, self->s_r);CHKERRQ(ierr);
+
+  
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
   return 0;
 }
 PetscErrorCode OCE1CalcSy(OCE1 self) {
+  int EVENT_id;
+  PetscLogEventRegister("OCE1CalcSy", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+  
   PetscErrorCode ierr;
   ierr = Y1sCreateY1Mat(self->y1s, &self->s_y); CHKERRQ(ierr);
-  ierr = Y1sSY1Mat(self->y1s, self->s_y);CHKERRQ(ierr);  
+  ierr = Y1sSY1Mat(self->y1s, self->s_y);CHKERRQ(ierr);
+
+  
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
   return 0;
 }
 
@@ -225,6 +247,10 @@ PetscErrorCode OCE1CreateVec(OCE1 self, Vec *v) {
   
 }
 PetscErrorCode OCE1SMat(OCE1 self, MatReuse scall, Mat *M, PetscBool *is_id) {
+  int EVENT_id;
+  PetscLogEventRegister("OCE1SMat", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+  
 
   PetscErrorCode ierr;
   PetscBool _is_id;
@@ -245,10 +271,16 @@ PetscErrorCode OCE1SMat(OCE1 self, MatReuse scall, Mat *M, PetscBool *is_id) {
   ierr = MatMatSynthesize(self->s_r, self->s_y, 1.0, scall, M);
   CHKERRQ(ierr);
 
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
   return 0;
 }
 PetscErrorCode OCE1TMat(OCE1 self, MatReuse scall, Mat *M) {
 
+  int EVENT_id;
+  PetscLogEventRegister("OCE1TMat", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+
+  
   if(self->s_r == NULL)
     OCE1CalcSr(self);
   if(self->s_y == NULL)
@@ -283,9 +315,15 @@ PetscErrorCode OCE1TMat(OCE1 self, MatReuse scall, Mat *M) {
   ierr = MatAXPY(*M, 1.0, L, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
   MatDestroy(&L);
 
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
   return 0;
 }
 PetscErrorCode OCE1PotMat(OCE1 self, RotSym sym, Pot pot, MatReuse scall, Mat *M) {
+  int EVENT_id;
+  PetscLogEventRegister("OCE1CalcSr", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+  
 
   if(sym != ROT_SCALAR)
     SETERRQ(self->comm, 1, "now only sym=ROT_SCALAR is supported");
@@ -302,9 +340,14 @@ PetscErrorCode OCE1PotMat(OCE1 self, RotSym sym, Pot pot, MatReuse scall, Mat *M
   ierr = MatMatSynthesize(r1, self->s_y, 1.0, scall, M);
 
   MatDestroy(&r1);
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
   return 0;
 }
 PetscErrorCode OCE1PlusPotMat(OCE1 self, RotSym sym, Pot pot, Mat M) {
+  int EVENT_id;
+  PetscLogEventRegister("OCE1CalcSr", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
 
   PetscErrorCode ierr;
 
@@ -312,9 +355,15 @@ PetscErrorCode OCE1PlusPotMat(OCE1 self, RotSym sym, Pot pot, Mat M) {
   ierr = OCE1PotMat(self, sym, pot, MAT_INITIAL_MATRIX, &V); CHKERRQ(ierr);
   ierr = MatAXPY(M, 1.0, V, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
   MatDestroy(&V);
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
   return 0;
 }
 PetscErrorCode OCE1PlusVneMat(OCE1 self, PetscReal a, PetscReal z, Mat M) {
+  int EVENT_id;
+  PetscLogEventRegister("OCE1PlusVneMat", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+  
 
   PetscErrorCode ierr;
 
@@ -350,10 +399,36 @@ PetscErrorCode OCE1PlusVneMat(OCE1 self, PetscReal a, PetscReal z, Mat M) {
     }
     MatDestroy(&pq_y);
   }
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+  return 0;  
+}
+PetscErrorCode OCE1ZMat(OCE1 self, OCE1 other, MatReuse scall, Mat *M) {
+  int EVENT_id;
+  PetscLogEventRegister("OCE1CalcSr", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+
+  PetscErrorCode ierr;
+
+  if(self->fem != other->fem) {
+    SETERRQ(self->comm, 1, "FEMInf of a and b must be same");
+  }
+
+  Pot r1; PotCreate(self->comm, &r1);
+  ierr = PotSetPower(r1, 1.0, 1); CHKERRQ(ierr);
+
+  Mat mat_r;
+  ierr = FEMInfCreateMat(self->fem, 1, &mat_r); CHKERRQ(ierr);
+  ierr = FEMInfPotR1Mat( self->fem, r1, mat_r); CHKERRQ(ierr);
+
+  Mat mat_y;
+  ierr = Y1sCreateY1Mat(self->y1s, &mat_y); CHKERRQ(ierr);
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
   return 0;
-  
 }
 
+// -- not used now
 PetscErrorCode OceH2plusMatMultH(Mat H, Vec x, Vec y) {
   PetscErrorCode ierr;
   OceH2plus ctx;
@@ -370,6 +445,7 @@ PetscErrorCode OceH2plusMatMultH(Mat H, Vec x, Vec y) {
 
   return 0;
 }
+// -- not used now
 PetscErrorCode OceH2plusMatMultS(Mat S, Vec x, Vec y) {
   PetscErrorCode ierr;
   OceH2plus ctx;
@@ -379,7 +455,7 @@ PetscErrorCode OceH2plusMatMultS(Mat S, Vec x, Vec y) {
 
   return 0;
 }
-
+// -- not used now
 PetscErrorCode OCE1CreateH2plus(OCE1 self, PetscReal a, PetscReal z, OceH2plus *p_ctx) {
   PetscErrorCode ierr;
   OceH2plus ctx;
@@ -438,6 +514,7 @@ PetscErrorCode OCE1CreateH2plus(OCE1 self, PetscReal a, PetscReal z, OceH2plus *
   *p_ctx = ctx;
   return 0;
 }
+// -- not used now
 PetscErrorCode OCE1H2plusMat(OCE1 self, OceH2plus ctx, Mat *H, Mat *S, PetscBool *is_id) {
 			     
   PetscErrorCode ierr;
@@ -467,6 +544,7 @@ PetscErrorCode OCE1H2plusMat(OCE1 self, OceH2plus ctx, Mat *H, Mat *S, PetscBool
 
   return 0;
 }
+// -- not used now			       
 PetscErrorCode OCE1H2plusMat_direct(OCE1 self, OceH2plus ctx, Mat *H, Mat *S, PetscBool *is_id) {
   
   PetscErrorCode ierr;
@@ -484,6 +562,7 @@ PetscErrorCode OCE1H2plusMat_direct(OCE1 self, OceH2plus ctx, Mat *H, Mat *S, Pe
   *S = _S;
   return 0;
 }
+// -- not used now
 PetscErrorCode OCE1H2plusDestroy(OceH2plus *p_ctx) {
   PetscErrorCode ierr;
   OceH2plus ctx = *p_ctx;
