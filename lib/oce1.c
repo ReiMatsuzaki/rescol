@@ -1,3 +1,4 @@
+#include "../include/math.h"
 #include "../include/oce1.h"
 
 PetscErrorCode OCE1Create(MPI_Comm comm, OCE1 *p_self) {
@@ -194,7 +195,68 @@ PetscErrorCode OCE1Fit(OCE1 self, PF pf, int L, KSP ksp, Vec c) {
   return 0;
   
 }
+PetscErrorCode OCE1Psi(OCE1 self, Vec cs, int L, int M, Vec xs, Vec ys) {
 
+  PetscErrorCode ierr;
+
+  if(L != 0 || M != 0)
+    SETERRQ(self->comm, 1, "now only L=0 and M=0 is supported");
+
+  int numr;
+  ierr = FEMInfGetSize(self->fem, &numr); CHKERRQ(ierr);
+    
+  PetscInt    *indices;
+  PetscScalar *values;
+  PetscMalloc(numr*(sizeof(PetscInt)),    &indices);
+  PetscMalloc(numr*(sizeof(PetscScalar)), &values);
+
+  PetscScalar *ptr_cs;
+  VecGetArray(cs, &ptr_cs);
+  for(int i = 0; i < numr; i++) {
+    indices[i] = i;
+    values[i]  = ptr_cs[i];
+  }
+  VecRestoreArray(cs, &ptr_cs);
+
+  Vec c_r; FEMInfCreateVec(self->fem, 1, &c_r);
+  VecSetValues(c_r, numr, indices, values, INSERT_VALUES);
+
+  FEMInfPsi(self->fem, c_r, xs, ys);
+  
+  return 0;
+}
+PetscErrorCode OCE1PsiOne(OCE1 self, Vec cs, int L, int M, PetscScalar x, PetscScalar *y) {
+
+  PetscErrorCode ierr ;
+
+  int numr;
+  ierr = FEMInfGetSize(self->fem, &numr); CHKERRQ(ierr);
+    
+  PetscInt    *indices;
+  PetscScalar *values;
+  PetscMalloc(numr*(sizeof(PetscInt)),    &indices);
+  PetscMalloc(numr*(sizeof(PetscScalar)), &values);
+
+  PetscScalar *ptr_cs;
+  ierr =  VecGetArray(cs, &ptr_cs); CHKERRQ(ierr);
+  for(int i = 0; i < numr; i++) {
+    indices[i] = i;
+    values[i]  = ptr_cs[i];
+  }
+  ierr = VecRestoreArray(cs, &ptr_cs); CHKERRQ(ierr);
+
+  Vec c_r;
+  ierr = FEMInfCreateVec(self->fem, 1, &c_r); CHKERRQ(ierr);
+  ierr = VecSetValues(c_r, numr, indices, values, INSERT_VALUES); CHKERRQ(ierr);
+
+  ierr = FEMInfPsiOne(self->fem, c_r, x, y); CHKERRQ(ierr);
+
+  PetscFree(indices);
+  PetscFree(values);
+  VecDestroy(&c_r);
+  
+  return 0;
+}
 PetscErrorCode OCE1CalcSr(OCE1 self) {
   int EVENT_id;
   PetscLogEventRegister("OCE1CalcSr", 0, &EVENT_id);
@@ -234,6 +296,20 @@ PetscErrorCode OCE1CreateMat(OCE1 self, Mat *M) {
 
   ierr = MatMatSynthesizeSymbolic(self->s_r, self->s_y, M);
   
+  return 0;
+}
+PetscErrorCode OCE1CreateMatOther(OCE1 self, OCE1 other, Mat *M) {
+  
+  PetscErrorCode ierr;
+
+  int nr0, ny0, nr1, ny1;
+  ierr = OCE1GetSizes(self,  &nr0, &ny0); CHKERRQ(ierr);
+  ierr = OCE1GetSizes(other, &nr1, &ny1); CHKERRQ(ierr);
+
+  ierr = MatCreate(self->comm, M);  CHKERRQ(ierr);
+  ierr = MatSetSizes(*M, PETSC_DECIDE, PETSC_DECIDE,
+		     nr0*ny0, nr1*ny1); CHKERRQ(ierr);
+  ierr = MatSetUp(*M); CHKERRQ(ierr);
   return 0;
 }
 PetscErrorCode OCE1CreateVec(OCE1 self, Vec *v) {
@@ -310,11 +386,14 @@ PetscErrorCode OCE1TMat(OCE1 self, MatReuse scall, Mat *M) {
   Mat L;
   ierr = MatMatSynthesize(l_r, l_y, 0.5/self->mu, 
 			  MAT_INITIAL_MATRIX, &L); CHKERRQ(ierr);
-  MatDestroy(&l_r); MatDestroy(&l_y); 
 
   ierr = MatAXPY(*M, 1.0, L, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
-  MatDestroy(&L);
 
+  MatDestroy(&d2_r);
+  PFDestroy(&pot_r2);
+  MatDestroy(&l_r);
+  MatDestroy(&l_y); 
+  MatDestroy(&L);
 
   PetscLogEventEnd(EVENT_id, 0,0,0,0);
   return 0;
@@ -422,8 +501,19 @@ PetscErrorCode OCE1ZMat(OCE1 self, OCE1 other, MatReuse scall, Mat *M) {
   ierr = FEMInfPotR1Mat( self->fem, r1, mat_r); CHKERRQ(ierr);
 
   Mat mat_y;
-  ierr = Y1sCreateY1Mat(self->y1s, &mat_y); CHKERRQ(ierr);
+  ierr = Y1sCreateY1MatOther(self->y1s, other->y1s, &mat_y); CHKERRQ(ierr);
+  PetscBool non0;
+  ierr = Y1sYqkY1MatOther(self->y1s, other->y1s, 1, 0, mat_y, &non0); CHKERRQ(ierr);
+  ierr = MatScale(mat_y, sqrt(4.0*M_PI/3.0)); CHKERRQ(ierr);
 
+  if(!non0) {
+    SETERRQ(self->comm, 1, "matrix become empty");
+  }
+  
+  ierr = MatMatSynthesize(mat_r, mat_y, 1.0, scall, M); CHKERRQ(ierr);
+
+  PFDestroy(&r1); MatDestroy(&mat_r); MatDestroy(&mat_y);
+  
   PetscLogEventEnd(EVENT_id, 0,0,0,0);
   return 0;
 }

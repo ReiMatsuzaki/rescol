@@ -200,3 +200,40 @@ PetscErrorCode EEPSGetEigenvector(EEPS self, int i, Vec vec) {
 
   return 0;
 }
+PetscErrorCode EEPSGetEigenpair(EEPS self, int i, PetscScalar *val, Vec vec) {
+
+  PetscErrorCode ierr;
+  ierr = EPSGetEigenpair(self->eps, i, val, NULL, vec, NULL);
+  CHKERRQ(ierr);
+  
+  int n;
+  ierr = VecGetSize(vec, &n); CHKERRQ(ierr);
+
+#if defined(PETSC_USE_COMPLEX)
+  for(int k = 0; k < n; k++) {
+    PetscScalar v[1]; PetscInt idx[1] = {k};
+    ierr = VecGetValues(vec, 1, idx, v); CHKERRQ(ierr);
+    if(cabs(v[0]) > 0.00000001) {
+      PetscScalar scale = v[0] / cabs(v[0]);
+      VecScale(vec, 1.0/scale);
+      goto end;
+    }
+  }
+ end:
+#endif
+
+  if(self->S == NULL) {
+    PetscScalar x;
+    VecTDot(vec, vec, &x);
+    VecScale(vec, 1.0/sqrt(x));
+  } else {
+    Vec Sx; MatCreateVecs(self->S, &Sx, NULL);
+    PetscScalar scale;
+    MatMult(self->S, vec, Sx); VecTDot(vec, Sx, &scale);
+    VecScale(vec, 1.0/sqrt(scale));
+    VecDestroy(&Sx);
+  }
+
+  return 0;
+  
+}

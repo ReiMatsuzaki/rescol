@@ -27,6 +27,7 @@ PetscErrorCode EEPSSetFromOptions(EEPS self);
 
 PetscErrorCode EEPSSolve(EEPS self);
 PetscErrorCode EEPSGetEigenvector(EEPS self, int i, Vec k);
+PetscErrorCode EEPSGetEigenpair(EEPS self, int i, PetscScalar *k, Vec c);
 
 #ifdef __cplusplus
 }
