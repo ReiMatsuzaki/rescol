@@ -36,11 +36,7 @@ PetscViewer ViewerFuncGetBase(ViewerFunc self) {
   return self->base;
 }
 PetscErrorCode ViewerFuncView(ViewerFunc self, PetscViewer v) {
-
-  if(!ViewerFuncIsActive(self)) {
-    SETERRQ(self->comm, 1, "ViewerFunc object is not setup");
-  }
-
+  
   PetscErrorCode ierr;
 
   PetscBool iascii, isbinary, isdraw;
@@ -94,11 +90,11 @@ PetscErrorCode ViewerFuncSetBase(ViewerFunc self, PetscViewer base) {
 
   return 0;
 }
-PetscErrorCode ViewerFuncSetRange(ViewerFunc self, int num, PetscReal xmax) {
+PetscErrorCode ViewerFuncSetRange(ViewerFunc self, int num, PetscReal xmin, PetscReal xmax) {
 
   PetscErrorCode ierr;
   self->num = num;
-  PetscReal h = xmax/(num-1);
+  PetscReal h = (xmax-xmin)/(num-1);
 
   if(self->xs != NULL) {
     ierr = PetscFree(self->xs); CHKERRQ(ierr);
@@ -106,7 +102,7 @@ PetscErrorCode ViewerFuncSetRange(ViewerFunc self, int num, PetscReal xmax) {
   
   PetscMalloc1(num, &self->xs);
   for(int i = 0; i < num; i++) {
-    self->xs[i] = i * h;
+    self->xs[i] = xmin + i * h;
   }
 
   self->active_range = PETSC_TRUE;
@@ -123,31 +119,37 @@ PetscErrorCode ViewerFuncSetFromOptions(ViewerFunc self) {
 
   char opt_path[100];
   char opt_num[100];
+  char opt_xmin[100];
   char opt_xmax[100];
 
   sprintf(opt_path, "-%s%s_path",
 	  self->opt_prefix, self->opt_base);
   sprintf(opt_num,  "-%s%s_num",
 	  self->opt_prefix, self->opt_base);
+  sprintf(opt_xmin, "-%s%s_xmin",
+	  self->opt_prefix, self->opt_base);  
   sprintf(opt_xmax, "-%s%s_xmax",
 	  self->opt_prefix, self->opt_base);
 
-  PetscBool find_path, find_xmax, find_num;
+  PetscBool find_path, find_xmin, find_xmax, find_num;
   char path[100];
   PetscInt  num;
-  PetscReal xmax;
+  PetscReal xmin, xmax;
   ierr = PetscOptionsGetString(NULL, NULL,opt_path, path,  100, &find_path); CHKERRQ(ierr);
-  ierr = PetscOptionsGetInt(NULL, NULL,   opt_num,  &num, &find_num); CHKERRQ(ierr);
-  ierr = PetscOptionsGetReal(NULL, NULL,  opt_xmax, &xmax, &find_xmax); CHKERRQ(ierr);
+  ierr = PetscOptionsGetInt( NULL, NULL, opt_num,  &num, &find_num);   CHKERRQ(ierr);
+  ierr = PetscOptionsGetReal(NULL, NULL, opt_xmin, &xmin, &find_xmin); CHKERRQ(ierr);
+  ierr = PetscOptionsGetReal(NULL, NULL, opt_xmax, &xmax, &find_xmax); CHKERRQ(ierr);
 
   if(find_path) {
     PetscViewer viewer;
     ierr = PetscViewerASCIIOpen(self->comm, path, &viewer); CHKERRQ(ierr);
     ierr = ViewerFuncSetBase(self, viewer); CHKERRQ(ierr);
   }
-
-  if(find_num && find_xmax) {
-    ierr = ViewerFuncSetRange(self, num, xmax); CHKERRQ(ierr);
+  
+  if(find_xmin && find_num && find_xmax) {
+    ierr = ViewerFuncSetRange(self, num, xmin, xmax); CHKERRQ(ierr);
+  } else if(find_num && find_xmax) {
+    ierr = ViewerFuncSetRange(self, num, 0.0, xmax); CHKERRQ(ierr);
   }
 
   return 0;

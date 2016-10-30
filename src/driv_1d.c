@@ -16,7 +16,6 @@ typedef struct {
   Pot       S;    // driven term
 
   FEMInf     fem;  // grid method
-  PetscBool  use_func_view; // True=>print function
   ViewerFunc viewer;
   Range      energy_range;  // calculation energy range
 
@@ -51,7 +50,6 @@ PetscErrorCode Driv1dCreate(MPI_Comm comm, Driv1d *p_self) {
   
   ierr = FEMInfCreate(comm, &self->fem); CHKERRQ(ierr);
   ierr = RangeCreate(comm, &self->energy_range); CHKERRQ(ierr);
-  self->use_func_view = PETSC_FALSE;
   ierr = ViewerFuncCreate(comm, &self->viewer); CHKERRQ(ierr);
   
   ierr = KSPCreate(comm, &self->ksp); CHKERRQ(ierr);
@@ -81,11 +79,11 @@ PetscErrorCode Driv1dSetFromOptions(Driv1d self) {
 
 
   // -- set V --
-  ierr = PotSetFromOptions2(self->V, "V", &find); CHKERRQ(ierr);
+  ierr = PotSetFromOptions2(self->V, "V_", &find); CHKERRQ(ierr);
   self->use_V = find;
 
   // -- set S --
-  ierr = PotSetFromOptions2(self->S, "S", &find); CHKERRQ(ierr);
+  ierr = PotSetFromOptions2(self->S, "S_", &find); CHKERRQ(ierr);
   if(!find)
     SETERRQ(self->comm, 1, "S is needed");
 
@@ -96,8 +94,7 @@ PetscErrorCode Driv1dSetFromOptions(Driv1d self) {
   ierr = RangeSetFromOptions(self->energy_range, "energy"); CHKERRQ(ierr);
 
   // -- set function viewer --
-  ierr = ViewerFuncSetFromOptions(self->viewer, &find); CHKERRQ(ierr);
-  self->use_func_view = find;
+  ierr = ViewerFuncSetFromOptions(self->viewer); CHKERRQ(ierr);
 
   PetscOptionsEnd();
   return 0;
@@ -127,12 +124,9 @@ PetscErrorCode Driv1dPrintIn(Driv1d self, PetscViewer viewer) {
   FEMInfView(self->fem, viewer);
   PetscViewerASCIIPopTab(viewer);
   
-  PetscViewerASCIIPrintf(viewer, "use_func_view: %s\n", self->use_func_view ? "Yes":"No");
-  if(self->use_func_view) {
-      PetscViewerASCIIPushTab(viewer);
-      ViewerFuncView(self->viewer, viewer);
-      PetscViewerASCIIPopTab(viewer);
-  }
+  PetscPrintf(self->comm, "func_view:");
+  ViewerFuncView(self->viewer, viewer);
+
   
   PetscViewerASCIIPrintf(viewer, "energy_range: \n");
   PetscViewerASCIIPushTab(viewer);
@@ -229,7 +223,7 @@ PetscErrorCode Driv1dCalc(Driv1d self, PetscViewer viewer) {
     PetscScalar alpha;
     ierr = VecTDot(svec, cvec, &alpha); CHKERRQ(ierr);
 
-    if(self->use_func_view) {
+    if(ViewerFuncIsActive(self->viewer)) {
       ierr = FEMInfViewFunc(self->fem, cvec, self->viewer); CHKERRQ(ierr);
     }
 
@@ -246,7 +240,7 @@ PetscErrorCode Driv1dCalc(Driv1d self, PetscViewer viewer) {
   return 0;
 }
 PetscErrorCode Driv1dPrintOut(Driv1d self, PetscViewer viewer) {
-  
+  return 0;
   //  PrintTimeStamp(self->comm, "PrintOut", NULL);
   //  PetscViewerASCIIPrintf(viewer, "alpha = (%f, %f)\n",
   //			 creal(self->alpha),

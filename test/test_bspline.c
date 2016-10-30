@@ -542,8 +542,8 @@ int testBSplineHAtom() {
   PrintTimeStamp(PETSC_COMM_SELF, "H atom", NULL);
 
   MPI_Comm comm = PETSC_COMM_SELF;
-  BPS bps; BPSCreate(comm, &bps); BPSSetExp(bps, 50.0, 101, 5.0);
-  int order = 8;
+  BPS bps; BPSCreate(comm, &bps); BPSSetExp(bps, 30.0, 61, 3.0);
+  int order = 5;
   BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);  BSSSetUp(bss);
 
   Mat H; BSSCreateR1Mat(bss, &H);
@@ -554,12 +554,12 @@ int testBSplineHAtom() {
   MatScale(H, -0.5);
 
   BSSENR1Mat(bss, 0, 0.0, V);
-  MatAXPY(H, -1.0, V, SAME_NONZERO_PATTERN);
+  MatAXPY(H, -1.0, V, DIFFERENT_NONZERO_PATTERN);
 
   BSSSR1Mat(bss, S);
 
   // -- initial space --
-  Pot psi0; PotCreate(comm, &psi0); PotSetSlater(psi0, 2.0, 1, 1.0);
+  Pot psi0; PotCreate(comm, &psi0); PotSetSlater(psi0, 2.0, 1, 1.1);
   int n_init_space = 1;
   Vec *xs; PetscMalloc1(n_init_space, &xs);
   MatCreateVecs(H, &xs[0], NULL);
@@ -567,7 +567,8 @@ int testBSplineHAtom() {
 
   EEPS eps; EEPSCreate(comm, &eps);
   EEPSSetOperators(eps, H, S);
-  EPSSetType(eps->eps, EPSJD);
+  //  EPSSetType(eps->eps, EPSJD);
+  EPSSetInitialSpace(eps->eps, 1, xs);
   EEPSSetTarget(eps, -0.6); 
 
   //  EPSSetInitialSpace(eps->eps, 1, xs);
@@ -579,14 +580,7 @@ int testBSplineHAtom() {
   EPSGetConverged(eps->eps, &nconv);
   ASSERT_TRUE(nconv > 0);
   EPSGetEigenpair(eps->eps, 0, &kr, NULL, NULL, NULL);
-  //  ASSERT_DOUBLE_NEAR(-0.5, kr, pow(10.0, -5.0));
   ASSERT_DOUBLE_NEAR(-0.5,  kr, pow(10.0, -6.0));
-
-  /*
-    EPSGetEigenpair(eps->eps, 1, &kr, NULL, NULL, NULL);
-  //  ASSERT_DOUBLE_NEAR(-0.5, kr, pow(10.0, -5.0));
-  ASSERT_DOUBLE_NEAR(-0.125,  kr, pow(10.0, -6.0));
-  */
 
   Vec cs;
   MatCreateVecs(H, &cs, NULL);
@@ -596,8 +590,8 @@ int testBSplineHAtom() {
   PetscScalar dy=0.0;
   BSSPsiOne(bss, cs, x, &y);
   BSSDerivPsiOne(bss, cs, x, &dy);
-  ASSERT_DOUBLE_NEAR(creal(y), 2.0*x*exp(-x), pow(10.0, -8));
-  ASSERT_DOUBLE_NEAR(creal(dy), 2.0*exp(-x)-2.0*x*exp(-x), pow(10.0, -8));
+  ASSERT_DOUBLE_NEAR(creal(y), 2.0*x*exp(-x), pow(10.0, -6));
+  ASSERT_DOUBLE_NEAR(creal(dy), 2.0*exp(-x)-2.0*x*exp(-x), pow(10.0, -6));
 
   VecDestroy(&xs[0]);
   PetscFree(xs);

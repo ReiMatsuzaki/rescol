@@ -13,6 +13,7 @@ PetscReal Y1ElePq(int j1, int q, int j2, int m1, int m2);
 // ---- Set of Y1 ----
 struct _p_Y1s {
   MPI_Comm comm;
+  char prefix[100];
   int num;
   int* ls;
   int m;  
@@ -25,6 +26,7 @@ PetscErrorCode Y1sView(Y1s y1s, PetscViewer viewer);
 
 PetscErrorCode Y1sSet(Y1s self, int m, int g_or_u, int lmax);
 PetscErrorCode Y1sSetOne(Y1s self, int m, int l);
+PetscErrorCode Y1sSetOptionsPrefix(Y1s self, const char[]);
 PetscErrorCode Y1sSetFromOptions(Y1s self);
 
 PetscErrorCode Y1sGetSize(Y1s y1s, int *n);

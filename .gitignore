@@ -14,3 +14,5 @@ obj/*
 *.png
 *.a
 *.0
+.ipynb_checkpoints/
+*.csv

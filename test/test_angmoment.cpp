@@ -64,7 +64,7 @@ TEST(Y1, Y1s_gerade) {
   Y1sCreate(PETSC_COMM_SELF, &y1s);
   Y1sSet(y1s, 0, GERADE, 5);
   int n; Y1sGetSize(y1s, &n);
-  ASSERT_EQ(3, n);
+  ASSERT_EQ(3, n);  
   if(getenv("SHOW_DEBUG"))
     Y1sView(y1s, PETSC_VIEWER_STDOUT_SELF);
   EXPECT_EQ(3, y1s->num);

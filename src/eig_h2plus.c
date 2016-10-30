@@ -100,7 +100,6 @@ PetscErrorCode EigH2plusPrintIn(EigH2plus self) {
 PetscErrorCode EigH2plusCalc(EigH2plus self) {
 
   PetscErrorCode ierr;  
-
   PetscBool s_is_id;
 
   // read initial guess
@@ -130,21 +129,11 @@ PetscErrorCode EigH2plusCalc(EigH2plus self) {
     EEPSSetOperators(self->eps, H, S);
   ierr = EEPSSolve(self->eps); CHKERRQ(ierr);
   
-  // Write
-  PrintTimeStamp(self->comm, "Write", NULL);
-  if(ViewerFuncIsActive(self->viewer_func)) {
-    Vec c; MatCreateVecs(H, &c, NULL);
-    ierr = EPSGetEigenpair(self->eps->eps, 0, NULL, NULL, c, NULL); CHKERRQ(ierr);
-    ierr = OCE1ViewFunc(self->oce, c, self->viewer_func); CHKERRQ(ierr);
-  }
-
-  return 0;
-}
-PetscErrorCode EigH2plusFinalize(EigH2plus self) {
   return 0;
 }
 PetscErrorCode EigH2plusPrintOut(EigH2plus self) {
 
+  PetscErrorCode ierr;
   PetscViewer v = PETSC_VIEWER_STDOUT_SELF;
   int nconv;
   EPSGetConverged(self->eps->eps, &nconv);
@@ -156,13 +145,33 @@ PetscErrorCode EigH2plusPrintOut(EigH2plus self) {
   PetscPrintf(self->comm, "nconv: %d\n", nconv);
   for(int i = 0; i < nconv; i++) {
     PetscScalar ene;
-    Vec c; OCE1CreateVec(self->oce, &c);
-    EPSGetEigenpair(self->eps->eps, i, &ene, NULL, c, NULL);
+    EPSGetEigenpair(self->eps->eps, i, &ene, NULL, NULL, NULL);
     PetscViewerASCIIPrintf(v, "E%d = (%f, %f)\n", i, creal(ene), cimag(ene));
-    VecDestroy(&c);
   }
+
+  // -- write c vector as binary --
+  PetscScalar ene;
+  Vec c;
+  ierr = OCE1CreateVec(self->oce, &c); CHKERRQ(ierr);
+  ierr = EEPSGetEigenpair(self->eps, 0, &ene, c); CHKERRQ(ierr);
+  PetscViewer v_out;
+  ierr = PetscViewerBinaryOpen(self->comm,
+			       self->path_out,
+			       FILE_MODE_WRITE,
+			       &v_out); CHKERRQ(ierr);
+  ierr = VecView(c, v_out); CHKERRQ(ierr);
+
+  // -- write wave function if necessary --
+  if(ViewerFuncIsActive(self->viewer_func)) {
+    ierr = OCE1ViewFunc(self->oce, c, self->viewer_func); CHKERRQ(ierr);
+  }  
+
+  VecDestroy(&c);
+  PetscViewerDestroy(&v_out);
   
-  
+  return 0;
+}
+PetscErrorCode EigH2plusFinalize(EigH2plus self) {
   return 0;
 }
 int main(int argc, char **args) {
@@ -183,6 +192,7 @@ int main(int argc, char **args) {
   ierr = EigH2plusPrintIn(h2plus); CHKERRQ(ierr);
   ierr = EigH2plusCalc(h2plus); CHKERRQ(ierr);
   ierr = EigH2plusPrintOut(h2plus); CHKERRQ(ierr);
+  ierr = EigH2plusFinalize(h2plus); CHKERRQ(ierr);
 
   PetscPrintf(comm, "<<<< eig_h2plus <<<<\n\n");
 

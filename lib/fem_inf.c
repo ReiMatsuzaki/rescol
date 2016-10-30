@@ -194,19 +194,26 @@ PetscErrorCode FEMInfViewFunc_ASCII(FEMInf self, Vec c, ViewerFunc v) {
     PetscReal *xs;
     ViewerFuncGetRange(v, &num, &xs);
 
+#if defined(PETSC_USE_COMPLEX)
+    PetscViewerASCIIPrintf(v->base, "r,re_y,im_y\n");
+#else
+      PetscViewerASCIIPrintf(v->base, "r,y\n"); CHKERRQ(ierr);
+#endif    
+
     for(int i = 0; i < num; i++) {
       PetscReal x = xs[i];
       PetscScalar y; FEMInfPsiOne(self, c, x, &y);
 #if defined(PETSC_USE_COMPLEX)
       PetscReal re = PetscRealPart(y);
       PetscReal im = PetscImaginaryPart(y);
-      PetscViewerASCIIPrintf(v->base, "%f %f %f\n", x, re, im);
+      PetscViewerASCIIPrintf(v->base, "%f,%f,%f\n", x, re, im);
 #else
-      PetscViewerASCIIPrintf(v->base, "%f %f\n", x, y); CHKERRQ(ierr);
+      PetscViewerASCIIPrintf(v->base, "%f,%f\n", x, y); CHKERRQ(ierr);
 #endif
     }
-
+    
     return 0;
+    
 }
 PetscErrorCode FEMInfViewFunc_Draw(FEMInf self, Vec c, ViewerFunc v) {
 

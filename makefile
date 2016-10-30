@@ -111,6 +111,15 @@ $(BINDIR)/eig_h2plus: $(addprefix $(OBJDIR)/,$(OBJS))
 run_eig_h2plus: $(BINDIR)/eig_h2plus $(BINDIR)/fit_oce1
 	cd calc/h2plus/eig/; zsh run.sh
 
+OBJS=driv_h2plus.o oce1.o y1s.o angmoment.o fem_inf.o fd.o dvr.o bspline.o cscaling.o bps.o eeps.o pot.o synthesize.o mat.o viewerfunc.o range.o pot.o
+$(BINDIR)/driv_h2plus: $(addprefix $(OBJDIR)/,$(OBJS))
+	@echo "build " $@
+	$(CXX) -o $@ $^ $(SLEPC_EPS_LIB) -lgsl
+.PHONY: run_driv_h2plus
+run_driv_h2plus: $(BINDIR)/driv_h2plus $(BINDIR)/eig_h2plus $(BINDIR)/fit_oce1
+	cd calc/h2plus/driv/; zsh run.sh
+
+
 ## ==== Command ====
 .PHONY: check
 check:: check_bps check_angmoment check_cscaling check_mat check_pot check_synthesize check_bspline check_dvr check_fem_inf check_oce1

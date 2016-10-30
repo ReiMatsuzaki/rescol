@@ -32,7 +32,7 @@ PetscViewer ViewerFuncGetBase();
 PetscErrorCode ViewerFuncView(ViewerFunc self, PetscViewer viewer);
 
 PetscErrorCode ViewerFuncSetBase(ViewerFunc self, PetscViewer base);
-PetscErrorCode ViewerFuncSetRange(ViewerFunc self, int num, PetscReal xmax);
+PetscErrorCode ViewerFuncSetRange(ViewerFunc self, int num, PetscReal xmin, PetscReal xmax);
 PetscErrorCode ViewerFuncSetOptionsPrefix(ViewerFunc self, const char prefix[]);
 PetscErrorCode ViewerFuncSetFromOptions(ViewerFunc self);
 

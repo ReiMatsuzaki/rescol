@@ -24,7 +24,7 @@ PetscErrorCode RangeSetFromOptions(Range self, const char prefix[]) {
   //  strcat(option_name, "-range");
   //char option_name[100] = "-range";
   char option_name[100];
-  sprintf(option_name, "-%s-range", prefix);
+  sprintf(option_name, "-%s_range", prefix);
   ierr = PetscOptionsGetString(NULL, NULL, option_name, range_string, 100, &find);
   CHKERRQ(ierr);
   if(!find) {
@@ -150,3 +150,5 @@ PetscBool RangeNext(Range self, PetscReal* x) {
   return PETSC_TRUE;
   
 }
+
+

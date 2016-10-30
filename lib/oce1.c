@@ -87,19 +87,30 @@ PetscErrorCode OCE1ViewFunc(OCE1 self, Vec c, ViewerFunc v) {
 
   Vec *cs; ierr = VecGetSplit(c, num_y, &cs); CHKERRQ(ierr);
 
+  PetscViewerASCIIPrintf(v->base, "r,");
+  for(int j = 0; j < num_y; j++) {
+    int L = self->y1s->ls[j];
+    PetscViewerASCIIPrintf(v->base, "re_%d,im_%d", L, L);
+    if(j != num_y-1) 
+	PetscViewerASCIIPrintf(v->base, ",");
+  }
+  PetscViewerASCIIPrintf(v->base, "\n");
+  
   for(int i = 0; i < num_xs; i++) {
     PetscReal x = xs[i];
-    PetscViewerASCIIPrintf(v->base, "%f ", xs[i]);
+    PetscViewerASCIIPrintf(v->base, "%f,", xs[i]);
     for(int j = 0; j< num_y; j++ ) {
       PetscScalar y;
       FEMInfPsiOne(self->fem, cs[j], x, &y);
 #if defined(PETSC_USE_COMPLEX)
       PetscReal re = PetscRealPart(y);
       PetscReal im = PetscImaginaryPart(y);
-      PetscViewerASCIIPrintf(v->base, "%f %f ", re, im);
+      PetscViewerASCIIPrintf(v->base, "%f,%f", re, im);
 #else
-      PetscViewerASCIIPrintf(v->base, "%f ", y);
+      PetscViewerASCIIPrintf(v->base, "%f", y);
 #endif
+      if(j != num_y-1) 
+	PetscViewerASCIIPrintf(v->base, ",");
     }
     PetscViewerASCIIPrintf(v->base, "\n");
   }
@@ -504,14 +515,13 @@ PetscErrorCode OCE1ZMat(OCE1 self, OCE1 other, MatReuse scall, Mat *M) {
   ierr = Y1sCreateY1MatOther(self->y1s, other->y1s, &mat_y); CHKERRQ(ierr);
   PetscBool non0;
   ierr = Y1sYqkY1MatOther(self->y1s, other->y1s, 1, 0, mat_y, &non0); CHKERRQ(ierr);
-  ierr = MatScale(mat_y, sqrt(4.0*M_PI/3.0)); CHKERRQ(ierr);
 
   if(!non0) {
     SETERRQ(self->comm, 1, "matrix become empty");
   }
   
-  ierr = MatMatSynthesize(mat_r, mat_y, 1.0, scall, M); CHKERRQ(ierr);
-
+  ierr = MatMatSynthesize(mat_r, mat_y, sqrt(4.0*M_PI/3.0), scall, M); CHKERRQ(ierr);
+  
   PFDestroy(&r1); MatDestroy(&mat_r); MatDestroy(&mat_y);
   
   PetscLogEventEnd(EVENT_id, 0,0,0,0);
