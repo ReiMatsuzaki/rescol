@@ -84,7 +84,7 @@ PetscErrorCode SetFromOptions(DrivH2plus self) {
   ierr = ViewerFuncSetFromOptions(self->viewer_func); CHKERRQ(ierr);
   
   // -- set w range --
-  ierr = RangeSetFromOptions(self->w_range, "w"); CHKERRQ(ierr);
+  ierr = RangeSetFromOptions(self->w_range, "-w_range"); CHKERRQ(ierr);
 
   PetscOptionsEnd();
   

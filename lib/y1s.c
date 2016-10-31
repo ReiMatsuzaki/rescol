@@ -117,9 +117,7 @@ PetscErrorCode Y1sSetOne(Y1s self, int M, int L) {
   return 0;
 }
 PetscErrorCode Y1sSetOptionsPrefix(Y1s self, const char prefix[]) {
-
   strcpy(self->prefix, prefix);
-  
   return 0;
 }
 PetscErrorCode Y1sSetFromOptions(Y1s self) {

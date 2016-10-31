@@ -8,6 +8,7 @@ extern "C" {
 
 typedef struct {
   MPI_Comm comm;
+  char prefix[100];
   char name[100];
   PetscReal x0;
   PetscReal x1;
@@ -19,7 +20,7 @@ typedef p_Range* Range;
 
 PetscErrorCode RangeCreate(MPI_Comm comm, Range *p_self);
 PetscErrorCode RangeDestroy(Range *p_self);
-PetscErrorCode RangeSetFromOptions(Range self, const char prefix[]);
+PetscErrorCode RangeSetFromOptions(Range self, const char opt_name[]);
 PetscErrorCode RangeView(Range self, PetscViewer v);
 PetscErrorCode RangeSet(Range self, PetscReal x0,
 			PetscReal x1, PetscInt num);

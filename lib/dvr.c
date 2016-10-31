@@ -250,9 +250,11 @@ PetscErrorCode DVRView(DVR self, PetscViewer v) {
     PetscViewerASCIIPrintf(v, "DVR object:\n");
     PetscViewerASCIIPushTab(v);
     PetscViewerASCIIPrintf(v, "nq: %d\n", self->nq);
+    PetscViewerASCIIPrintf(v, "cscaling:");
     CScalingView(self->cscaling, v);
     
     PetscViewerASCIIPrintf(v, "num_basis: %d\n", self->num_basis);
+    PetscViewerASCIIPrintf(v, "bps:");
     BPSView(self->bps, v);  
     int n_basis; DVRGetSize(self, &n_basis);
 

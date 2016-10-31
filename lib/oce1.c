@@ -57,7 +57,9 @@ PetscErrorCode OCE1View(OCE1 self, PetscViewer v) {
     PetscViewerASCIIPrintf(v, "OCE1 object:\n");
     PetscViewerASCIIPushTab(v);
     PetscViewerASCIIPrintf(v, "mu: %f\n", self->mu);
+    PetscViewerASCIIPrintf(v, "fem:");
     FEMInfView(self->fem, v);
+    PetscViewerASCIIPrintf(v, "y1s:");
     Y1sView(self->y1s, v);
 
     PetscViewerASCIIPopTab(v);

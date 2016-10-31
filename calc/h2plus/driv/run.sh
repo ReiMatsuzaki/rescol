@@ -21,7 +21,7 @@ ${bindir}/driv_h2plus ${target} ${fem} \
 	 -init_y1s_lmax  ${lmax} -init_y1s_rot  sigma -init_y1s_parity gerade\
 	 -final_y1s_lmax ${lmax} -final_y1s_rot sigma -final_y1s_parity ungerade\
 	 -cscaling_type sharp_ecs -cscaling_r0 70.0 -cscaling_theta 40.0 \
-	 -viewerfunc_path psi1.dat -viewerfunc_num 1000 -viewerfunc_xmax 100.0 \
+	 -viewerfunc_path psi1.dat -viewerfunc_num 2000 -viewerfunc_xmax 100.0 \
 	 -in cs0.dat \
 	 -out cs1.dat \
 	 -E0 -1.099966 \

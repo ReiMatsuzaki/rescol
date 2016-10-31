@@ -14,17 +14,10 @@ PetscErrorCode RangeDestroy(Range *p_self) {
   ierr = PetscFree(*p_self); CHKERRQ(ierr);
   return 0;
 }
-PetscErrorCode RangeSetFromOptions(Range self, const char prefix[]) {  
+PetscErrorCode RangeSetFromOptions(Range self, const char option_name[]) {  
   PetscErrorCode ierr;
-  char range_string[100];
   PetscBool find;
-
-  //  char option_name[100] = "-";
-  //  strcat(option_name, prefix);
-  //  strcat(option_name, "-range");
-  //char option_name[100] = "-range";
-  char option_name[100];
-  sprintf(option_name, "-%s_range", prefix);
+  char range_string[100];
   ierr = PetscOptionsGetString(NULL, NULL, option_name, range_string, 100, &find);
   CHKERRQ(ierr);
   if(!find) {
