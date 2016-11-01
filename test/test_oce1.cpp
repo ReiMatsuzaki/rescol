@@ -374,7 +374,7 @@ TEST(TestOCE1DVR, H_Dip) {
   Y1s y1s_1; Y1sCreate(comm, &y1s_1);
   ierr=Y1sSetOne(y1s_1, 1, 0);ASSERT_EQ(0,ierr);
   Y1s y1s_2; Y1sCreate(comm, &y1s_2);
-  ierr=Y1sSetOne(y1s_2, 2, 0);ASSERT_EQ(0,ierr);
+  ierr=Y1sSetOne(y1s_2, 2, 1);ASSERT_EQ(0,ierr);
   BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 40.0, 41);
   DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, 5, bps); DVRSetUp(dvr);
   FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
@@ -402,21 +402,21 @@ TEST(TestOCE1DVR, H_Dip) {
   Vec c_3d; OCE1CreateVec(oce_3d, &c_3d);
   ierr = OCE1Fit(oce_3d, h_3d, 2, NULL, c_3d); ASSERT_EQ(0, ierr);
 
-  // compute matrix element
+  // -- dipole (length) --
   Mat Z;
-  ierr = OCE1ZMat(oce_1s, oce_2p, MAT_INITIAL_MATRIX, &Z); ASSERT_EQ(0, ierr);
+  ierr = OCE1ZMat(oce_1s, oce_2p, 0, MAT_INITIAL_MATRIX, &Z); ASSERT_EQ(0, ierr);
   PetscScalar zdip;
   ierr = VecMatVecMult(c_1s, Z, c_2p, &zdip); ASSERT_EQ(0, ierr);
 
   // -- dipole (velocity) --
   Mat DZ_1s_2p;
-  ierr = OCE1DZMat(oce_1s, oce_2p, MAT_INITIAL_MATRIX, &DZ_1s_2p); ASSERT_EQ(0, ierr);
+  ierr = OCE1DZMat(oce_1s, oce_2p, 0, MAT_INITIAL_MATRIX, &DZ_1s_2p); ASSERT_EQ(0, ierr);
   Mat DZ_2p_1s;
-  ierr = OCE1DZMat(oce_2p, oce_1s, MAT_INITIAL_MATRIX, &DZ_2p_1s); ASSERT_EQ(0, ierr);
+  ierr = OCE1DZMat(oce_2p, oce_1s, 0, MAT_INITIAL_MATRIX, &DZ_2p_1s); ASSERT_EQ(0, ierr);
   Mat DZ_3d_2p;
-  ierr=OCE1DZMat(oce_3d, oce_2p, MAT_INITIAL_MATRIX, &DZ_3d_2p); ASSERT_EQ(0, ierr);
+  ierr=OCE1DZMat(oce_3d, oce_2p, 1, MAT_INITIAL_MATRIX, &DZ_3d_2p); ASSERT_EQ(0, ierr);
   Mat DZ_2p_3d;
-  ierr=OCE1DZMat(oce_2p, oce_3d, MAT_INITIAL_MATRIX, &DZ_2p_3d); ASSERT_EQ(0, ierr);
+  ierr=OCE1DZMat(oce_2p, oce_3d,-1, MAT_INITIAL_MATRIX, &DZ_2p_3d); ASSERT_EQ(0, ierr);
 
   PetscScalar zdip_1s_2p;
   VecMatVecMult(c_1s, DZ_1s_2p, c_2p, &zdip_1s_2p);
@@ -438,12 +438,16 @@ TEST(TestOCE1DVR, H_Dip) {
   ASSERT_NEAR(0.0, PetscImaginaryPart(zdip_1s_2p), 0.001);
   ASSERT_NEAR(0.0, PetscImaginaryPart(zdip_2p_1s), 0.001);
 
-  PetscReal ref_v_3d2p = -2304.0 * sqrt(5.0) / 15625.0 * Y1ElePq(2,1,1,0,0) ;
-  ASSERT_NEAR(-ref_v_3d2p, PetscRealPart(zdip_2p_3d), 0.00001);
-  ASSERT_NEAR(0.0,         PetscImaginaryPart(zdip_2p_3d), 0.00001);  
-  ASSERT_NEAR(ref_v_3d2p, PetscRealPart(zdip_3d_2p), 0.00001);
-  ASSERT_NEAR(0.0,        PetscImaginaryPart(zdip_3d_2p), 0.00001);
+  PetscReal ref_v_3d2p = -2304.0 * sqrt(5.0) / 15625.0 *
+    Y1EleYqk(2, 1, 1, 1, 1, 0) * sqrt(4.0*M_PI/3.0);
+  PetscReal ref_v_2p3d = 2304.0 * sqrt(5.0) / 15625.0 *
+    Y1EleYqk(1, 1, 2, 0, -1, 1) * sqrt(4.0*M_PI/3.0);  
 
+  ASSERT_NEAR(ref_v_3d2p, PetscRealPart(zdip_3d_2p), 0.00001);
+  ASSERT_NEAR(0.0,        PetscImaginaryPart(zdip_3d_2p), 0.00001);  
+  ASSERT_NEAR(ref_v_2p3d, PetscRealPart(zdip_2p_3d), 0.00001);
+  ASSERT_NEAR(0.0,        PetscImaginaryPart(zdip_2p_3d), 0.00001);  
+  
   // -- Finalize --
   FEMInfDestroy(&fem);
   oce_1s->fem = NULL; OCE1Destroy(&oce_1s);

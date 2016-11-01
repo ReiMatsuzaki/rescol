@@ -17,7 +17,8 @@ ${bindir}/eig_h2plus ${target} ${fem} -y1s_lmax ${lmax} \
     -viewerfunc_num 501 -viewerfunc_xmax 100.0 \
     -info eig_h2plus_info -log_trace eig_h2plus_trace -malloc_dump
 
-${bindir}/driv_h2plus ${target} ${fem} \
+${bindir}/driv_h2plus -label "sigma_u channel" \
+	 ${target} ${fem} -dip_q 0 \
 	 -init_y1s_lmax  ${lmax} -init_y1s_rot  sigma -init_y1s_parity gerade\
 	 -final_y1s_lmax ${lmax} -final_y1s_rot sigma -final_y1s_parity ungerade\
 	 -cscaling_type sharp_ecs -cscaling_r0 70.0 -cscaling_theta 40.0 \
@@ -31,5 +32,26 @@ ${bindir}/driv_h2plus ${target} ${fem} \
 	 -out cs1.dat \
 	 -E0 -1.099966 \
 	 -w_range 2.099966 \
-	 ## reference is 0.0165619128315(GTO) or 0.015962(ref) at E=1.0
+	 -malloc_dump
+	 
+echo "reference is 0.0165619128315(GTO) or 0.015962(ref) at E=1.0"
+
+${bindir}/driv_h2plus -label "pi_u channel" \
+	 ${target} ${fem} -dip_q 1 \
+	 -label "pi_u channel" \
+	 -init_y1s_lmax  ${lmax} -init_y1s_rot  sigma -init_y1s_parity  gerade   \
+	 -final_y1s_lmax ${lmax} -final_y1s_rot pi    -final_y1s_parity ungerade \
+	 -cscaling_type sharp_ecs -cscaling_r0 70.0 -cscaling_theta 40.0 \
+	 -length_viewerfunc_path psi1.dat \
+	 -length_viewerfunc_num 2000   \
+	 -length_viewerfunc_xmax 100.0 \
+	 -velocity_viewerfunc_path psi1_v.dat \
+	 -velocity_viewerfunc_num 2000   \
+	 -velocity_viewerfunc_xmax 100.0 \
+	 -in cs0.dat   \
+	 -out cs1.dat  \
+	 -E0 -1.099966 \
+	 -w_range 2.099966 \
+	 -malloc_dump
+
 

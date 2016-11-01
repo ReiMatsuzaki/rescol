@@ -1,3 +1,4 @@
+#include <float.h>
 #include "../include/math.h"
 #include "../include/oce1.h"
 
@@ -497,12 +498,16 @@ PetscErrorCode OCE1PlusVneMat(OCE1 self, PetscReal a, PetscReal z, Mat M) {
   PetscLogEventEnd(EVENT_id, 0,0,0,0);
   return 0;  
 }
-PetscErrorCode OCE1ZMat(OCE1 self, OCE1 other, MatReuse scall, Mat *M) {
+PetscErrorCode OCE1ZMat( OCE1 self, OCE1 other, int q, MatReuse scall, Mat *M) {
   int EVENT_id;
   PetscLogEventRegister("OCE1ZMat", 0, &EVENT_id);
   PetscLogEventBegin(EVENT_id, 0,0,0,0);
 
   PetscErrorCode ierr;
+
+  if(abs(q) > 1) {
+    SETERRQ(self->comm, 1, "q must be -1,0,+1");
+  }
 
   if(self->fem != other->fem) {
     SETERRQ(self->comm, 1, "FEMInf of a and b must be same");
@@ -518,7 +523,7 @@ PetscErrorCode OCE1ZMat(OCE1 self, OCE1 other, MatReuse scall, Mat *M) {
   Mat mat_y;
   ierr = Y1sCreateY1MatOther(self->y1s, other->y1s, &mat_y); CHKERRQ(ierr);
   PetscBool non0;
-  ierr = Y1sYqkY1MatOther(self->y1s, other->y1s, 1, 0, mat_y, &non0); CHKERRQ(ierr);
+  ierr = Y1sYqkY1MatOther(self->y1s, other->y1s, 1, q, mat_y, &non0); CHKERRQ(ierr);
 
   if(!non0) {
     SETERRQ(self->comm, 1, "matrix become empty");
@@ -531,7 +536,7 @@ PetscErrorCode OCE1ZMat(OCE1 self, OCE1 other, MatReuse scall, Mat *M) {
   PetscLogEventEnd(EVENT_id, 0,0,0,0);
   return 0;
 }
-PetscErrorCode OCE1DZMat(OCE1 self, OCE1 other, MatReuse scall, Mat *M) {
+PetscErrorCode OCE1DZMat(OCE1 self, OCE1 other, int q, MatReuse scall, Mat *M) {
   int EVENT_id;
   PetscLogEventRegister("OCE1DZMat", 0, &EVENT_id);
   PetscLogEventBegin(EVENT_id, 0,0,0,0);
@@ -563,32 +568,38 @@ PetscErrorCode OCE1DZMat(OCE1 self, OCE1 other, MatReuse scall, Mat *M) {
   ierr = Y1sGetSize(self->y1s, &n_self); CHKERRQ(ierr);
   ierr = Y1sGetSize(other->y1s, &n_other); CHKERRQ(ierr);
 
-  int k0 = 0;
-
+  PetscBool find_non0 = PETSC_FALSE;
   for(int i = 0; i < n_self; i++)
     for(int j = 0; j < n_other; j++) {
       int li, mi, lj, mj;
       ierr = Y1sGetLM(self->y1s,  i, &li, &mi); CHKERRQ(ierr);
       ierr = Y1sGetLM(other->y1s, j, &lj, &mj); CHKERRQ(ierr);
-      //      printf("llmm %d %d\n", i, j);
-      //      printf("llmm %d %d %d %d\n", li, mi, lj, mj);      
-      PetscScalar pq_ele = Y1EleYqk(li, 1,  lj,
-				    mi, k0, mj) * sqrt(4.0*M_PI/3.0);
+      PetscReal pq_ele = Y1EleYqk(li, 1, lj,
+				  mi, q, mj) * sqrt(4.0*M_PI/3.0);
+      if(fabs(pq_ele) > 10.0*FLT_EPSILON) {
+	find_non0 = PETSC_TRUE;
+      } else {
+	continue;
+      }
       int idxm[1]; idxm[0] = i;
       int idxn[1]; idxn[0] = j;
       PetscScalar vs[1]; 
-      if(li==lj+1 && mi==mj) {
+      if(li==lj+1) {
 	vs[0] = pq_ele;
 	ierr = MatSetValues(y_dr, 1, idxm, 1, idxn, vs, INSERT_VALUES); CHKERRQ(ierr);
 	vs[0] = -1.0*(lj+1)*pq_ele;
 	ierr = MatSetValues(y_p, 1, idxm, 1, idxn, vs, INSERT_VALUES); CHKERRQ(ierr);
-      } else if(li==lj-1 && mi==mj) {
+      } else if(li==lj-1) {
 	vs[0] = pq_ele;
 	ierr = MatSetValues(y_dr, 1, idxm, 1, idxn, vs, INSERT_VALUES); CHKERRQ(ierr);
 	vs[0] = 1.0*lj*pq_ele;
 	ierr = MatSetValues(y_m, 1, idxm, 1, idxn, vs, INSERT_VALUES); CHKERRQ(ierr);
       }
     }
+
+  if(!find_non0) {
+    SETERRQ(self->comm, 1, "matrix becomes empty");
+  }
 
   MatAssemblyBegin(y_dr,MAT_FINAL_ASSEMBLY); MatAssemblyEnd(y_dr, MAT_FINAL_ASSEMBLY);
   MatAssemblyBegin(y_p, MAT_FINAL_ASSEMBLY); MatAssemblyEnd(y_p,  MAT_FINAL_ASSEMBLY);

@@ -3,7 +3,7 @@
 #include "../include/eeps.h"
 #include "../include/oce1.h"
 
-static char help[] = "solve driven equation for h2+ ion.";
+static char help[] = "solve driven equation for h2+ ion:\n      (E-T-V)psi=s\nby grid method.\n";
 
 typedef struct {
   // -- Inputs --
@@ -11,11 +11,12 @@ typedef struct {
   char path_in[100];       // binary Vec file for initial state
   char path_out[100];      // binary Vec file for final state
   PetscReal R;
+  PetscReal  E0;           // energy of bound initial state
+  int dip_q;               // dipole direction (-1,0,+1)
   ViewerFunc viewer_func;
   ViewerFunc viewer_func_v;
-  PetscReal  E0;
   Range      w_range;      // calculation w range  
-  FEMInf fem;  // NOTE: fem is used in oce_0 and oce_1
+  FEMInf fem;  // NOTE: fem is used in oce_0 and oce_1  
   Y1s y1s_0;   //  NOTE: y1s_0 is used in oce_0 and oce_1
   Y1s y1s_1;   //  NOTE: y1s_0 is used in oce_0 and oce_1
   OCE1 oce_0;  // initial state
@@ -24,6 +25,22 @@ typedef struct {
 } p_DrivH2plus;
 typedef p_DrivH2plus* DrivH2plus;
 
+void PrintTitle() {
+
+  char label[100];
+  PetscBool set;
+  
+  // -- print compile time --
+  printf("\n>>>> driv_h2plus program >>>>\n");
+  printf("%s", help);
+  PetscOptionsGetString(NULL, NULL, "-label",  label, 100, &set);
+  if(set)
+    printf("label: %s\n", label);
+  else
+    printf("label: nothing\n");
+  printf("Compile_date: %s %s\n", __DATE__, __TIME__);
+  
+}
 PetscErrorCode Create(MPI_Comm comm, DrivH2plus *p_self) {
 
   PetscErrorCode ierr;
@@ -62,8 +79,11 @@ PetscErrorCode SetFromOptions(DrivH2plus self) {
     SETERRQ(self->comm, 1, "-R is not set");
   ierr = PetscOptionsGetReal( NULL, NULL, "-E0", &self->E0, &set); CHKERRQ(ierr);
   if(!set)
-    SETERRQ(self->comm, 1, "-E0 is not set");  
-
+    SETERRQ(self->comm, 1, "-E0 is not set");
+  ierr = PetscOptionsGetInt(NULL,NULL, "-dip_q", &self->dip_q, &set); CHKERRQ(ierr);
+  if(!set)
+    SETERRQ(self->comm, 1, "-dip_q is not set");
+  
   // -- FEMInf --
   ierr = FEMInfSetFromOptions(self->fem); CHKERRQ(ierr);
 
@@ -106,6 +126,7 @@ PetscErrorCode PrintIn(DrivH2plus self) {
 
   ierr = PetscPrintf(self->comm, "R: %f\n", self->R); CHKERRQ(ierr);
   ierr = PetscPrintf(self->comm, "E0: %f\n", self->E0); CHKERRQ(ierr);
+  ierr = PetscPrintf(self->comm, "dip_q: %d\n", self->dip_q); CHKERRQ(ierr);
   ierr = PetscPrintf(self->comm, "in: %s\n", self->path_in); CHKERRQ(ierr);
   ierr = PetscPrintf(self->comm, "out: %s\n", self->path_out); CHKERRQ(ierr);
   if(ViewerFuncIsActive(self->viewer_func)) {
@@ -150,9 +171,11 @@ PetscErrorCode Calc(DrivH2plus self) {
 
   // -- Dipole matrix element --
   Mat Z;
-  ierr = OCE1ZMat(self->oce_1, self->oce_0, MAT_INITIAL_MATRIX, &Z); CHKERRQ(ierr);
+  ierr = OCE1ZMat(self->oce_1, self->oce_0, self->dip_q,
+		  MAT_INITIAL_MATRIX, &Z); CHKERRQ(ierr);
   Mat DZ;
-  ierr = OCE1DZMat(self->oce_1, self->oce_0, MAT_INITIAL_MATRIX, &DZ); CHKERRQ(ierr);
+  ierr = OCE1DZMat(self->oce_1, self->oce_0, self->dip_q,
+		   MAT_INITIAL_MATRIX, &DZ); CHKERRQ(ierr);
   
   // -- driven term --
   Vec driv;     // length form
@@ -240,15 +263,9 @@ int main(int argc, char **args) {
   DrivH2plus driv;
   MPI_Comm comm = MPI_COMM_SELF;
 
-  // -- print compile time --
-  printf("\n>>>> driv_h2plus program >>>>\n");
-  printf("driv_h2plus program.\n");
-  printf("Solve driven equation for h2plus:\n");
-  printf("    (E-T-V)psi=S\n");
-  printf("by grid method.");
-  printf("Compile date: %s %s\n", __DATE__, __TIME__);
-  
   ierr = SlepcInitialize(&argc, &args, (char*)0, help); CHKERRQ(ierr);
+
+  PrintTitle();
   ierr = Create(comm, &driv); CHKERRQ(ierr);
   ierr = SetFromOptions(driv); CHKERRQ(ierr);
   ierr = PrintIn(driv); CHKERRQ(ierr);

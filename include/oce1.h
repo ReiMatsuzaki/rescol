@@ -47,8 +47,8 @@ PetscErrorCode OCE1PotMat(OCE1 self, RotSym sym, Pot pot, MatReuse scall, Mat *M
 PetscErrorCode OCE1PlusPotMat(OCE1 self, RotSym sym, Pot pot, Mat M);
 PetscErrorCode OCE1PlusVneMat(OCE1 self, PetscReal a, PetscReal z, Mat M);
 PetscErrorCode OCE1H2PlusMat(OCE1 self, PetscReal a, PetscReal z, Mat *H, Mat *S, PetscBool *is_id);
-PetscErrorCode OCE1ZMat(OCE1 a, OCE1 b, MatReuse scall, Mat *M);
-PetscErrorCode OCE1DZMat(OCE1 a, OCE1 b, MatReuse scall, Mat *M);
+PetscErrorCode OCE1ZMat(OCE1 a, OCE1 b, int q, MatReuse scall, Mat *M);
+PetscErrorCode OCE1DZMat(OCE1 a, OCE1 b, int q, MatReuse scall, Mat *M);
 
 struct _p_OceH2plus {
 
