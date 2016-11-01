@@ -1,3 +1,4 @@
+
 #include "../include/mat.h"
 #include "../include/synthesize.h"
 #include "../include/dvr.h"
@@ -7,6 +8,7 @@ int dgetrf_(long*, long*, PetscReal*,   long*, long*, long*);
 int zgetrf_(long*, long*, PetscScalar*, long*, long*, long*);
 int dgetri_(long*, double*, long*, long*, double*, long*, long*);
 int zgetri_(long*, PetscScalar*, long*, long*, PetscScalar*, long*, long*);
+
 
 // ------- external functions ---------
 PetscErrorCode MatCreateTransformMat(PetscScalar *ws_c, int nq, int ne, 
