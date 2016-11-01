@@ -12,6 +12,7 @@ typedef struct {
   char path_out[100];      // binary Vec file for final state
   PetscReal R;
   ViewerFunc viewer_func;
+  ViewerFunc viewer_func_v;
   PetscReal  E0;
   Range      w_range;      // calculation w range  
   FEMInf fem;  // NOTE: fem is used in oce_0 and oce_1
@@ -41,7 +42,8 @@ PetscErrorCode Create(MPI_Comm comm, DrivH2plus *p_self) {
   ierr = OCE1Create(comm, &self->oce_1); CHKERRQ(ierr);
   strcpy(self->path_in, "");
   strcpy(self->path_out, "");
-  ierr = ViewerFuncCreate(comm, &self->viewer_func); CHKERRQ(ierr);  
+  ierr = ViewerFuncCreate(comm, &self->viewer_func); CHKERRQ(ierr);
+  ierr = ViewerFuncCreate(comm, &self->viewer_func_v); CHKERRQ(ierr);  
   ierr = RangeCreate(comm, &self->w_range); CHKERRQ(ierr);
   ierr = KSPCreate(comm, &self->ksp); CHKERRQ(ierr);
   return 0;
@@ -81,7 +83,10 @@ PetscErrorCode SetFromOptions(DrivH2plus self) {
   CHKERRQ(ierr);
 
   // -- set function viewer --
+  ierr = ViewerFuncSetOptionsPrefix(self->viewer_func, "length_"); CHKERRQ(ierr);
+  ierr = ViewerFuncSetOptionsPrefix(self->viewer_func_v, "velocity_"); CHKERRQ(ierr);
   ierr = ViewerFuncSetFromOptions(self->viewer_func); CHKERRQ(ierr);
+  ierr = ViewerFuncSetFromOptions(self->viewer_func_v); CHKERRQ(ierr);
   
   // -- set w range --
   ierr = RangeSetFromOptions(self->w_range, "-w_range"); CHKERRQ(ierr);
@@ -91,6 +96,7 @@ PetscErrorCode SetFromOptions(DrivH2plus self) {
   // -- Inputs check --
   
   return 0;
+  
 }
 PetscErrorCode PrintIn(DrivH2plus self) {
 
@@ -106,6 +112,10 @@ PetscErrorCode PrintIn(DrivH2plus self) {
     ierr = PetscPrintf(self->comm, "viewer_func:", v); CHKERRQ(ierr);
     ierr = ViewerFuncView(self->viewer_func, v); CHKERRQ(ierr);
   }
+  if(ViewerFuncIsActive(self->viewer_func_v)) {
+    ierr = PetscPrintf(self->comm, "viewer_func_v:", v); CHKERRQ(ierr);
+    ierr = ViewerFuncView(self->viewer_func_v, v); CHKERRQ(ierr);
+  }  
   ierr = PetscPrintf(self->comm, "w_range:", v); CHKERRQ(ierr);
   ierr = RangeView(self->w_range, v); CHKERRQ(ierr);
   ierr = PetscPrintf(self->comm, "fem:"); CHKERRQ(ierr);
@@ -141,11 +151,16 @@ PetscErrorCode Calc(DrivH2plus self) {
   // -- Dipole matrix element --
   Mat Z;
   ierr = OCE1ZMat(self->oce_1, self->oce_0, MAT_INITIAL_MATRIX, &Z); CHKERRQ(ierr);
-
+  Mat DZ;
+  ierr = OCE1DZMat(self->oce_1, self->oce_0, MAT_INITIAL_MATRIX, &DZ); CHKERRQ(ierr);
+  
   // -- driven term --
-  Vec driv;
+  Vec driv;     // length form
   ierr = OCE1CreateVec(self->oce_1, &driv); CHKERRQ(ierr);
   ierr = MatMult(Z, c0, driv); CHKERRQ(ierr);
+  Vec driv_v;   // velocity form
+  ierr = OCE1CreateVec(self->oce_1, &driv_v); CHKERRQ(ierr);
+  ierr = MatMult(DZ, c0, driv_v); CHKERRQ(ierr);  
 
   // -- start loop over energies --
   PetscBool is_first = PETSC_TRUE;
@@ -162,27 +177,40 @@ PetscErrorCode Calc(DrivH2plus self) {
       ierr = MatAXPY(L, -ene, S, SUBSET_NONZERO_PATTERN); CHKERRQ(ierr);
     }
     ierr = MatScale(L, -1.0); CHKERRQ(ierr);
+    ierr = KSPSetOperators(self->ksp, L, L); CHKERRQ(ierr);
 
     Vec c1;
     ierr = OCE1CreateVec(self->oce_1, &c1);  CHKERRQ(ierr);
-    ierr = KSPSetOperators(self->ksp, L, L); CHKERRQ(ierr);
     ierr = KSPSolve(self->ksp, driv, c1);    CHKERRQ(ierr);
+    Vec c1_v;
+    ierr = OCE1CreateVec(self->oce_1, &c1_v); CHKERRQ(ierr);
+    ierr = KSPSolve(self->ksp, driv_v, c1_v); CHKERRQ(ierr);
 
     PetscScalar alpha;
     VecTDot(c1, driv, &alpha);
     alpha /= 3.0;
-    printf("alpha = %f, %f\n",
+    printf("alpha() = %f, %f\n",
 	   PetscRealPart(alpha),
 	   PetscImaginaryPart(alpha));
-    
-    PetscReal cs;
+
+    PetscScalar alpha_v;
+    VecTDot(c1_v, driv_v, &alpha_v);
+    alpha_v /= 3.0;
+    printf("alpha(velocity) = %f, %f\n", PetscRealPart(alpha_v),
+	   PetscImaginaryPart(alpha_v));
+
     PetscReal c_light = 137.035999139;
     PetscReal au2mb = 5.291772 * 5.291772;
-    cs = -4.0 * M_PI * w / c_light * PetscImaginaryPart(alpha) * au2mb;
-    printf("CrossSection(Mb) = %f\n", cs);
+      
+    PetscReal cs;
+    cs = -4.0 * M_PI * w / c_light * PetscImaginaryPart(alpha) * au2mb;    
+    PetscReal cs_v;
+    cs_v = -4.0 * M_PI / (w * c_light) * PetscImaginaryPart(alpha_v) * au2mb;
+    printf("CrossSection(Mb) = %f, %f\n", cs, cs_v);
 
     if(is_first && ViewerFuncIsActive(self->viewer_func)) {
       ierr = OCE1ViewFunc(self->oce_1, c1, self->viewer_func); CHKERRQ(ierr);
+      ierr = OCE1ViewFunc(self->oce_1, c1_v, self->viewer_func_v); CHKERRQ(ierr);
     }
     is_first = PETSC_FALSE;
     
@@ -191,7 +219,21 @@ PetscErrorCode Calc(DrivH2plus self) {
   
   return 0;
 }
+PetscErrorCode Finalize(DrivH2plus self) {
 
+  PrintTimeStamp(self->comm, "Finalize", NULL);
+  ViewerFuncDestroy(&self->viewer_func);
+  ViewerFuncDestroy(&self->viewer_func_v);
+  RangeDestroy(&self->w_range);
+  FEMInfDestroy(&self->fem);
+  self->oce_0->fem = NULL;
+  self->oce_1->fem = NULL;
+  OCE1Destroy(&self->oce_0);
+  OCE1Destroy(&self->oce_1);
+  KSPDestroy(&self->ksp);
+  return 0;
+  
+}
 int main(int argc, char **args) {
 
   PetscErrorCode ierr;
@@ -211,6 +253,7 @@ int main(int argc, char **args) {
   ierr = SetFromOptions(driv); CHKERRQ(ierr);
   ierr = PrintIn(driv); CHKERRQ(ierr);
   ierr = Calc(driv); CHKERRQ(ierr);
+  ierr = Finalize(driv); CHKERRQ(ierr);
 
   printf("<<<< driv_h2plus program <<<<\n\n");
   return 0;

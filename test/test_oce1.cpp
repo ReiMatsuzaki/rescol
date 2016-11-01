@@ -251,6 +251,7 @@ TEST(TestOCE1DVR, H2plus) {
 }
 
 TEST(TestOCE1DVR, H_DipOld) {
+  
   /*
   PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
@@ -424,7 +425,8 @@ TEST(TestOCE1DVR, H_Dip) {
   PetscScalar zdip_3d_2p;
   VecMatVecMult(c_3d, DZ_3d_2p, c_2p, &zdip_3d_2p);
   PetscScalar zdip_2p_3d;
-  VecMatVecMult(c_2p, DZ_2p_3d, c_3d, &zdip_2p_3d);  
+  VecMatVecMult(c_2p, DZ_2p_3d, c_3d, &zdip_2p_3d);
+  
   // -- see support/hatom_dip.py --
   PetscReal ref_l = 128*sqrt(6)/243 * Y1ElePq(1,1,0,0,0);
   ASSERT_NEAR(ref_l, PetscRealPart(zdip), 0.002);
