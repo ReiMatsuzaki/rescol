@@ -20,6 +20,7 @@ PetscErrorCode FEMInfSetFD(FEMInf self, FD target) {
     FD_Sc.GetSize = FDGetSize;
     
     FD_Sc.SR1Mat = FDSR1Mat;
+    FD_Sc.D1R1Mat = NULL;
     FD_Sc.D2R1Mat = FDD2R1Mat;
     //    FD_Sc.R2invR1Mat = FDR2invR1Mat;
     //    FD_Sc.ENR1Mat = FDENR1Mat;    
@@ -54,6 +55,7 @@ PetscErrorCode FEMInfSetBSS(FEMInf self, BSS target) {
     BSS_Sc.GetSize = BSSGetSize;
     
     BSS_Sc.SR1Mat = BSSSR1Mat;
+    BSS_Sc.D1R1Mat = NULL;
     BSS_Sc.D2R1Mat = BSSD2R1Mat;
     //    BSS_Sc.R2invR1Mat = BSSR2invR1Mat;
     //   BSS_Sc.ENR1Mat = BSSENR1Mat;    
@@ -88,6 +90,7 @@ PetscErrorCode FEMInfSetDVR(FEMInf self, DVR target) {
     //    DVR_Sc.GuessHEig = NULL;
 
     DVR_Sc.SR1Mat = DVRSR1Mat;
+    DVR_Sc.D1R1Mat = DVRD1R1Mat;
     DVR_Sc.D2R1Mat = DVRD2R1Mat;
     //    DVR_Sc.R2invR1Mat = DVRR2invR1Mat;
     //    DVR_Sc.ENR1Mat = DVRENR1Mat;
@@ -488,6 +491,22 @@ PetscErrorCode FEMInfSR1MatNullable(FEMInf self, Mat M) {
   }
 
   return 0;
+}
+PetscErrorCode FEMInfD1R1Mat(FEMInf self, Mat M) {
+
+  int EVENT_id;
+  PetscLogEventRegister("FEMInfD1R1Mat", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+  
+  if(self->sc->D1R1Mat == NULL)
+    SETERRQ(self->comm, 1, "method is null: D1R1Mat");
+
+  self->sc->D1R1Mat(self->obj, M);
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+  
+  return 0;
+
 }
 PetscErrorCode FEMInfD2R1Mat(FEMInf self, Mat M) {
 

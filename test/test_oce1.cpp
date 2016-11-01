@@ -222,11 +222,12 @@ TEST(TestOCE1DVR, H2plus) {
 
 }
 
-TEST(TestOCE1DVR, H_Dip) {
+TEST(TestOCE1DVR, H_DipOld) {
 
   PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
 
+  // -- numerical basis --
   Y1s y1s_0, y1s_1;
   ierr = Y1sCreate(comm, &y1s_0); ASSERT_EQ(0, ierr);  
   ierr = Y1sCreate(comm, &y1s_1); ASSERT_EQ(0, ierr);
@@ -249,7 +250,7 @@ TEST(TestOCE1DVR, H_Dip) {
   ierr = OCE1Set(oce_0, fem, y1s_0); ASSERT_EQ(0, ierr);
   ierr = OCE1Set(oce_1, fem, y1s_1); ASSERT_EQ(0, ierr);
 
-  // initial state
+  // -- initial state --
   Pot pot; PotCreate(comm, &pot); 
   PotSetCoulombNE(pot, 0, 0.0, -1.0);
   Mat H0; OCE1TMat(oce_0, MAT_INITIAL_MATRIX, &H0);
@@ -271,7 +272,7 @@ TEST(TestOCE1DVR, H_Dip) {
   ASSERT_NEAR(PetscRealPart(y_ref),
 	      PetscRealPart(y_calc), 0.0001);  
 
-  // final state
+  // -- final state --
   Mat H1; OCE1TMat(oce_1, MAT_INITIAL_MATRIX, &H1);
   Mat V1; OCE1PotMat(oce_1, ROT_SCALAR, pot, MAT_INITIAL_MATRIX, &V1);
   MatAXPY(H1, 1.0, V1, DIFFERENT_NONZERO_PATTERN);
@@ -291,7 +292,7 @@ TEST(TestOCE1DVR, H_Dip) {
   ASSERT_NEAR(PetscRealPart(y_ref),
 	      PetscRealPart(y_calc), 0.0001);
 
-  // dipole
+  // -- dipole (length) --
   Mat Z;
   ierr = OCE1ZMat(oce_1, oce_0, MAT_INITIAL_MATRIX, &Z); ASSERT_EQ(0, ierr);
   Vec Zc0;
@@ -300,20 +301,61 @@ TEST(TestOCE1DVR, H_Dip) {
   PetscScalar zdip;
   ierr = VecTDot(c1, Zc0, &zdip); ASSERT_EQ(0, ierr);
 
+  // -- dipole (velocity) --
+  Mat DZ;
+  ierr = OCE1DZMat(oce_1, oce_0, MAT_INITIAL_MATRIX, &DZ); ASSERT_EQ(0, ierr);
+  Vec DZc0;
+  ierr = MatCreateVecs(DZ, NULL, &DZc0); ASSERT_EQ(0, ierr);
+  ierr = MatMult(DZ, c0, DZc0); ASSERT_EQ(0, ierr);
+  PetscScalar zdip_v;
+  ierr = VecTDot(c1, DZc0, &zdip_v); ASSERT_EQ(0, ierr);
+
   // -- see support/hatom_dip.py --
   PetscReal ref = 128.0*sqrt(6)/243.0 * Y1ElePq(1,1,0,0,0);
-  ASSERT_NEAR(0.0, PetscImaginaryPart(zdip), 0.002);
   ASSERT_NEAR(ref, PetscRealPart(zdip), 0.002);
+  ASSERT_NEAR(0.0, PetscImaginaryPart(zdip), 0.002);
+
+  ref = -8.0 * sqrt(6.0) / 81.0 * Y1ElePq(1,1,0,
+					  0,  0) ;
+  ASSERT_NEAR(ref, PetscRealPart(zdip_v), 0.001);
+  ASSERT_NEAR(0.0, PetscImaginaryPart(zdip_v), 0.001);
   
   // -- Finalize --
-  printf("A\n");
   FEMInfDestroy(&fem);
   oce_1->fem = NULL; OCE1Destroy(&oce_1);
   oce_0->fem = NULL; OCE1Destroy(&oce_0);
   PFDestroy(&pot);  
-  MatDestroy(&H0); MatDestroy(&V0); EEPSDestroy(&eps0); VecDestroy(&c0);
-  MatDestroy(&H1); MatDestroy(&V1); EEPSDestroy(&eps1); VecDestroy(&c1);  
-  MatDestroy(&Z); VecDestroy(&Zc0);
+  MatDestroy(&H0); MatDestroy(&V0);  EEPSDestroy(&eps0); VecDestroy(&c0);
+  MatDestroy(&H1); MatDestroy(&V1);  EEPSDestroy(&eps1); VecDestroy(&c1);
+  MatDestroy(&Z);  VecDestroy(&Zc0); MatDestroy(&DZ);    VecDestroy(&DZc0);
+}
+TEST(TestOCE1DVR, H_Dip) {
+
+  // 2p->ks channel
+  PetscErrorCode ierr;
+  MPI_Comm comm = PETSC_COMM_SELF;
+
+  // -- numerical basis --
+  Y1s y1s_0, y1s_1;
+  Y1s y1s_0; Y1sCreate(comm, &y1s_0); Y1sSetOne(y1s_0, 0, 0);
+  Y1s y1s_1; Y1sCreate(comm, &y1s_1); Y1sSetOne(y1s_1, 1, 0);
+
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 20.0, 21);
+  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, 5, bps); DVRSetUp(dvr);
+  FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
+  OCE1 oce_1s; OCE1Create(comm, &oce_0); OCE1Set(oce_0, fem, y1s_0);
+  OCE1 oce_2p; OCE1Create(comm, &oce_1); OCE1Set(oce_1, fem, y1s_1);
+
+  // -- Fit target --
+  // 1s = 2 r exp(-r)
+  Pot h_1s; PotCreate(comm, &h_1s); PotSetSlater(h_1s, 2.0, 1, 1.0);
+  // 2p = 1/(2sqrt(6)) r**2 exp(-r/2)
+  PetscScalar c_2p = 1.0/(2.0 * sqrt(6.0));
+  Pot h_2p; PotCreate(comm, &h_1s); PotSetSlater(h_2p, c_2p, 2, 0.5); 
+  
+
+  
+
 }
 
 /*

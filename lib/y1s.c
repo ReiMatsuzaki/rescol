@@ -100,13 +100,13 @@ PetscErrorCode Y1sSet(Y1s self, int m, int g_or_u, int lmax) {
   }
   return 0;
 }
-PetscErrorCode Y1sSetOne(Y1s self, int M, int L) {
+PetscErrorCode Y1sSetOne(Y1s self, int L, int M) {
 
   PetscErrorCode ierr;
-  if(M < 0)
-    SETERRQ(self->comm, 1, "M must be 0 or positive");
+  if(L < 0) 
+    SETERRQ(self->comm, 1, "L must be zero or positive integer");
 
-  if(M > L)
+  if(-M < -L || L < M)
     SETERRQ(self->comm, 1, "M must smaller or equal to L");
 
   self->num = 1;
@@ -189,6 +189,20 @@ PetscErrorCode Y1sGetMaxL(Y1s self, int *lmax) {
   for(int i = 0; i < self->num; i++) 
     if(self->ls[i] > *lmax)
       *lmax = self->ls[i];
+  return 0;
+}
+PetscErrorCode Y1sGetLM(Y1s self, int i, int *l, int *m) {
+
+  PetscErrorCode ierr;
+  int n;
+  ierr =Y1sGetSize(self, &n); CHKERRQ(ierr);
+  if(i < 0 || n <= i) {
+    SETERRQ(self->comm, 1, "index out of range");
+  }
+
+  *l = self->ls[i];
+  *m = self->m;
+  
   return 0;
 }
 

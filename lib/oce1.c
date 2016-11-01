@@ -497,7 +497,7 @@ PetscErrorCode OCE1PlusVneMat(OCE1 self, PetscReal a, PetscReal z, Mat M) {
 }
 PetscErrorCode OCE1ZMat(OCE1 self, OCE1 other, MatReuse scall, Mat *M) {
   int EVENT_id;
-  PetscLogEventRegister("OCE1CalcSr", 0, &EVENT_id);
+  PetscLogEventRegister("OCE1ZMat", 0, &EVENT_id);
   PetscLogEventBegin(EVENT_id, 0,0,0,0);
 
   PetscErrorCode ierr;
@@ -528,6 +528,83 @@ PetscErrorCode OCE1ZMat(OCE1 self, OCE1 other, MatReuse scall, Mat *M) {
   
   PetscLogEventEnd(EVENT_id, 0,0,0,0);
   return 0;
+}
+PetscErrorCode OCE1DZMat(OCE1 self, OCE1 other, MatReuse scall, Mat *M) {
+  int EVENT_id;
+  PetscLogEventRegister("OCE1DZMat", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+
+  PetscErrorCode ierr;
+
+  if(self->fem != other->fem) {
+    SETERRQ(self->comm, 1, "FEMInf of a and b must be same");
+  }
+
+  Pot pot_rinv;
+  ierr = PotCreate(self->comm, &pot_rinv); CHKERRQ(ierr);
+  ierr = PotSetPower(pot_rinv, 1.0, -1); CHKERRQ(ierr);
+  
+  Mat rinv;
+  ierr = FEMInfCreateMat(self->fem, 1, &rinv); CHKERRQ(ierr);
+  ierr = FEMInfPotR1Mat(self->fem, pot_rinv, rinv);     CHKERRQ(ierr);
+  
+  Mat dr;
+  ierr = FEMInfCreateMat(self->fem, 1, &dr);  CHKERRQ(ierr);
+  ierr = FEMInfD1R1Mat(self->fem, dr);        CHKERRQ(ierr);
+
+  Mat y_dr, y_p, y_m;
+  ierr = Y1sCreateY1MatOther(self->y1s, other->y1s, &y_dr); CHKERRQ(ierr);
+  ierr = Y1sCreateY1MatOther(self->y1s, other->y1s, &y_p); CHKERRQ(ierr);
+  ierr = Y1sCreateY1MatOther(self->y1s, other->y1s, &y_m); CHKERRQ(ierr);
+  
+  int n_self, n_other;
+  ierr = Y1sGetSize(self->y1s, &n_self); CHKERRQ(ierr);
+  ierr = Y1sGetSize(other->y1s, &n_other); CHKERRQ(ierr);
+
+  int k0 = 0;
+
+  for(int i = 0; i < n_self; i++)
+    for(int j = 0; j < n_other; j++) {
+      int li, mi, lj, mj;
+      ierr = Y1sGetLM(self->y1s,  i, &li, &mi); CHKERRQ(ierr);
+      ierr = Y1sGetLM(other->y1s, j, &lj, &mj); CHKERRQ(ierr);
+      //      printf("llmm %d %d\n", i, j);
+      //      printf("llmm %d %d %d %d\n", li, mi, lj, mj);      
+      PetscScalar pq_ele = Y1EleYqk(li, 1,  lj,
+				    mi, k0, mj) * sqrt(4.0*M_PI/3.0);
+      int idxm[1]; idxm[0] = i;
+      int idxn[1]; idxn[0] = j;
+      PetscScalar vs[1]; 
+      if(li==lj+1 && mi==mj) {
+	vs[0] = pq_ele;
+	ierr = MatSetValues(y_dr, 1, idxm, 1, idxn, vs, INSERT_VALUES); CHKERRQ(ierr);
+	vs[0] = -1.0*lj*pq_ele;
+	ierr = MatSetValues(y_p, 1, idxm, 1, idxn, vs, INSERT_VALUES); CHKERRQ(ierr);
+      } else if(li==lj-1 && mi==mj) {
+	vs[0] = pq_ele;
+	ierr = MatSetValues(y_dr, 1, idxm, 1, idxn, vs, INSERT_VALUES); CHKERRQ(ierr);
+	vs[0] = 1.0*(lj+1)*pq_ele;
+	ierr = MatSetValues(y_m, 1, idxm, 1, idxn, vs, INSERT_VALUES); CHKERRQ(ierr);
+      }
+    }
+
+  MatAssemblyBegin(y_dr,MAT_FINAL_ASSEMBLY); MatAssemblyEnd(y_dr, MAT_FINAL_ASSEMBLY);
+  MatAssemblyBegin(y_p, MAT_FINAL_ASSEMBLY); MatAssemblyEnd(y_p,  MAT_FINAL_ASSEMBLY);
+  MatAssemblyBegin(y_m, MAT_FINAL_ASSEMBLY); MatAssemblyEnd(y_m,  MAT_FINAL_ASSEMBLY);
+  
+  Mat B, C;
+  ierr = MatMatSynthesize(dr,   y_dr, 1.0, scall, M); CHKERRQ(ierr);
+  ierr = MatMatSynthesize(rinv, y_p,  1.0, MAT_INITIAL_MATRIX, &B); CHKERRQ(ierr);
+  ierr = MatMatSynthesize(rinv, y_m,  1.0, MAT_INITIAL_MATRIX, &C); CHKERRQ(ierr);
+  ierr = MatAXPY(*M, 1.0, B, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
+  ierr = MatAXPY(*M, 1.0, C, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
+  
+  PFDestroy(&pot_rinv); MatDestroy(&rinv); MatDestroy(&dr);  
+  MatDestroy(&y_dr); MatDestroy(&y_p); MatDestroy(&y_m);
+  MatDestroy(&B); MatDestroy(&C);
+  
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+  return 0;  
 }
 
 // -- not used now

@@ -28,6 +28,7 @@ typedef struct {
   PetscErrorCode (*GetSize)();
 
   PetscErrorCode (*SR1Mat)();
+  PetscErrorCode (*D1R1Mat)();
   PetscErrorCode (*D2R1Mat)();
   //  PetscErrorCode (*R2invR1Mat)();
   //  PetscErrorCode (*ENR1Mat)();
@@ -78,6 +79,7 @@ PetscErrorCode FEMInfCreateVec(FEMInf self, int dim, Vec *v);
 
 PetscErrorCode FEMInfSR1Mat(FEMInf self, Mat M);
   //PetscErrorCode FEMInfSR1MatNullable(FEMInf self, Mat M);
+PetscErrorCode FEMInfD1R1Mat(FEMInf self, Mat M);
 PetscErrorCode FEMInfD2R1Mat(FEMInf self, Mat M);
   //PetscErrorCode FEMInfR2invR1Mat(FEMInf self, Mat M);
   //PetscErrorCode FEMInfENR1Mat(FEMInf self, int q, double a, Mat M); 

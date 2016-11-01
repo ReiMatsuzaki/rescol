@@ -1,0 +1,80 @@
+\documentclass[a4paper]{jsarticle}
+\usepackage[dvipdfmx]{graphicx}
+\usepackage{braket}
+
+% 数式を(Chapter.Number)の形にする。
+\makeatletter
+\renewcommand{\theequation}{  
+  \thesection.\arabic{equation} }
+  \@addtoreset{equation}{section}
+\makeatother
+
+\def\vector#1{\mbox{\boldmath $#1$}}
+\def\braces#1{\left( #1 \right)}
+\def\bracem#1{\left\{ #1 \right\}}
+\def\braceb#1{\left[ #1 \right]}
+\def\lefts{\left(}
+\def\rights{\right)}
+\def\leftb{\left[}
+\def\rightb{\right]}
+\def\leftm{\left\{}
+\def\rightm{\right\}}
+\begin{document}
+\title{FEM-DVRのまとめ}
+\author{松崎　黎}
+\maketitle
+
+\section{まとめ}
+see T.Rescigno and C.W.McCurdy, PRA *62*, 032706 (2000)
+Lobatto shape関数を用いる。
+\begin{eqnarray}
+  f_{i,m}(x) = \Pi_^{j!=m} \frac{x-x_j^i}{x_m^i-x_j^i} \ \ \ (r_i<x<r_{i+1})
+\end{eqnarray}
+$i$番目の有限要素にある$m$番目のLS基底を表現している。用意に証明できるように
+次の性質を満たす。
+\begin{eqnarray}
+  f_{i,m}(x^{i'}_{m'}) = delta(i,i')\delta(m,m')
+\end{eqnarray}
+を得る。あとで使うために、一階微分を計算すると、
+\begin{eqnarray}
+  \frac{d}{dr} f_i(x_j) = \frac{1}{x_i-x_j} \Pi_{k!=i,j} \frac{x_j-x_k}{x_i-x_k} (i!=j) \\
+  \frac{d}{dr} f'_{im}(x_{im'}) = \frac{1}{2w^i_m}(\delta_{m,n} - \delta_{m,1})
+\end{eqnarray}
+となる。行列要素を計算すると、
+\begin{eqnarray}
+  \braket{f_{im} | V | f_{i'm'}} = \delta_{ii'}\delta_{mm'}V(x^i_m)w^i_m
+\end{eqnarray}
+となる。ベクトルは、
+\begin{eqnarray}
+  \braket{f_{im} | u} = w^i_m u(x^i_m)
+\end{eqnarray}
+で与えられる。一階微分は、
+\begin{eqnarray}
+  \braket{f_{im} | f'_{i'm'}} = w^i_m f'_{im'}(x^i_m) delta(ii')
+\end{eqnarray}
+となる。
+
+次に規格化されたDVR基底を用意する。
+
+この関数は用意にわかるように、
+
+を満たすので、重なり積分およびポテンシャルの積分は、
+\begin{eqnarray}
+  \braket{f_i | f_j} = \delta_{ij}\\
+    \braket{f_i |V| f_j} = V(x_i)\delta_{ij}\\
+\end{eqnarray}
+
+
+次に、それぞれの有限区間をまたぐ基底を用意する。
+\begin{eqnarray}
+  \chi_i(r) = \braces{\sqrt{w_n^if^i_n(r) v \sqrt{w_1^{i+1}f^{i+1}_1(r)}}}/sqrt{w^i_n+w^{i+1}_1}
+\end{eqnarray}
+これらを合わせて、基底関数セット$\phi_i$とおくと、
+\begin{eqnarray}
+  \braket{\phi_i |V| \phi_j} = \delta_{ij}V(r_i)
+\end{eqnarray}
+を得る。
+
+\bibliographystyle{jplain}
+\bibliography{library,books,paper}
+\end{document}

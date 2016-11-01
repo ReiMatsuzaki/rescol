@@ -116,6 +116,19 @@ TEST(Y1, Y1s_Y1s) {
   Y1sDestroy(&b);
   MatDestroy(&m);
 }
+TEST(Y1, SetOne) {
+  
+  PetscErrorCode ierr;
+  MPI_Comm comm = PETSC_COMM_SELF;
+  Y1s y;
+  ierr = Y1sCreate(comm, &y); ASSERT_EQ(0, ierr);
+  ierr = Y1sSetOne(y, 3, 2); ASSERT_EQ(0, ierr);
+
+  ASSERT_EQ(1, y->num);
+  ASSERT_EQ(3, y->ls[0]);
+  ASSERT_EQ(2, y->m);
+
+}
 /*
 TEST(Y1, Pq_mat) {
   PetscErrorCode ierr;

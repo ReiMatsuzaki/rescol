@@ -11,16 +11,18 @@ extern "C" {
 #include "pot.h"
 #include "cscaling.h"
 
+// see T.Rescigno and C.W.McCurdy, RPA *62*, 032706 (2000)
+// see gto_paper/main_gto_paper.org
+// LS function means Lobatto shape function defined asss
+// f_{i,m}(x) = Pi_{j!=m} \frac{x-x_j^i}{x_m^i-x_j^i}   (r_i<x<r_{i+1})
+//
+// DVR basis is defined as linear combination of LS function.
+
 struct _p_DVR {
   MPI_Comm comm;
   int nq; // # of audrature in each element
   BPS bps; // breakpoints
   CScaling cscaling;
-  //PetscBool use_cscaling; // if true, use complex scaling 
-  //double R0;         // used in complex scaling
-  //double theta;      // used in scaling angle
-  //  CScaling c_scaling; // object for complex scaling
-
   PetscInt num_basis;
   PetscReal *xs;
   PetscReal *xs_basis; 
@@ -86,6 +88,7 @@ PetscErrorCode DVRCreateR2Mat(DVR self, Mat *M);
 
 PetscErrorCode DVRPotR1Vec(DVR self, Pot pot, Vec v);
 PetscErrorCode DVRSR1Mat(DVR self, Mat M);
+PetscErrorCode DVRD1R1Mat(DVR self, Mat M);
 PetscErrorCode DVRD2R1Mat(DVR self, Mat M);
 PetscErrorCode DVRPotR1Mat(DVR self, Pot pot, Mat M);
 PetscErrorCode DVRR2invR1Mat(DVR self, Mat M);
@@ -99,6 +102,7 @@ PetscErrorCode DVRCreateR2LSMat(DVR self, Mat *M);
 
 PetscErrorCode DVRPotR1LSVec(DVR self, Pot pot, Vec v);
 PetscErrorCode DVRSR1LSMat(DVR self, Mat M);
+PetscErrorCode DVRD1R1LSMat(DVR self, Mat M);
 PetscErrorCode DVRD2R1LSMat(DVR self, Mat M);
 PetscErrorCode DVRR2invR1LSMat(DVR self, Mat M);
 PetscErrorCode DVRENR1LSMat(DVR self, int q, PetscReal a, Mat M);

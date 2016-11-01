@@ -42,13 +42,13 @@ PetscErrorCode ValueLS(BPS bps, PetscScalar *xs_c, PetscInt nq,
 		       PetscInt i, PetscInt m, PetscReal x,
 		       PetscScalar x_c, PetscScalar *v, PetscBool *zeroq) {
   /*
-    Gives value of Lobatto shape function f_{i,m} at quadrature point x_{i,mp}.
+    Gives value of Lobatto shape function f_{i,m} at quadrature point x.
 
     bps : break points set 
     xs_c: quadrature points (Scalar[nq])
     nq : number of quadrature in each element
     i : index of element which represent LS function
-    m : index of quadrature point which represent  Lobatto Shape function
+    m : index of quadrature point which represent Lobatto Shape function
     x : target location
   */
 
@@ -720,6 +720,23 @@ PetscErrorCode DVRSR1Mat(DVR self, Mat M) {
   ierr = MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
   return 0;
 }
+PetscErrorCode DVRD1R1Mat(DVR self, Mat M) {
+  PetscErrorCode ierr;
+  Mat LSR1, T;
+  ierr = DVRCreateR1LSMat(self, &LSR1); CHKERRQ(ierr);
+  ierr = DVRD1R1LSMat(self, LSR1);     CHKERRQ(ierr);
+  
+  ierr = DVRLSMatToMat(self, LSR1, MAT_INITIAL_MATRIX, &T); CHKERRQ(ierr);
+  ierr = MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  ierr = MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+
+  ierr = MatCopy(T, M, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
+  
+  MatDestroy(&LSR1);
+  MatDestroy(&T);
+  
+  return 0;
+}
 PetscErrorCode DVRD2R1Mat(DVR self, Mat M) {
   PetscErrorCode ierr;
   Mat LSR1, T;
@@ -944,6 +961,37 @@ PetscErrorCode DVRSR1LSMat(DVR self, Mat M) {
 
   MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
+  return 0;
+}
+PetscErrorCode DVRD1R1LSMat(DVR self, Mat M) {
+
+  //
+  // compute matrix element of d/dr
+  // <f_{im} | d/dr | f_{im'}> = w^i_m f_{im'}(x^i_m)
+  //
+  
+  PetscErrorCode ierr;
+  int nq = self->nq;
+  int ne; BPSGetNumEle(self->bps, &ne);
+
+  for(int i = 0; i < ne; i++) {
+    for(int m = 0; m < nq; m++) {
+      for(int mp = 0; mp < nq; mp++) {
+	PetscScalar fp; // f'_{im'}(x^i_m)
+	ierr = DerivLS(self->xs_c, self->ws_c, ne, nq, i, mp, m, &fp);
+	CHKERRQ(ierr);
+	PetscScalar v = fp * self->ws_c[i*nq+m];
+	int idx_bra = i*nq+m;
+	int idx_ket = i*nq+mp;
+	ierr = MatSetValue(M, idx_bra, idx_ket, v, INSERT_VALUES);
+	CHKERRQ(ierr);
+      }
+    }
+  }
+
+  ierr = MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  ierr = MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  
   return 0;
 }
 PetscErrorCode DVRPrepareD2R1LSMat(DVR self) {

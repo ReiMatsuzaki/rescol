@@ -13,11 +13,13 @@ print r2p
 print "<R1s|R1s> = ", integrate(r1s*r1s, (r, 0, oo))
 print "<R2p|R2p> = ", integrate(r2p*r2p, (r, 0, oo))
 print "<R2p|r|R1s> = ", integrate(r2p*r*r1s, (r, 0, oo))
+print "<R2p|dr|R1s> = " , integrate(r2p*diff(r1s, r), (r,0,oo))
 
 """ output:
 <R1s|R1s> =  1
 <R2p|R2p> =  1
 <R2p|r|R1s> =  128*sqrt(6)/243
+<R2p|dr|R1s> =  -8*sqrt(6)/81
 """
 
 

@@ -433,8 +433,6 @@ int testFit_DVR() {
   PrintTimeStamp(comm, "FIT_DVR", NULL);
 
   BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 301);
-  //CScaling c_scaling; CScalingCreate(comm, &c_scaling);
-  //CScalingSetSharpECS(c_scaling, 70.0, 20.0);
   DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, 5, bps);
   DVRSetUp(dvr);
   FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
@@ -461,6 +459,55 @@ int testFit_DVR() {
   PFDestroy(&sto);
   KSPDestroy(&ksp);
   VecDestroy(&c);
+  
+  return 0;
+}
+int testDZMat_DVR() {
+
+  PetscErrorCode ierr;
+  MPI_Comm comm = PETSC_COMM_SELF;
+  PrintTimeStamp(comm, "DZMat", NULL);
+
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 301);
+  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, 5, bps); DVRSetUp(dvr);
+  FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
+
+  // see support/hatom_dip.py
+  PetscScalar a0 = 2.0;
+  PetscScalar a1 = 1.0/(2.0*sqrt(6.0));
+  PetscInt    n0 = 1;
+  PetscInt    n1 = 2;    
+  PetscScalar z0 = 1.0;
+  PetscScalar z1 = 0.5;
+
+  Pot sto0; PotCreate(comm, &sto0); PotSetSlater(sto0, a0, n0, z0);
+  Pot sto1; PotCreate(comm, &sto1); PotSetSlater(sto1, a1, n1, z1);
+  KSP ksp; KSPCreate(comm, &ksp); 
+  Vec c0; FEMInfCreateVec (fem, 1, &c0); VecSetType(c0, "seq");
+  FEMInfFit(fem, sto0, ksp, c0);
+  Vec c1; FEMInfCreateVec (fem, 1, &c1); VecSetType(c1, "seq");
+  FEMInfFit(fem, sto1, ksp, c1);  
+
+  Mat dz;
+  ierr = FEMInfCreateMat(fem, 1, &dz); CHKERRQ(ierr);
+  ierr = FEMInfD1R1Mat(fem, dz); CHKERRQ(ierr);
+  Vec dz_c0;
+  ierr = MatCreateVecs(dz, NULL, &dz_c0); CHKERRQ(ierr);
+  ierr = MatMult(dz, c0, dz_c0); CHKERRQ(ierr);
+  PetscScalar dip;
+  ierr = VecTDot(c1, dz_c0, &dip); CHKERRQ(ierr);
+  PetscScalar ref = -8.0 * sqrt(6.0) / 81.0;
+  
+  ASSERT_SCALAR_NEAR(ref, dip, 0.000001);
+
+  FEMInfDestroy(&fem);
+  PFDestroy(&sto0);
+  PFDestroy(&sto1);
+  KSPDestroy(&ksp);
+  VecDestroy(&c0);
+  VecDestroy(&c1);
+  MatDestroy(&dz);
+  VecDestroy(&dz_c0);
   
   return 0;
 }
@@ -516,6 +563,7 @@ int main(int argc, char **args) {
   
   SlepcInitialize(&argc, &args, (char*)0, help);
 
+  
   testH_BSS();
   /// testH_BSS_accurate();
   /// testH_PI_BSS();
@@ -524,7 +572,9 @@ int main(int argc, char **args) {
   testH_DVR();
   testFit_BSS();
   testFit_DVR();
+  testDZMat_DVR();
   testCopy_DVR();
+  
   SlepcFinalize();
   return 0;
 
