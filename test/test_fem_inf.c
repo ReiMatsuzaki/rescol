@@ -1,6 +1,7 @@
 #include <slepceps.h>
 #include <time.h>
 #include "unittest.h"
+#include "../include/math.h"
 #include "../include/mat.h"
 #include "../include/fem_inf.h"
 #include "../include/viewerfunc.h"
@@ -8,22 +9,6 @@
 
 static char help[] = "Unit test for fem_inf.c \n";
 
-int test1() {
-
-  MPI_Comm comm = PETSC_COMM_SELF;
-  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 5.0, 6);
-  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, 5, bps);
-  FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
-
-  if(getenv("SHOW_DEBUG")) {
-    PetscErrorCode ierr;
-    ierr = FEMInfView(fem, PETSC_VIEWER_STDOUT_SELF); CHKERRQ(ierr);
-  }
-
-  FEMInfDestroy(&fem);
-
-  return 0;
-}
 int testH_BSS() {
 
   MPI_Comm comm = PETSC_COMM_SELF;
@@ -43,9 +28,14 @@ int testH_BSS() {
     printf("\n");
   }
 
+  Pot pot; PotCreate(comm, &pot);
+  PotSetCoulombNE(pot, 0, 0.0, -1.0);
+
   Mat H; FEMInfCreateMat(fem, 1, &H); FEMInfD2R1Mat(fem, H); MatScale(H, -0.5);
-  Mat V; FEMInfCreateMat(fem, 1, &V); FEMInfENR1Mat(fem, 0, 0.0, V); 
-  MatAXPY(H, -1.0, V, DIFFERENT_NONZERO_PATTERN);
+  //  Mat V; FEMInfCreateMat(fem, 1, &V); FEMInfENR1Mat(fem, 0, 0.0, V);
+  Mat V; FEMInfCreateMat(fem, 1, &V);
+  FEMInfPotR1Mat(fem, pot, V);
+  MatAXPY(H, 1.0, V, DIFFERENT_NONZERO_PATTERN);
 
   Mat S; FEMInfCreateMat(fem, 1, &S); FEMInfSR1Mat(fem, S);
 
@@ -84,6 +74,7 @@ int testH_BSS() {
   ASSERT_DOUBLE_NEAR(2.0*(1.0-x)*exp(-x), creal(dy), pow(10.0, -3.0));
   
   FEMInfDestroy(&fem);
+  PFDestroy(&pot);
   MatDestroy(&H); MatDestroy(&V); MatDestroy(&S);
   EEPSDestroy(&eps); VecDestroy(&x0[0]); VecDestroy(&cs);
   return 0;
@@ -93,6 +84,7 @@ int testH_BSS_accurate() {
   //           Reports on Progress in Physics 64, 1815
   // see 2016/4/20
 
+  /*
   PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
   PrintTimeStamp(comm, "H_BSS2", NULL);
@@ -177,7 +169,8 @@ int testH_BSS_accurate() {
   MatDestroy(&H); MatDestroy(&V); MatDestroy(&S);
   EEPSDestroy(&eps);  VecDestroy(&cs);
   // VecDestroy(&xs[0]);
-
+  */
+  
   return 0;
 }
 int testH_PI_BSS() {
@@ -206,7 +199,10 @@ int testH_PI_BSS() {
 
   Mat L; FEMInfCreateMat(fem, 1, &L); FEMInfD2R1Mat(fem, L);
   MatScale(L, -0.5);
-  Mat V; FEMInfCreateMat(fem, 1, &V); FEMInfENR1Mat(fem, 0, 0.0, V); 
+  Pot pot; PotCreate(comm, &pot);
+  PotSetCoulombNE(pot, 0, 0.0, -1.0);  
+  Mat V; FEMInfCreateMat(fem, 1, &V); //FEMInfENR1Mat(fem, 0, 0.0, V);
+  FEMInfPotR1Mat(fem, pot, V);
   MatAXPY(L, -1.0, V, DIFFERENT_NONZERO_PATTERN);
   Pot r2; PotCreate(comm, &r2); PotSetPower(r2, 1.0, -2);
   Mat LV; FEMInfCreateMat(fem, 1, &LV); FEMInfPotR1Mat(fem, r2, LV);
@@ -264,8 +260,14 @@ int testH_PI_DVR() {
 
   Mat L; FEMInfCreateMat(fem, 1, &L); FEMInfD2R1Mat(fem, L);
   MatScale(L, -0.5);
-  Mat V; FEMInfCreateMat(fem, 1, &V); FEMInfENR1Mat(fem, 0, 0.0, V); 
-  MatAXPY(L, -1.0, V, DIFFERENT_NONZERO_PATTERN);
+  
+  //Mat V; FEMInfCreateMat(fem, 1, &V); FEMInfENR1Mat(fem, 0, 0.0, V);
+  Pot pot; PotCreate(comm, &pot);
+  PotSetCoulombNE(pot, 0, 0.0, -1.0);
+  Mat V; FEMInfCreateMat(fem, 1, &V);
+  FEMInfPotR1Mat(fem, pot, V);
+  MatAXPY(L, 1.0, V, DIFFERENT_NONZERO_PATTERN);
+  
   Pot r2; PotCreate(comm, &r2); PotSetPower(r2, 1.0, -2);
   Mat LV; FEMInfCreateMat(fem, 1, &LV); FEMInfPotR1Mat(fem, r2, LV);
   //  Mat LV; FEMInfCreateMat(fem, 1, &LV); FEMInfR2invR1Mat(fem, LV); 
@@ -296,39 +298,13 @@ int testH_PI_DVR() {
   ASSERT_DOUBLE_NEAR(1.08811622008, cimag(alpha),  0.000001);
 
   FEMInfDestroy(&fem);
-  MatDestroy(&L); MatDestroy(&V); MatDestroy(&LV); MatDestroy(&S);
+  MatDestroy(&L); PFDestroy(&pot); 
+  MatDestroy(&V); MatDestroy(&LV); MatDestroy(&S);
   PFDestroy(&r2); PFDestroy(&driv); VecDestroy(&m); 
   KSPDestroy(&ksp); VecDestroy(&c); 
 
   return 0;
 
-}
-int testPOT_BSS() {
-  
-  MPI_Comm comm = PETSC_COMM_SELF;
-  PrintTimeStamp(comm, "POT_BSS", NULL);
-
-  BPS bps; BPSCreate(comm, &bps); BPSSetExp(bps, 20.0, 21, 5.0);
-  BSS bss; BSSCreate(comm, &bss); 
-  BSSSetKnots(bss, 5, bps); BSSSetUp(bss);
-  FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetBSS(fem, bss);
-
-  Pot r2inv; PotCreate(comm, &r2inv); PotSetPower(r2inv, 1.0, -2.0); 
-  Mat A; FEMInfCreateMat(fem, 1, &A); FEMInfPotR1Mat(fem, r2inv, A);
-  Mat B; FEMInfCreateMat(fem, 1, &B); FEMInfR2invR1Mat(fem, B);
-
-  MatAXPY(A, -1.0, B, DIFFERENT_NONZERO_PATTERN);
-
-  PetscReal norm;
-  MatNorm(A, NORM_1, &norm);
-  ASSERT_DOUBLE_NEAR(norm, 0.0, 0.00000001);
-
-  FEMInfDestroy(&fem);
-  PFDestroy(&r2inv);
-  MatDestroy(&A);
-  MatDestroy(&B);
-
-  return 0;
 }
 int testH_DVR() {
 
@@ -354,18 +330,31 @@ int testH_DVR() {
   ierr = FEMInfCreateMat(fem, 1, &H);CHKERRQ(ierr);
   ierr = FEMInfD2R1Mat(fem, H);CHKERRQ(ierr);
   ierr = MatScale(H, -0.5);CHKERRQ(ierr);
+  Pot pot; PotCreate(comm, &pot);
+  PotSetCoulombNE(pot, 0, 0.0, -1.0);
   Mat V;
   ierr = FEMInfCreateMat(fem, 1, &V);CHKERRQ(ierr);
-  ierr = FEMInfENR1Mat(fem, 0, 0.0, V); CHKERRQ(ierr);
-  ierr = MatAXPY(H, -1.0, V, DIFFERENT_NONZERO_PATTERN);CHKERRQ(ierr);
+  //  ierr = FEMInfENR1Mat(fem, 0, 0.0, V); CHKERRQ(ierr);
+  //  ierr = MatAXPY(H, -1.0, V, DIFFERENT_NONZERO_PATTERN);CHKERRQ(ierr);
+  ierr = FEMInfPotR1Mat(fem, pot, V); CHKERRQ(ierr);
+  ierr = MatAXPY(H, 1.0, V, DIFFERENT_NONZERO_PATTERN);CHKERRQ(ierr);
 
-  EEPS eps; 
+  KSP ksp;
+  ierr = KSPCreate(comm, &ksp); CHKERRQ(ierr);
+  Pot slater;
+  ierr = PotCreate(comm, &slater); CHKERRQ(ierr);
+  ierr = PotSetSlater(slater, 1.9, 1, 1.0); CHKERRQ(ierr);
+  //  Vec c_fit; VecCreate(comm, &c_fit); VecSetType(c_fit, "seq");
+  Vec c_fit; FEMInfCreateVec(fem, 1, &c_fit); 
+  ierr = FEMInfFit(fem, slater, ksp, c_fit); CHKERRQ(ierr);
+
+  EEPS eps;
   ierr = EEPSCreate(PETSC_COMM_SELF, &eps);CHKERRQ(ierr);
   ierr = EEPSSetOperators(eps, H, NULL); CHKERRQ(ierr);
-  ierr = EPSSetType(eps->eps, EPSJD);CHKERRQ(ierr);
+  ierr = EPSSetInitialSpace(eps->eps, 1, &c_fit); CHKERRQ(ierr);
+  ierr = EPSSetType(eps->eps, EPSGD);CHKERRQ(ierr);
   ierr = EEPSSetTarget(eps, -0.6);CHKERRQ(ierr);
   ierr = EEPSSolve(eps);CHKERRQ(ierr);
-
 
   int nconv;
   PetscScalar kr;
@@ -373,8 +362,6 @@ int testH_DVR() {
   ASSERT_TRUE(nconv > 0);
   ierr = EPSGetEigenpair(eps->eps, 0, &kr, NULL, NULL, NULL);CHKERRQ(ierr);
   ASSERT_DOUBLE_NEAR(-0.5, kr, pow(10.0, -5.0));
-
-
 
   Vec cs;
   ierr = MatCreateVecs(H, &cs, NULL); CHKERRQ(ierr);
@@ -391,11 +378,11 @@ int testH_DVR() {
   ASSERT_SCALAR_NEAR(2.0*exp(-x)-2.0*x*exp(-x), dy, pow(10.0, -6.0));
 
   // -- Destroy --
-  ierr = FEMInfDestroy(&fem); CHKERRQ(ierr);
-  ierr = MatDestroy(&H);      CHKERRQ(ierr);
-  ierr = MatDestroy(&V);      CHKERRQ(ierr);
-  ierr = EEPSDestroy(&eps);   CHKERRQ(ierr);
-  ierr = VecDestroy(&cs);     CHKERRQ(ierr);
+  FEMInfDestroy(&fem); MatDestroy(&H); PFDestroy(&pot);
+  MatDestroy(&V);     
+  KSPDestroy(&ksp);    PFDestroy(&slater);
+  VecDestroy(&c_fit);  EEPSDestroy(&eps);
+  VecDestroy(&cs);    
 
   return 0;
 }
@@ -418,7 +405,7 @@ int testFit_BSS() {
 
   KSP ksp; KSPCreate(comm, &ksp); 
 
-  Vec c;   VecCreate(comm, &c); VecSetType(c, "seq");
+  Vec c;   FEMInfCreateVec(fem, 1, &c); VecSetType(c, "seq");
 
   FEMInfFit(fem, sto, ksp, c);
   PetscScalar x = 2.2;
@@ -446,15 +433,13 @@ int testFit_DVR() {
   PrintTimeStamp(comm, "FIT_DVR", NULL);
 
   BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 301);
-  //CScaling c_scaling; CScalingCreate(comm, &c_scaling);
-  //CScalingSetSharpECS(c_scaling, 70.0, 20.0);
   DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, 5, bps);
   DVRSetUp(dvr);
   FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
 
   Pot sto; PotCreate(comm, &sto); PotSetSlater(sto, 1.1, 2, 1.2);
   KSP ksp; KSPCreate(comm, &ksp); 
-  Vec c;   VecCreate(comm, &c); VecSetType(c, "seq");
+  Vec c;   FEMInfCreateVec (fem, 1, &c); VecSetType(c, "seq");
 
   FEMInfFit(fem, sto, ksp, c);
   PetscScalar x = 2.2;
@@ -474,6 +459,53 @@ int testFit_DVR() {
   PFDestroy(&sto);
   KSPDestroy(&ksp);
   VecDestroy(&c);
+  
+  return 0;
+}
+int testDZMat_DVR() {
+
+  PetscErrorCode ierr;
+  MPI_Comm comm = PETSC_COMM_SELF;
+  PrintTimeStamp(comm, "DZMat", NULL);
+
+  BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 100.0, 301);
+  DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, 5, bps); DVRSetUp(dvr);
+  FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
+
+  // see support/hatom_dip.py
+  PetscScalar a0 = 2.0;
+  PetscScalar a1 = 1.0/(2.0*sqrt(6.0));
+  PetscInt    n0 = 1;
+  PetscInt    n1 = 2;    
+  PetscScalar z0 = 1.0;
+  PetscScalar z1 = 0.5;
+
+  Pot sto0; PotCreate(comm, &sto0); PotSetSlater(sto0, a0, n0, z0);
+  Pot sto1; PotCreate(comm, &sto1); PotSetSlater(sto1, a1, n1, z1);
+  Vec c0; FEMInfCreateVec (fem, 1, &c0); VecSetType(c0, "seq");
+  FEMInfFit(fem, sto0, NULL, c0);
+  Vec c1; FEMInfCreateVec (fem, 1, &c1); VecSetType(c1, "seq");
+  FEMInfFit(fem, sto1, NULL, c1);  
+
+  Mat dz;
+  ierr = FEMInfCreateMat(fem, 1, &dz); CHKERRQ(ierr);
+  ierr = FEMInfD1R1Mat(fem, dz); CHKERRQ(ierr);
+  Vec dz_c0;
+  ierr = MatCreateVecs(dz, NULL, &dz_c0); CHKERRQ(ierr);
+  ierr = MatMult(dz, c0, dz_c0); CHKERRQ(ierr);
+  PetscScalar dip;
+  ierr = VecTDot(c1, dz_c0, &dip); CHKERRQ(ierr);
+  PetscScalar ref = -8.0 * sqrt(6.0) / 81.0;
+  
+  ASSERT_SCALAR_NEAR(ref, dip, 0.000001);
+
+  FEMInfDestroy(&fem);
+  PFDestroy(&sto0);
+  PFDestroy(&sto1);
+  VecDestroy(&c0);
+  VecDestroy(&c1);
+  MatDestroy(&dz);
+  VecDestroy(&dz_c0);
   
   return 0;
 }
@@ -510,10 +542,6 @@ int testCopy_DVR() {
   ierr = FEMInfCreateMat(fem, 1, &H1); CHKERRQ(ierr);
   ierr = FEMInfD2R1Mat(fem, H1); CHKERRQ(ierr);
 
-  FEMInfView(fem, PETSC_VIEWER_STDOUT_SELF);
-  PetscPrintf(comm, "\n");
-  FEMInfView(fem2, PETSC_VIEWER_STDOUT_SELF); 
-
   int i[1] = {0}; 
   int j[1] = {0};
   PetscScalar v[1], v1[1];
@@ -521,26 +549,30 @@ int testCopy_DVR() {
   MatGetValues(H1,1, i, 1, j, v1);
   ASSERT_SCALAR_EQ(v[0], v1[0]);
 
+
+  FEMInfDestroy(&fem);
+  FEMInfDestroy(&fem2);
+  MatDestroy(&H);
+  MatDestroy(&H1);
   return 0;
 
 }
 int main(int argc, char **args) {
   
   SlepcInitialize(&argc, &args, (char*)0, help);
-  PetscErrorCode ierr;
 
-  test1();    
+  
   testH_BSS();
-  testPOT_BSS();
+  /// testH_BSS_accurate();
+  /// testH_PI_BSS();
+
+  testH_PI_DVR();
   testH_DVR();
   testFit_BSS();
   testFit_DVR();
+  testDZMat_DVR();
   testCopy_DVR();
-  //  ierr = testH_PI_DVR(); CHKERRQ(ierr);
-
-  //  ierr = testH_BSS_accurate(); CHKERRQ(ierr);
-  ierr = testH_PI_BSS(); CHKERRQ(ierr);
-
+  
   SlepcFinalize();
   return 0;
 

@@ -11,10 +11,12 @@ extern "C" {
 */
 
 struct _p_BPS {
+  MPI_Comm comm;
   char type[10];
   PetscInt num_zs;
   PetscReal *zs;
-  MPI_Comm comm;
+
+  PetscInt index; // index using in loop
 };
 
 typedef struct _p_BPS* BPS;
@@ -38,6 +40,7 @@ PetscErrorCode BPSGetZMax(BPS self, PetscReal *zmax);
 PetscErrorCode BPSGetEdge(BPS self, int iele, PetscReal *z0, PetscReal *z1);
 PetscErrorCode BPSInElementQ(BPS self, int iele, PetscReal x, PetscBool *in_q);
 
+  
 #ifdef __cplusplus
 }
 #endif

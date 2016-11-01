@@ -37,11 +37,11 @@ PetscErrorCode VecVecSynthesizeSymbolic(Vec A, Vec B, Vec *C) {
   VecRestoreArray(B, &bs); 
   PetscFree(cs);
   PetscFree(idxs);  
-  
+
   return 0;
 }
 PetscErrorCode VecVecSynthesizeNumeric(Vec A, Vec B, PetscScalar c, Vec C) {
-
+  
   PetscInt na; VecGetSize(A, &na);
   PetscInt nb; VecGetSize(B, &nb);
 
@@ -58,11 +58,18 @@ PetscErrorCode VecVecSynthesizeNumeric(Vec A, Vec B, PetscScalar c, Vec C) {
 
   VecRestoreArray(A, &as); 
   VecRestoreArray(B, &bs); 
-  VecRestoreArray(C, &cs); 
+  VecRestoreArray(C, &cs);
+
   return 0;
 }
 PetscErrorCode VecVecSynthesize(Vec A, Vec B, PetscScalar c, 
 			     MatReuse scall, Vec *C){
+
+  int EVENT_id;
+  PetscLogEventRegister("VecVecSynthesize", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+
+
   PetscErrorCode ierr;
   MPI_Comm comm;   ierr = PetscObjectGetComm((PetscObject)A, &comm);
 
@@ -75,6 +82,7 @@ PetscErrorCode VecVecSynthesize(Vec A, Vec B, PetscScalar c,
     
   ierr = VecVecSynthesizeNumeric(A, B, c, *C); CHKERRQ(ierr);
 
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
   return 0;
 }
 
@@ -403,12 +411,19 @@ PetscErrorCode MatMatSynthesizeNumeric(Mat A, Mat B, PetscScalar a, Mat C) {
   return 0;
 }
 PetscErrorCode MatMatSynthesize(Mat A, Mat B, PetscScalar a, MatReuse scall, Mat *C){
+
+  int EVENT_id;
+  PetscLogEventRegister("MatMatSynthesize", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+
   PetscErrorCode ierr;
   if(scall == MAT_INITIAL_MATRIX) {
     ierr = MatMatSynthesizeSymbolic(A, B, C); CHKERRQ(ierr);
   }
   ierr = MatMatSynthesizeNumeric(A, B, a, *C); CHKERRQ(ierr);
- return 0;
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+  return 0;
 
 }
 
@@ -436,6 +451,12 @@ PetscErrorCode MatMatMatSynthesizeNumeric(Mat A, Mat B, Mat C, PetscScalar d, Ma
 PetscErrorCode MatMatMatSynthesize(Mat A, Mat B, Mat C, 
 				   PetscScalar d, MatReuse scall, Mat *D) {
 
+  int EVENT_id;
+  PetscLogEventRegister("MatMatMatSynthesize", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+
+  
+  
   PetscErrorCode ierr;
   MPI_Comm comm;   ierr = PetscObjectGetComm((PetscObject)A, &comm);
 
@@ -446,6 +467,8 @@ PetscErrorCode MatMatMatSynthesize(Mat A, Mat B, Mat C,
   } else
     SETERRQ(comm, 1, "MatReuse scall <- {MAT_INITIAL_MATRIX, MAT_REUSE_MATRIX}");
   ierr = MatMatMatSynthesizeNumeric(A, B, C, d, *D); CHKERRQ(ierr);
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
   return 0;
 }
 

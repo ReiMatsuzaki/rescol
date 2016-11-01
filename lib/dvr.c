@@ -1,4 +1,4 @@
-
+#include "../include/math.h"
 #include "../include/mat.h"
 #include "../include/synthesize.h"
 #include "../include/dvr.h"
@@ -43,13 +43,13 @@ PetscErrorCode ValueLS(BPS bps, PetscScalar *xs_c, PetscInt nq,
 		       PetscInt i, PetscInt m, PetscReal x,
 		       PetscScalar x_c, PetscScalar *v, PetscBool *zeroq) {
   /*
-    Gives value of Lobatto shape function f_{i,m} at quadrature point x_{i,mp}.
+    Gives value of Lobatto shape function f_{i,m} at quadrature point x.
 
     bps : break points set 
     xs_c: quadrature points (Scalar[nq])
     nq : number of quadrature in each element
     i : index of element which represent LS function
-    m : index of quadrature point which represent  Lobatto Shape function
+    m : index of quadrature point which represent Lobatto Shape function
     x : target location
   */
 
@@ -251,9 +251,11 @@ PetscErrorCode DVRView(DVR self, PetscViewer v) {
     PetscViewerASCIIPrintf(v, "DVR object:\n");
     PetscViewerASCIIPushTab(v);
     PetscViewerASCIIPrintf(v, "nq: %d\n", self->nq);
+    PetscViewerASCIIPrintf(v, "cscaling:");
     CScalingView(self->cscaling, v);
     
     PetscViewerASCIIPrintf(v, "num_basis: %d\n", self->num_basis);
+    PetscViewerASCIIPrintf(v, "bps:");
     BPSView(self->bps, v);  
     int n_basis; DVRGetSize(self, &n_basis);
 
@@ -641,7 +643,7 @@ PetscErrorCode DVRPrepareT2(DVR self) {
 PetscErrorCode ScalarPower(MPI_Comm comm,
 			   PetscScalar x, int n, PetscScalar* y) {
   if(n < 0) {
-    SETERRQ(comm, 1, "n must be negative");
+    SETERRQ(comm, 1, "n is negative");
   } else if(n == 0) {
     *y = 1.0;
   } else {
@@ -711,12 +713,29 @@ PetscErrorCode DVRPotR1Vec(DVR self, Pot pot, Vec v) {
   */
 }
 PetscErrorCode DVRSR1Mat(DVR self, Mat M) {
-  PetscErrorCode ierr;
+  PetscErrorCode ierr = 0;
   
   for(int i = 0; i < self->num_basis; i++) 
     ierr = MatSetValue(M, i, i, 1.0, INSERT_VALUES); CHKERRQ(ierr);
-  MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
+  ierr = MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  ierr = MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  return 0;
+}
+PetscErrorCode DVRD1R1Mat(DVR self, Mat M) {
+  PetscErrorCode ierr;
+  Mat LSR1, T;
+  ierr = DVRCreateR1LSMat(self, &LSR1); CHKERRQ(ierr);
+  ierr = DVRD1R1LSMat(self, LSR1);     CHKERRQ(ierr);
+  
+  ierr = DVRLSMatToMat(self, LSR1, MAT_INITIAL_MATRIX, &T); CHKERRQ(ierr);
+  ierr = MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  ierr = MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+
+  ierr = MatCopy(T, M, DIFFERENT_NONZERO_PATTERN); CHKERRQ(ierr);
+  
+  MatDestroy(&LSR1);
+  MatDestroy(&T);
+  
   return 0;
 }
 PetscErrorCode DVRD2R1Mat(DVR self, Mat M) {
@@ -768,8 +787,9 @@ PetscErrorCode DVRENR1Mat(DVR self, int q, double a, Mat M) {
     PetscScalar xc = self->xs_basis_c[i];
     PetscScalar g = x > a ? xc : a;
     PetscScalar s = x < a ? xc : a;
-    PetscScalar v;
-    ScalarPower(self->comm, q, s/g, &v);
+    PetscScalar v=0.0;
+    //ScalarPower(self->comm, q, s/g, &v);
+    ScalarPower(self->comm, s/g, q, &v);
     v /= g;
     ierr = MatSetValue(M, i, i, v, INSERT_VALUES); CHKERRQ(ierr);
 
@@ -791,7 +811,7 @@ PetscErrorCode DVREER2Mat_direct(DVR self, int q, Mat M) {
       } else {
 	g = rj; s = ri;
       }
-      PetscScalar val;
+      PetscScalar val=0.0;
       ScalarPower(self->comm, q, s/g, &val);
       val /= g;
       int idx = i*num+j;
@@ -853,9 +873,9 @@ PetscErrorCode DVREER2Mat_poisson(DVR self, int q, Mat M) {
 
   // -- Finalize --
   MatDestroy(&T);  
-  PetscFree(ys);
   VecDestroy(&c);
   VecDestroy(&y);
+  PetscFree(ys);
   KSPDestroy(&ksp);
   return 0;
 }
@@ -942,6 +962,37 @@ PetscErrorCode DVRSR1LSMat(DVR self, Mat M) {
 
   MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
+  return 0;
+}
+PetscErrorCode DVRD1R1LSMat(DVR self, Mat M) {
+
+  //
+  // compute matrix element of d/dr
+  // <f_{im} | d/dr | f_{im'}> = w^i_m f_{im'}(x^i_m)
+  //
+  
+  PetscErrorCode ierr;
+  int nq = self->nq;
+  int ne; BPSGetNumEle(self->bps, &ne);
+
+  for(int i = 0; i < ne; i++) {
+    for(int m = 0; m < nq; m++) {
+      for(int mp = 0; mp < nq; mp++) {
+	PetscScalar fp; // f'_{im'}(x^i_m)
+	ierr = DerivLS(self->xs_c, self->ws_c, ne, nq, i, mp, m, &fp);
+	CHKERRQ(ierr);
+	PetscScalar v = fp * self->ws_c[i*nq+m];
+	int idx_bra = i*nq+m;
+	int idx_ket = i*nq+mp;
+	ierr = MatSetValue(M, idx_bra, idx_ket, v, INSERT_VALUES);
+	CHKERRQ(ierr);
+      }
+    }
+  }
+
+  ierr = MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  ierr = MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY); CHKERRQ(ierr);
+  
   return 0;
 }
 PetscErrorCode DVRPrepareD2R1LSMat(DVR self) {
@@ -1054,11 +1105,10 @@ PetscErrorCode DVRENR1LSMat(DVR self, int q, PetscReal a, Mat M) {
   int idx = 0;
   for(int i_ele = 0; i_ele < ne; i_ele++) {
     for(int i_q = 0; i_q < nq;   i_q++) {
-      PetscReal x;
-      PetscScalar wc, xc, v;
-      x = self->xs[idx];
-      xc = self->xs_c[idx];
-      wc = self->ws_c[idx];
+      PetscReal x = x = self->xs[idx];
+      PetscScalar xc = self->xs_c[idx];
+      PetscScalar wc = self->ws_c[idx];
+      PetscScalar v = 0.0;
       if(i_ele == 0 && i_q == 0)
 	v = 0.0;
       else if(q == 0) {
@@ -1067,7 +1117,7 @@ PetscErrorCode DVRENR1LSMat(DVR self, int q, PetscReal a, Mat M) {
       else {
 	PetscScalar g = x > a ? xc : a;
 	PetscScalar s = x < a ? xc : a;
-	ScalarPower(self->comm, q, s/g, &v);
+	ScalarPower(self->comm, s/g, q, &v);
 	v /= g;
       }
       ierr = MatSetValue(M, idx, idx, v*wc, INSERT_VALUES);

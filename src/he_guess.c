@@ -52,7 +52,7 @@ PetscErrorCode CalcHVec(FEMInf fem, PetscReal z, int L, Vec *x, PetscScalar *e) 
     Mat S; FEMInfCreateMat(fem, 1, &S); FEMInfSR1Mat(fem, S);
     EEPSSetOperators(eps, H, S);
   }
-  EEPSSetTarget(eps, -0.6); 
+  EEPSSetTarget(eps, -0.6);
   EEPSSetFromOptions(eps);
   
   ierr = EEPSSolve(eps); CHKERRQ(ierr);

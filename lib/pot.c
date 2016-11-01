@@ -576,8 +576,8 @@ PetscErrorCode PotSetFromOptions2(Pot self, const char prefix[], PetscBool *_fin
 
   char option_name[100] = "-";
   strcat(option_name, prefix);
-  strcat(option_name, "-pot");
-
+  strcat(option_name, "pot");
+  
   char option_res[100] = "0";
 
   ierr = PetscOptionsGetString(NULL, NULL, option_name, option_res, 100, &find); CHKERRQ(ierr);

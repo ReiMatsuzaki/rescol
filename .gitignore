@@ -9,6 +9,10 @@ qsub*.sh
 GPATH
 GRTAGS
 GTAGS
-build/
+bin/*
+obj/*
 *.png
 *.a
+*.0
+.ipynb_checkpoints/
+*.csv

@@ -16,13 +16,14 @@ PetscErrorCode FEMInfSetFD(FEMInf self, FD target) {
 
     FD_Sc.Psi = NULL;
     FD_Sc.DerivPsi = NULL;
-    FD_Sc.GuessHEig = FDGuessHEig;
+    //    FD_Sc.GuessHEig = FDGuessHEig;
     FD_Sc.GetSize = FDGetSize;
     
     FD_Sc.SR1Mat = FDSR1Mat;
+    FD_Sc.D1R1Mat = NULL;
     FD_Sc.D2R1Mat = FDD2R1Mat;
-    FD_Sc.R2invR1Mat = FDR2invR1Mat;
-    FD_Sc.ENR1Mat = FDENR1Mat;    
+    //    FD_Sc.R2invR1Mat = FDR2invR1Mat;
+    //    FD_Sc.ENR1Mat = FDENR1Mat;    
     FD_Sc.PotR1Mat = NULL;
     FD_Sc.PotR1Vec = NULL;
     FD_Sc.EER2Mat = FDEER2Mat;        
@@ -50,13 +51,14 @@ PetscErrorCode FEMInfSetBSS(FEMInf self, BSS target) {
 
     BSS_Sc.Psi = BSSPsi;
     BSS_Sc.DerivPsi = BSSDerivPsi;
-    BSS_Sc.GuessHEig = NULL;
+    //    BSS_Sc.GuessHEig = NULL;
     BSS_Sc.GetSize = BSSGetSize;
     
     BSS_Sc.SR1Mat = BSSSR1Mat;
+    BSS_Sc.D1R1Mat = NULL;
     BSS_Sc.D2R1Mat = BSSD2R1Mat;
-    BSS_Sc.R2invR1Mat = BSSR2invR1Mat;
-    BSS_Sc.ENR1Mat = BSSENR1Mat;    
+    //    BSS_Sc.R2invR1Mat = BSSR2invR1Mat;
+    //   BSS_Sc.ENR1Mat = BSSENR1Mat;    
     BSS_Sc.PotR1Mat = BSSPotR1Mat;    
     BSS_Sc.PotR1Vec = BSSPotR1Vec;
     BSS_Sc.EER2Mat = BSSEER2Mat;
@@ -85,12 +87,13 @@ PetscErrorCode FEMInfSetDVR(FEMInf self, DVR target) {
     DVR_Sc.Psi = DVRPsi;
     DVR_Sc.DerivPsi = DVRDerivPsi;
     DVR_Sc.GetSize = DVRGetSize;
-    DVR_Sc.GuessHEig = NULL;
+    //    DVR_Sc.GuessHEig = NULL;
 
     DVR_Sc.SR1Mat = DVRSR1Mat;
+    DVR_Sc.D1R1Mat = DVRD1R1Mat;
     DVR_Sc.D2R1Mat = DVRD2R1Mat;
-    DVR_Sc.R2invR1Mat = DVRR2invR1Mat;
-    DVR_Sc.ENR1Mat = DVRENR1Mat;
+    //    DVR_Sc.R2invR1Mat = DVRR2invR1Mat;
+    //    DVR_Sc.ENR1Mat = DVRENR1Mat;
     DVR_Sc.PotR1Mat = DVRPotR1Mat;
     DVR_Sc.PotR1Vec = DVRPotR1Vec;
     DVR_Sc.EER2Mat = DVREER2Mat;
@@ -192,7 +195,13 @@ PetscErrorCode FEMInfView(FEMInf self, PetscViewer v) {
 PetscErrorCode FEMInfViewFunc_ASCII(FEMInf self, Vec c, ViewerFunc v) {
     PetscInt num;
     PetscReal *xs;
-    ViewerFuncGetXs(v, &num, &xs);
+    ViewerFuncGetRange(v, &num, &xs);
+
+#if defined(PETSC_USE_COMPLEX)
+    PetscViewerASCIIPrintf(v->base, "r,re_y,im_y\n");
+#else
+      PetscViewerASCIIPrintf(v->base, "r,y\n"); CHKERRQ(ierr);
+#endif    
 
     for(int i = 0; i < num; i++) {
       PetscReal x = xs[i];
@@ -200,13 +209,14 @@ PetscErrorCode FEMInfViewFunc_ASCII(FEMInf self, Vec c, ViewerFunc v) {
 #if defined(PETSC_USE_COMPLEX)
       PetscReal re = PetscRealPart(y);
       PetscReal im = PetscImaginaryPart(y);
-      PetscViewerASCIIPrintf(v->base, "%f %f %f\n", x, re, im);
+      PetscViewerASCIIPrintf(v->base, "%f,%f,%f\n", x, re, im);
 #else
-      PetscViewerASCIIPrintf(v->base, "%f %f\n", x, y); CHKERRQ(ierr);
+      PetscViewerASCIIPrintf(v->base, "%f,%f\n", x, y); CHKERRQ(ierr);
 #endif
     }
-
+    
     return 0;
+    
 }
 PetscErrorCode FEMInfViewFunc_Draw(FEMInf self, Vec c, ViewerFunc v) {
 
@@ -215,7 +225,7 @@ PetscErrorCode FEMInfViewFunc_Draw(FEMInf self, Vec c, ViewerFunc v) {
 
   PetscInt num;
   PetscReal *xs;
-  ViewerFuncGetXs(v, &num, &xs);
+  ViewerFuncGetRange(v, &num, &xs);
 
   for(int i = 0; i < num; i++) {
     PetscReal x = xs[i];
@@ -287,21 +297,30 @@ PetscErrorCode FEMInfSetFromOptions(FEMInf self) {
 // ---- Calculation ----
 PetscErrorCode FEMInfFit(FEMInf self, PF pf, KSP ksp, Vec c) {
 
+  int EVENT_id;
+  PetscLogEventRegister("FEMInfFit", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+
+  
   PetscErrorCode ierr;
   PetscBool is_id; FEMInfGetOverlapIsId(self, &is_id);
-  
-  Mat S; FEMInfCreateMat(self, 1, &S); FEMInfSR1Mat(self, S);
-  Vec V; FEMInfCreateVec(self, 1, &V); FEMInfPotR1Vec(self, pf, V);
 
-  int n; FEMInfGetSize(self, &n);
-  VecSetSizes(c, PETSC_DECIDE, n);
+  if(is_id) {
+    ierr = FEMInfPotR1Vec(self, pf, c); CHKERRQ(ierr);
+  } else {
+    if(ksp == NULL) {
+      SETERRQ(self->comm, 1, "ksp is null");
+    }
+    Vec V; FEMInfCreateVec(self, 1, &V); FEMInfPotR1Vec(self, pf, V);
+    Mat S; FEMInfCreateMat(self, 1, &S); FEMInfSR1Mat(self, S);
+    ierr = KSPSetOperators(ksp, S, S); CHKERRQ(ierr);
+    ierr = KSPSolve(ksp, V, c); CHKERRQ(ierr);
+    MatDestroy(&S);
+    VecDestroy(&V);
+  }
 
-  ierr = KSPSetOperators(ksp, S, S); CHKERRQ(ierr);
-  ierr = KSPSetFromOptions(ksp); CHKERRQ(ierr);
-  ierr = KSPSolve(ksp, V, c); CHKERRQ(ierr);
-
-  MatDestroy(&S);
-  VecDestroy(&V);
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+    
   return 0;
   
 }
@@ -326,12 +345,21 @@ PetscErrorCode FEMInfPsi(FEMInf self, Vec cs, Vec xs, Vec ys) {
     xs: x list
     ys: result
    */
+
+  int EVENT_id;
+  PetscLogEventRegister("FEMInfPsi", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+  
+  
   if(self->sc->Psi == NULL) {
     SETERRQ(self->comm, 1, "method is null: Psi");
   }
 
   PetscErrorCode ierr;
   ierr = self->sc->Psi(self->obj, cs, xs, ys); CHKERRQ(ierr);
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+  
   return 0;
 }
 PetscErrorCode FEMInfPsiOne(FEMInf self, Vec cs, PetscScalar x, PetscScalar *y) {
@@ -395,13 +423,18 @@ PetscErrorCode FEMInfDerivPsiOne(FEMInf self, Vec c, PetscReal x, PetscScalar *y
   return 0;  
 
 }
+// - to be removed
 PetscErrorCode FEMInfGuessHEig(FEMInf self, int n, int l, PetscScalar z, Vec *v) {
 
+
+  SETERRQ(self->comm, 1, "unsupported method");
+  /*
   if(self->sc->GuessHEig == NULL)
     SETERRQ(self->comm, 1, "method is null: GuessHEig");
 
   self->sc->GuessHEig(self->obj, n, l, z, v);
   return 0;
+  */
 }
 
 PetscErrorCode FEMInfCreateMat(FEMInf self, int dim, Mat *M) {
@@ -439,10 +472,19 @@ PetscErrorCode FEMInfSR1Mat(FEMInf self, Mat M) {
   if(self->sc->SR1Mat == NULL)
     SETERRQ(self->comm, 1, "method is null: SR1Mat");
 
+  int EVENT_id;
+  PetscLogEventRegister("FEMInfSR1Mat", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+  
   self->sc->SR1Mat(self->obj, M);
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+  
   return 0;
 }
+// - to be removed
 PetscErrorCode FEMInfSR1MatNullable(FEMInf self, Mat M) {
+  SETERRQ(self->comm, 1, "unsupported method");
   PetscErrorCode ierr;
   PetscBool s_is_id;
   ierr = FEMInfGetOverlapIsId(self, &s_is_id); CHKERRQ(ierr);
@@ -454,56 +496,111 @@ PetscErrorCode FEMInfSR1MatNullable(FEMInf self, Mat M) {
 
   return 0;
 }
+PetscErrorCode FEMInfD1R1Mat(FEMInf self, Mat M) {
+
+  int EVENT_id;
+  PetscLogEventRegister("FEMInfD1R1Mat", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+  
+  if(self->sc->D1R1Mat == NULL)
+    SETERRQ(self->comm, 1, "method is null: D1R1Mat");
+
+  self->sc->D1R1Mat(self->obj, M);
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+  
+  return 0;
+
+}
 PetscErrorCode FEMInfD2R1Mat(FEMInf self, Mat M) {
 
+  int EVENT_id;
+  PetscLogEventRegister("FEMInfD2R1Mat", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+
+  
   if(self->sc->D2R1Mat == NULL)
     SETERRQ(self->comm, 1, "method is null: D2R1Mat");
 
   self->sc->D2R1Mat(self->obj, M);
+
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+  
   return 0;
 
 }
+// - to be removed
 PetscErrorCode FEMInfR2invR1Mat(FEMInf self, Mat M) {
-
+  SETERRQ(self->comm, 1, "unsupported method");
+  /*
   if(self->sc->R2invR1Mat == NULL)
     SETERRQ(self->comm, 1, "method is null: R2invR1Mat");
 
   self->sc->R2invR1Mat(self->obj, M);
   return 0;
+  */
 }
+// - to be removed
 PetscErrorCode FEMInfENR1Mat(FEMInf self, int q, double a, Mat M) {
-
+  SETERRQ(self->comm, 1, "unsupported method");
+  /*
   if(self->sc->ENR1Mat == NULL)
     SETERRQ(self->comm, 1, "method is null: ENR1Mat");
 
   self->sc->ENR1Mat(self->obj, q, a, M);
+  */
   return 0;
 
 }
 PetscErrorCode FEMInfPotR1Mat(FEMInf self, Pot pot, Mat M) {
 
+  int EVENT_id;
+  PetscLogEventRegister("FEMInfPotR1Mat", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+
+  
   if(self->sc->PotR1Mat == NULL)
     SETERRQ(self->comm, 1, "method is null: PotR1Mat");
 
   self->sc->PotR1Mat(self->obj, pot, M);
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+  
   return 0;
 }
 PetscErrorCode FEMInfPotR1Vec(FEMInf self, Pot pot, Vec V) {
 
+  int EVENT_id;
+  PetscLogEventRegister("FEMInfPotR1Vec", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+
+  
   if(self->sc->PotR1Vec == NULL)
     SETERRQ(self->comm, 1, "method is null: PotR1Vec");
 
   self->sc->PotR1Vec(self->obj, pot, V);
-  return 0;
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+
   return 0;
 
 }
 PetscErrorCode FEMInfEER2Mat(FEMInf self, int q, Mat M) {
 
+  int EVENT_id;
+  PetscLogEventRegister("FEMInfEER2Mat", 0, &EVENT_id);
+  PetscLogEventBegin(EVENT_id, 0,0,0,0);
+
+  
   if(self->sc->EER2Mat == NULL)
     SETERRQ(self->comm, 1, "method is null: EER2Mat");
 
   self->sc->EER2Mat(self->obj, q, M);
+
+
+  PetscLogEventEnd(EVENT_id, 0,0,0,0);
+  
   return 0;
 
 }

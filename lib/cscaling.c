@@ -1,4 +1,5 @@
 #include <petscviewer.h>
+#include "../include/math.h"
 #include "../include/cscaling.h"
 
 

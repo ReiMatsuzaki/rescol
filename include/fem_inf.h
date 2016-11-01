@@ -24,13 +24,14 @@ typedef struct {
 
   PetscErrorCode (*Psi)();
   PetscErrorCode (*DerivPsi)();
-  PetscErrorCode (*GuessHEig)();
+  //PetscErrorCode (*GuessHEig)();
   PetscErrorCode (*GetSize)();
 
   PetscErrorCode (*SR1Mat)();
+  PetscErrorCode (*D1R1Mat)();
   PetscErrorCode (*D2R1Mat)();
-  PetscErrorCode (*R2invR1Mat)();
-  PetscErrorCode (*ENR1Mat)();
+  //  PetscErrorCode (*R2invR1Mat)();
+  //  PetscErrorCode (*ENR1Mat)();
   PetscErrorCode (*PotR1Mat)();
   PetscErrorCode (*PotR1Vec)();
   PetscErrorCode (*EER2Mat)();
@@ -71,16 +72,17 @@ PetscErrorCode FEMInfPsiOne(FEMInf self, Vec cs, PetscScalar x, PetscScalar *y);
 PetscErrorCode FEMInfDerivPsi(FEMInf self, Vec c, Vec x, Vec y);
 PetscErrorCode FEMInfDerivPsiOne(FEMInf self, Vec c, PetscReal x, PetscScalar *y);
 PetscErrorCode FEMInfFit(FEMInf self, PF pf, KSP ksp, Vec c);
-PetscErrorCode FEMInfGuessHEig(FEMInf self, int n, int l, PetscScalar z, Vec *v);
+  //PetscErrorCode FEMInfGuessHEig(FEMInf self, int n, int l, PetscScalar z, Vec *v);
 
 PetscErrorCode FEMInfCreateMat(FEMInf self, int dim, Mat *M);
 PetscErrorCode FEMInfCreateVec(FEMInf self, int dim, Vec *v);
 
 PetscErrorCode FEMInfSR1Mat(FEMInf self, Mat M);
-PetscErrorCode FEMInfSR1MatNullable(FEMInf self, Mat M);
+  //PetscErrorCode FEMInfSR1MatNullable(FEMInf self, Mat M);
+PetscErrorCode FEMInfD1R1Mat(FEMInf self, Mat M);
 PetscErrorCode FEMInfD2R1Mat(FEMInf self, Mat M);
-PetscErrorCode FEMInfR2invR1Mat(FEMInf self, Mat M);
-PetscErrorCode FEMInfENR1Mat(FEMInf self, int q, double a, Mat M); 
+  //PetscErrorCode FEMInfR2invR1Mat(FEMInf self, Mat M);
+  //PetscErrorCode FEMInfENR1Mat(FEMInf self, int q, double a, Mat M); 
 PetscErrorCode FEMInfPotR1Mat(FEMInf self, Pot pot, Mat M);
 PetscErrorCode FEMInfPotR1Vec(FEMInf self, Pot pot, Vec V);
 PetscErrorCode FEMInfEER2Mat(FEMInf self, int q, Mat M); 
