@@ -167,8 +167,10 @@ PetscErrorCode OCE1Fit(OCE1 self, PF pf, int L, KSP ksp, Vec c) {
   
 
   PetscErrorCode ierr;
-  if(L != 0) {
-    SETERRQ(self->comm, 1, "now only L=0 is supported");
+  if(self->y1s->ls[0] != L) {
+    char msg[1000];
+    sprintf(msg, "now only fitting for lowest angular momentum is supported.\nL = %d\nlowest L = %d", L, self->y1s->ls[0]);
+    SETERRQ(self->comm, 1, msg);
   }
 
   ierr = VecSet(c, 0.0); CHKERRQ(ierr);
@@ -578,12 +580,12 @@ PetscErrorCode OCE1DZMat(OCE1 self, OCE1 other, MatReuse scall, Mat *M) {
       if(li==lj+1 && mi==mj) {
 	vs[0] = pq_ele;
 	ierr = MatSetValues(y_dr, 1, idxm, 1, idxn, vs, INSERT_VALUES); CHKERRQ(ierr);
-	vs[0] = -1.0*lj*pq_ele;
+	vs[0] = -1.0*(lj+1)*pq_ele;
 	ierr = MatSetValues(y_p, 1, idxm, 1, idxn, vs, INSERT_VALUES); CHKERRQ(ierr);
       } else if(li==lj-1 && mi==mj) {
 	vs[0] = pq_ele;
 	ierr = MatSetValues(y_dr, 1, idxm, 1, idxn, vs, INSERT_VALUES); CHKERRQ(ierr);
-	vs[0] = 1.0*(lj+1)*pq_ele;
+	vs[0] = 1.0*lj*pq_ele;
 	ierr = MatSetValues(y_m, 1, idxm, 1, idxn, vs, INSERT_VALUES); CHKERRQ(ierr);
       }
     }

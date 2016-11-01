@@ -5,13 +5,41 @@
 
 static char help[] = "Unit test for oce1.c";
 
+PetscErrorCode VecMatVecMult(Vec a, Mat M, Vec b, PetscScalar *res) {
+
+  PetscErrorCode ierr;
+  MPI_Comm comm;
+  ierr = PetscObjectGetComm((PetscObject)M, &comm); CHKERRQ(ierr);
+
+  int na, nM1, nM2, nb;
+  VecGetSize(a, &na);
+  MatGetSize(M, &nM1, &nM2);
+  VecGetSize(b, &nb);
+
+  if(na != nM1 || nb != nM2) {
+    SETERRQ(comm, 1, "size mismatch");
+  }
+  
+  Vec Mb;
+  ierr = MatCreateVecs(M, &Mb, NULL); CHKERRQ(ierr);
+  ierr = MatMult(M, b, Mb); CHKERRQ(ierr);
+  
+  PetscScalar aMb;
+  ierr = VecTDot(a, Mb, &aMb); CHKERRQ(ierr);
+  *res = aMb;
+
+  VecDestroy(&Mb);
+  
+  return 0;
+}
+
 class TestOCE1 :public ::testing::Test {
 public:
   MPI_Comm comm;
   OCE1 oce;   
   virtual void SetUp() {
     comm = PETSC_COMM_SELF;
-    Y1s y1s; Y1sCreate(comm, &y1s); Y1sSetOne(y1s, 0, 1);
+    Y1s y1s; Y1sCreate(comm, &y1s); Y1sSetOne(y1s, 1, 0);
     BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 20.0, 21);
     int order = 5;
     BSS bss; BSSCreate(comm, &bss); BSSSetKnots(bss, order, bps);  BSSSetUp(bss);
@@ -223,7 +251,7 @@ TEST(TestOCE1DVR, H2plus) {
 }
 
 TEST(TestOCE1DVR, H_DipOld) {
-
+  /*
   PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
 
@@ -300,6 +328,7 @@ TEST(TestOCE1DVR, H_DipOld) {
   ierr = MatMult(Z, c0, Zc0); ASSERT_EQ(0, ierr);
   PetscScalar zdip;
   ierr = VecTDot(c1, Zc0, &zdip); ASSERT_EQ(0, ierr);
+  ierr = VecMatVecMult(c1, Z, c0, &zdip); ASSERT_EQ(0, ierr);
 
   // -- dipole (velocity) --
   Mat DZ;
@@ -309,6 +338,7 @@ TEST(TestOCE1DVR, H_DipOld) {
   ierr = MatMult(DZ, c0, DZc0); ASSERT_EQ(0, ierr);
   PetscScalar zdip_v;
   ierr = VecTDot(c1, DZc0, &zdip_v); ASSERT_EQ(0, ierr);
+  ierr = VecMatVecMult(c1, DZ, c0, &zdip); ASSERT_EQ(0, ierr);
 
   // -- see support/hatom_dip.py --
   PetscReal ref = 128.0*sqrt(6)/243.0 * Y1ElePq(1,1,0,0,0);
@@ -328,34 +358,76 @@ TEST(TestOCE1DVR, H_DipOld) {
   MatDestroy(&H0); MatDestroy(&V0);  EEPSDestroy(&eps0); VecDestroy(&c0);
   MatDestroy(&H1); MatDestroy(&V1);  EEPSDestroy(&eps1); VecDestroy(&c1);
   MatDestroy(&Z);  VecDestroy(&Zc0); MatDestroy(&DZ);    VecDestroy(&DZc0);
+  */
+  
 }
 TEST(TestOCE1DVR, H_Dip) {
 
   // 2p->ks channel
   PetscErrorCode ierr;
   MPI_Comm comm = PETSC_COMM_SELF;
-
+  
   // -- numerical basis --
-  Y1s y1s_0, y1s_1;
-  Y1s y1s_0; Y1sCreate(comm, &y1s_0); Y1sSetOne(y1s_0, 0, 0);
-  Y1s y1s_1; Y1sCreate(comm, &y1s_1); Y1sSetOne(y1s_1, 1, 0);
-
+  Y1s y1s_0; Y1sCreate(comm, &y1s_0);
+  ierr=Y1sSetOne(y1s_0, 0, 0);ASSERT_EQ(0,ierr);
+  Y1s y1s_1; Y1sCreate(comm, &y1s_1);
+  ierr=Y1sSetOne(y1s_1, 1, 0);ASSERT_EQ(0,ierr);
   BPS bps; BPSCreate(comm, &bps); BPSSetLine(bps, 20.0, 21);
   DVR dvr; DVRCreate(comm, &dvr); DVRSetKnots(dvr, 5, bps); DVRSetUp(dvr);
   FEMInf fem; FEMInfCreate(comm, &fem); FEMInfSetDVR(fem, dvr);
-  OCE1 oce_1s; OCE1Create(comm, &oce_0); OCE1Set(oce_0, fem, y1s_0);
-  OCE1 oce_2p; OCE1Create(comm, &oce_1); OCE1Set(oce_1, fem, y1s_1);
+  OCE1 oce_1s; OCE1Create(comm, &oce_1s); OCE1Set(oce_1s, fem, y1s_0);
+  OCE1 oce_2p; OCE1Create(comm, &oce_2p); OCE1Set(oce_2p, fem, y1s_1);
 
   // -- Fit target --
   // 1s = 2 r exp(-r)
-  Pot h_1s; PotCreate(comm, &h_1s); PotSetSlater(h_1s, 2.0, 1, 1.0);
+  Pot h_1s; PotCreate(comm, &h_1s);
+  PotSetSlater(h_1s, 2.0, 1, 1.0);
+  Vec c_1s; OCE1CreateVec(oce_1s, &c_1s);
+  ierr = OCE1Fit(oce_1s, h_1s, 0, NULL, c_1s); ASSERT_EQ(0, ierr);
+
   // 2p = 1/(2sqrt(6)) r**2 exp(-r/2)
-  PetscScalar c_2p = 1.0/(2.0 * sqrt(6.0));
-  Pot h_2p; PotCreate(comm, &h_1s); PotSetSlater(h_2p, c_2p, 2, 0.5); 
-  
+  PetscScalar a_2p = 1.0/(2.0 * sqrt(6.0));
+  Pot h_2p; PotCreate(comm, &h_2p);
+  PotSetSlater(h_2p, a_2p, 2, 0.5);
+  Vec c_2p; OCE1CreateVec(oce_2p, &c_2p);
+  ierr = OCE1Fit(oce_2p, h_2p, 1, NULL, c_2p);  ASSERT_EQ(0, ierr);
 
-  
+  // compute matrix element
+  Mat Z;
+  ierr = OCE1ZMat(oce_1s, oce_2p, MAT_INITIAL_MATRIX, &Z); ASSERT_EQ(0, ierr);
+  PetscScalar zdip;
+  ierr = VecMatVecMult(c_1s, Z, c_2p, &zdip); ASSERT_EQ(0, ierr);
 
+  // -- dipole (velocity) --
+  Mat DZ_1s_2p;
+  ierr = OCE1DZMat(oce_1s, oce_2p, MAT_INITIAL_MATRIX, &DZ_1s_2p); ASSERT_EQ(0, ierr);
+  Mat DZ_2p_1s;
+  ierr = OCE1DZMat(oce_2p, oce_1s, MAT_INITIAL_MATRIX, &DZ_2p_1s); ASSERT_EQ(0, ierr);
+
+  PetscScalar zdip_1s_2p;
+  VecMatVecMult(c_1s, DZ_1s_2p, c_2p, &zdip_1s_2p);
+  PetscScalar zdip_2p_1s;
+  VecMatVecMult(c_2p, DZ_2p_1s, c_1s, &zdip_2p_1s);
+  // -- see support/hatom_dip.py --
+  PetscReal ref_l = 128*sqrt(6)/243 * Y1ElePq(1,1,0,0,0);
+  ASSERT_NEAR(ref_l, PetscRealPart(zdip), 0.002);
+  ASSERT_NEAR(0.0,   PetscImaginaryPart(zdip), 0.002);
+
+  PetscReal ref_v = 16.0 * sqrt(6.0) / 81.0 * Y1ElePq(1,1,0,
+						      0,  0) ;
+  ASSERT_NEAR(-ref_v, PetscRealPart(zdip_2p_1s), 0.001);
+  ASSERT_NEAR(ref_v, PetscRealPart(zdip_1s_2p), 0.001);
+  ASSERT_NEAR(0.0, PetscImaginaryPart(zdip_1s_2p), 0.001);
+  ASSERT_NEAR(0.0, PetscImaginaryPart(zdip_2p_1s), 0.001);
+
+  // -- Finalize --
+  FEMInfDestroy(&fem);
+  oce_1s->fem = NULL; OCE1Destroy(&oce_1s);
+  oce_2p->fem = NULL; OCE1Destroy(&oce_2p);
+  PFDestroy(&h_1s); VecDestroy(&c_1s);
+  PFDestroy(&h_2p); VecDestroy(&c_2p);
+  MatDestroy(&Z);  MatDestroy(&DZ_1s_2p); MatDestroy(&DZ_2p_1s);
+  
 }
 
 /*

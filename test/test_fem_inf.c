@@ -482,11 +482,10 @@ int testDZMat_DVR() {
 
   Pot sto0; PotCreate(comm, &sto0); PotSetSlater(sto0, a0, n0, z0);
   Pot sto1; PotCreate(comm, &sto1); PotSetSlater(sto1, a1, n1, z1);
-  KSP ksp; KSPCreate(comm, &ksp); 
   Vec c0; FEMInfCreateVec (fem, 1, &c0); VecSetType(c0, "seq");
-  FEMInfFit(fem, sto0, ksp, c0);
+  FEMInfFit(fem, sto0, NULL, c0);
   Vec c1; FEMInfCreateVec (fem, 1, &c1); VecSetType(c1, "seq");
-  FEMInfFit(fem, sto1, ksp, c1);  
+  FEMInfFit(fem, sto1, NULL, c1);  
 
   Mat dz;
   ierr = FEMInfCreateMat(fem, 1, &dz); CHKERRQ(ierr);
@@ -503,7 +502,6 @@ int testDZMat_DVR() {
   FEMInfDestroy(&fem);
   PFDestroy(&sto0);
   PFDestroy(&sto1);
-  KSPDestroy(&ksp);
   VecDestroy(&c0);
   VecDestroy(&c1);
   MatDestroy(&dz);

@@ -174,7 +174,7 @@ PetscErrorCode Y1sSetFromOptions(Y1s self) {
     if(!find)
       SETERRQ(self->comm, 1, "-y1s_lmax or -y1s_L is necessary");
 
-    ierr = Y1sSetOne(self, m, L); CHKERRQ(ierr);
+    ierr = Y1sSetOne(self, L, m); CHKERRQ(ierr);
   }
   
   return 0;

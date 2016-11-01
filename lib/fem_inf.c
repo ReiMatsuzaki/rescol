@@ -304,16 +304,20 @@ PetscErrorCode FEMInfFit(FEMInf self, PF pf, KSP ksp, Vec c) {
   
   PetscErrorCode ierr;
   PetscBool is_id; FEMInfGetOverlapIsId(self, &is_id);
-  
-  Mat S; FEMInfCreateMat(self, 1, &S); FEMInfSR1Mat(self, S);
-  Vec V; FEMInfCreateVec(self, 1, &V); FEMInfPotR1Vec(self, pf, V);
 
-  ierr = KSPSetOperators(ksp, S, S); CHKERRQ(ierr);
-  //  ierr = KSPSetFromOptions(ksp); CHKERRQ(ierr);
-  ierr = KSPSolve(ksp, V, c); CHKERRQ(ierr);
-
-  MatDestroy(&S);
-  VecDestroy(&V);
+  if(is_id) {
+    ierr = FEMInfPotR1Vec(self, pf, c); CHKERRQ(ierr);
+  } else {
+    if(ksp == NULL) {
+      SETERRQ(self->comm, 1, "ksp is null");
+    }
+    Vec V; FEMInfCreateVec(self, 1, &V); FEMInfPotR1Vec(self, pf, V);
+    Mat S; FEMInfCreateMat(self, 1, &S); FEMInfSR1Mat(self, S);
+    ierr = KSPSetOperators(ksp, S, S); CHKERRQ(ierr);
+    ierr = KSPSolve(ksp, V, c); CHKERRQ(ierr);
+    MatDestroy(&S);
+    VecDestroy(&V);
+  }
 
   PetscLogEventEnd(EVENT_id, 0,0,0,0);
     
